@@ -7,14 +7,12 @@ import axios from 'axios'
 
 // Create axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:80/api',
+  baseURL: 'http://localhost:8000/api',
   timeout: 30000,
-   withCredentials: true,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
-  },
-  // Send cookies for session auth
-  withCredentials: true
+  }
 })
 function getCookie(name) {
   let cookieValue = null
