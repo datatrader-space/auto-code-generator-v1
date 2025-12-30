@@ -148,8 +148,44 @@ const currentUser = ref(null)
 const showUserMenu = ref(false)
 const notifications = ref([])
 
+// Load current user
+const loadCurrentUser = async () => {
+  try {
+    const response = await api.getCurrentUser()
+    currentUser.value = response.data.user
+  } catch (error) {
+    console.error('Failed to load user:', error)
+    currentUser.value = null
+  }
+}
+
 // Load user data on mount
 onMounted(async () => {
+  // Check for GitHub OAuth callback
+  const urlParams = new URLSearchParams(window.location.search)
+
+  if (urlParams.get('github_connected')) {
+    const username = urlParams.get('username')
+    addNotification(`GitHub connected successfully as ${username}!`, 'success')
+
+    // Clean up URL
+    window.history.replaceState({}, '', window.location.pathname)
+
+    // Reload user data to update GitHub status
+    await loadCurrentUser()
+  } else if (urlParams.get('github_error')) {
+    const error = urlParams.get('github_error')
+    const errorMessages = {
+      'no_code': 'GitHub authorization was cancelled',
+      'no_token': 'Failed to get GitHub access token',
+      'exchange_failed': 'Failed to connect to GitHub'
+    }
+    addNotification(errorMessages[error] || 'GitHub connection failed', 'error')
+
+    // Clean up URL
+    window.history.replaceState({}, '', window.location.pathname)
+  }
+
   // Load current user if authenticated
   if (route.path !== '/login') {
     await loadCurrentUser()
@@ -163,17 +199,6 @@ onMounted(async () => {
     console.error('Failed to check LLM health:', error)
   }
 })
-
-// Load current user
-const loadCurrentUser = async () => {
-  try {
-    const response = await api.getCurrentUser()
-    currentUser.value = response.data.user
-  } catch (error) {
-    console.error('Failed to load user:', error)
-    currentUser.value = null
-  }
-}
 
 // Logout
 const handleLogout = async () => {

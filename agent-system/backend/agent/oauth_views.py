@@ -62,18 +62,14 @@ def github_callback(request):
     code = request.GET.get('code')
     state = request.GET.get('state')
 
+    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
     if not code:
-        return JsonResponse({
-            'error': 'No authorization code received',
-            'details': 'User may have cancelled the OAuth flow'
-        }, status=400)
+        return redirect(f'{frontend_url}/?github_error=no_code')
 
     # Check if user is logged in
     if not request.user.is_authenticated:
-        return JsonResponse({
-            'error': 'You must be logged in to connect GitHub',
-            'message': 'Please login first, then try connecting GitHub again'
-        }, status=401)
+        return redirect(f'{frontend_url}/login?error=github_auth_required')
 
     # Exchange code for access token
     token_url = "https://github.com/login/oauth/access_token"
@@ -94,10 +90,7 @@ def github_callback(request):
         access_token = token_response.get('access_token')
 
         if not access_token:
-            return JsonResponse({
-                'error': 'Failed to get access token',
-                'response': token_response
-            }, status=400)
+            return redirect(f'{frontend_url}/?github_error=no_token')
 
         # Get user info from GitHub
         user_response = requests.get(
@@ -115,19 +108,12 @@ def github_callback(request):
         user.github_username = github_username
         user.save()
 
-        return JsonResponse({
-            'success': True,
-            'github_username': github_username,
-            'github_email': github_email,
-            'message': 'GitHub connected successfully!',
-            'scopes': token_response.get('scope', '').split(',')
-        })
+        # Redirect back to frontend with success message
+        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        return redirect(f'{frontend_url}/?github_connected=true&username={github_username}')
 
     except requests.RequestException as e:
-        return JsonResponse({
-            'error': 'Failed to exchange code for token',
-            'details': str(e)
-        }, status=500)
+        return redirect(f'{frontend_url}/?github_error=exchange_failed')
 
 
 @api_view(['GET'])
