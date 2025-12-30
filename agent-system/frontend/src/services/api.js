@@ -1,0 +1,112 @@
+// src/services/api.js
+/**
+ * API Service - Centralized Axios configuration
+ */
+
+import axios from 'axios'
+
+// Create axios instance
+const api = axios.create({
+  baseURL: 'http://localhost:80/api',
+  timeout: 30000,
+   withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  // Send cookies for session auth
+  withCredentials: true
+})
+function getCookie(name) {
+  let cookieValue = null
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';')
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim()
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
+        break
+      }
+    }
+  }
+  return cookieValue
+}
+// Request interceptor
+api.interceptors.request.use(
+  (config) => {
+    // Add auth header if needed (for Basic Auth during dev)
+    const csrfToken = getCookie('csrftoken')
+    if (csrfToken) {
+        config.headers['X-CSRFToken'] = csrfToken}
+    const auth = btoa('admin:admin123')
+    config.headers['Authorization'] = `Basic ${auth}`
+    
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    return response
+  },
+  (error) => {
+    // Handle errors globally
+    if (error.response) {
+      // Server responded with error
+      console.error('API Error:', error.response.status, error.response.data)
+    } else if (error.request) {
+      // Request made but no response
+      console.error('Network Error:', error.request)
+    } else {
+      // Something else happened
+      console.error('Error:', error.message)
+    }
+    
+    return Promise.reject(error)
+  }
+)
+
+// API methods
+export default {
+  // Generic methods
+  get: (url, config) => api.get(url, config),
+  post: (url, data, config) => api.post(url, data, config),
+  put: (url, data, config) => api.put(url, data, config),
+  delete: (url, config) => api.delete(url, config),
+  
+  // Systems
+  getSystems: () => api.get('/systems/'),
+  getSystem: (id) => api.get(`/systems/${id}/`),
+  createSystem: (data) => api.post('/systems/', data),
+  updateSystem: (id, data) => api.put(`/systems/${id}/`, data),
+  deleteSystem: (id) => api.delete(`/systems/${id}/`),
+  
+  // Repositories
+  getRepositories: (systemId) => api.get(`/systems/${systemId}/repositories/`),
+  getRepository: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/`),
+  createRepository: (systemId, data) => api.post(`/systems/${systemId}/repositories/`, data),
+  analyzeRepository: (systemId, repoId, force = false) => 
+    api.post(`/systems/${systemId}/repositories/${repoId}/analyze/`, { force }),
+  getQuestions: (systemId, repoId) => 
+    api.get(`/systems/${systemId}/repositories/${repoId}/questions/`),
+  submitAnswers: (systemId, repoId, answers) =>
+    api.post(`/systems/${systemId}/repositories/${repoId}/submit_answers/`, { answers }),
+  
+  // Knowledge
+  getKnowledge: (systemId) => api.get(`/systems/${systemId}/knowledge/`),
+  
+  // Tasks
+  getTasks: (systemId) => api.get(`/systems/${systemId}/tasks/`),
+  getTask: (systemId, taskId) => api.get(`/systems/${systemId}/tasks/${taskId}/`),
+  createTask: (systemId, data) => api.post(`/systems/${systemId}/tasks/`, data),
+  approveTask: (systemId, taskId, notes = '') =>
+    api.post(`/systems/${systemId}/tasks/${taskId}/approve/`, { notes }),
+  rejectTask: (systemId, taskId, notes = '') =>
+    api.post(`/systems/${systemId}/tasks/${taskId}/reject/`, { notes }),
+  
+  // LLM
+  checkLLMHealth: () => api.get('/llm/health/')
+}

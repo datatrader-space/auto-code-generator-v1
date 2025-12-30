@@ -1,0 +1,475 @@
+<template>
+  <div>
+    <!-- Loading -->
+    <div v-if="loading" class="text-center py-12">
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <p class="mt-4 text-gray-600">Loading system...</p>
+    </div>
+    
+    <!-- System Detail -->
+    <div v-else-if="system">
+      <!-- Header -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <button
+              @click="$router.push('/')"
+              class="mr-4 text-gray-600 hover:text-gray-900"
+            >
+              ← Back
+            </button>
+            <div>
+              <h1 class="text-3xl font-bold text-gray-900">{{ system.name }}</h1>
+              <p class="mt-1 text-gray-600">{{ system.description }}</p>
+            </div>
+          </div>
+          
+          <span
+            class="px-3 py-1 text-sm font-medium rounded-full"
+            :class="{
+              'bg-green-100 text-green-800': system.status === 'ready',
+              'bg-yellow-100 text-yellow-800': system.status === 'initializing',
+              'bg-red-100 text-red-800': system.status === 'error'
+            }"
+          >
+            {{ system.status }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-2xl font-bold text-gray-900">{{ repositories.length }}</p>
+              <p class="text-sm text-gray-500">Repositories</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-2xl font-bold text-gray-900">{{ system.knowledge_count }}</p>
+              <p class="text-sm text-gray-500">Knowledge Items</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-2xl font-bold text-gray-900">{{ readyRepos }}</p>
+              <p class="text-sm text-gray-500">Ready Repos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Repositories Section -->
+      <div class="bg-white rounded-lg shadow mb-8">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+          <h2 class="text-lg font-semibold text-gray-900">Repositories</h2>
+          <button
+            @click="showAddRepoModal = true"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
+            + Add Repository
+          </button>
+        </div>
+        
+        <!-- Repositories List -->
+        <div v-if="repositories.length > 0" class="divide-y">
+          <div
+            v-for="repo in repositories"
+            :key="repo.id"
+            class="px-6 py-4 hover:bg-gray-50 cursor-pointer"
+            @click="selectRepository(repo)"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex-1">
+                <div class="flex items-center">
+                  <h3 class="text-base font-medium text-gray-900">{{ repo.name }}</h3>
+                  <span
+                    class="ml-3 px-2 py-1 text-xs font-medium rounded-full"
+                    :class="{
+                      'bg-green-100 text-green-800': repo.status === 'ready' || repo.status === 'questions_answered',
+                      'bg-yellow-100 text-yellow-800': repo.status === 'analyzing' || repo.status === 'questions_generated',
+                      'bg-gray-100 text-gray-800': repo.status === 'pending',
+                      'bg-red-100 text-red-800': repo.status === 'error'
+                    }"
+                  >
+                    {{ repo.status }}
+                  </span>
+                </div>
+                <p class="text-sm text-gray-500 mt-1">{{ repo.github_url }}</p>
+                <div class="flex items-center mt-2 text-xs text-gray-400">
+                  <span v-if="repo.questions_count > 0">
+                    {{ repo.questions_answered }}/{{ repo.questions_count }} questions answered
+                  </span>
+                </div>
+              </div>
+              
+              <div class="ml-4">
+                <button
+                  v-if="repo.status === 'pending'"
+                  @click.stop="analyzeRepo(repo)"
+                  class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  Analyze
+                </button>
+                <button
+                  v-else-if="repo.status === 'questions_generated'"
+                  @click.stop="answerQuestions(repo)"
+                  class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                >
+                  Answer Questions
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div v-else class="px-6 py-12 text-center">
+          <p class="text-gray-500">No repositories yet</p>
+          <button
+            @click="showAddRepoModal = true"
+            class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Add Your First Repository
+          </button>
+        </div>
+      </div>
+      
+      <!-- Knowledge Section -->
+      <div v-if="system.knowledge_count > 0" class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b">
+          <h2 class="text-lg font-semibold text-gray-900">System Knowledge</h2>
+        </div>
+        <div class="px-6 py-4">
+          <button
+            @click="loadKnowledge"
+            class="text-blue-600 hover:text-blue-700 text-sm"
+          >
+            View {{ system.knowledge_count }} knowledge items →
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Add Repository Modal -->
+    <div
+      v-if="showAddRepoModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      @click.self="showAddRepoModal = false"
+    >
+      <div class="bg-white rounded-lg max-w-md w-full p-6">
+        <h2 class="text-xl font-bold mb-4">Add Repository</h2>
+        
+        <form @submit.prevent="addRepository">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Repository Name *
+            </label>
+            <input
+              v-model="newRepo.name"
+              type="text"
+              required
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g., worker"
+            />
+          </div>
+          
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              GitHub URL *
+            </label>
+            <input
+              v-model="newRepo.github_url"
+              type="url"
+              required
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="https://github.com/org/repo"
+            />
+          </div>
+          
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Branch
+            </label>
+            <input
+              v-model="newRepo.github_branch"
+              type="text"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="main"
+            />
+          </div>
+          
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              @click="showAddRepoModal = false"
+              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="adding"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {{ adding ? 'Adding...' : 'Add Repository' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Questions Modal -->
+    <div
+      v-if="showQuestionsModal && selectedRepo"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto"
+      @click.self="showQuestionsModal = false"
+    >
+      <div class="bg-white rounded-lg max-w-2xl w-full p-6 my-8">
+        <h2 class="text-xl font-bold mb-4">Answer Questions: {{ selectedRepo.name }}</h2>
+        
+        <div v-if="loadingQuestions" class="text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+        
+        <form v-else @submit.prevent="submitAnswers" class="space-y-6">
+          <div
+            v-for="(question, index) in questions"
+            :key="question.id"
+            class="border-b pb-4"
+          >
+            <label class="block text-sm font-medium text-gray-900 mb-2">
+              {{ index + 1 }}. {{ question.question_text }}
+              <span v-if="question.required" class="text-red-500">*</span>
+            </label>
+            
+            <!-- Yes/No -->
+            <div v-if="question.question_type === 'yes_no'" class="space-x-4">
+              <label class="inline-flex items-center">
+                <input
+                  v-model="answers[question.question_key]"
+                  type="radio"
+                  value="yes"
+                  class="mr-2"
+                />
+                Yes
+              </label>
+              <label class="inline-flex items-center">
+                <input
+                  v-model="answers[question.question_key]"
+                  type="radio"
+                  value="no"
+                  class="mr-2"
+                />
+                No
+              </label>
+            </div>
+            
+            <!-- Multiple Choice -->
+            <select
+              v-else-if="question.question_type === 'multiple_choice'"
+              v-model="answers[question.question_key]"
+              class="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="">Select an option...</option>
+              <option v-for="opt in question.options" :key="opt" :value="opt">
+                {{ opt }}
+              </option>
+            </select>
+            
+            <!-- Text -->
+            <input
+              v-else-if="question.question_type === 'text'"
+              v-model="answers[question.question_key]"
+              type="text"
+              class="w-full px-3 py-2 border rounded-lg"
+              placeholder="Your answer..."
+            />
+            
+            <!-- List -->
+            <textarea
+              v-else-if="question.question_type === 'list'"
+              v-model="answers[question.question_key]"
+              rows="2"
+              class="w-full px-3 py-2 border rounded-lg"
+              placeholder="Comma-separated list..."
+            ></textarea>
+          </div>
+          
+          <div class="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              @click="showQuestionsModal = false"
+              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="submitting"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {{ submitting ? 'Submitting...' : 'Submit Answers' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, inject } from 'vue'
+import { useRoute } from 'vue-router'
+import api from '../services/api'
+
+const route = useRoute()
+const notify = inject('notify')
+
+const systemId = route.params.id
+const system = ref(null)
+const repositories = ref([])
+const loading = ref(true)
+const showAddRepoModal = ref(false)
+const showQuestionsModal = ref(false)
+const adding = ref(false)
+const loadingQuestions = ref(false)
+const submitting = ref(false)
+
+const newRepo = ref({
+  name: '',
+  github_url: '',
+  github_branch: 'main'
+})
+
+const selectedRepo = ref(null)
+const questions = ref([])
+const answers = ref({})
+
+// Computed
+const readyRepos = computed(() => {
+  return repositories.value.filter(r => 
+    r.status === 'ready' || r.status === 'questions_answered'
+  ).length
+})
+
+// Load system
+const loadSystem = async () => {
+  try {
+    loading.value = true
+    const response = await api.getSystem(systemId)
+    system.value = response.data
+    repositories.value = response.data.repositories || []
+  } catch (error) {
+    notify('Failed to load system', 'error')
+    console.error(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Add repository
+const addRepository = async () => {
+  try {
+    adding.value = true
+    await api.createRepository(systemId, newRepo.value)
+    
+    notify('Repository added!', 'success')
+    showAddRepoModal.value = false
+    newRepo.value = { name: '', github_url: '', github_branch: 'main' }
+    
+    await loadSystem()
+  } catch (error) {
+    notify('Failed to add repository', 'error')
+    console.error(error)
+  } finally {
+    adding.value = false
+  }
+}
+
+// Analyze repository
+const analyzeRepo = async (repo) => {
+  try {
+    notify('Analyzing repository...', 'info')
+    await api.analyzeRepository(systemId, repo.id)
+    notify('Analysis complete!', 'success')
+    await loadSystem()
+  } catch (error) {
+    notify('Analysis failed', 'error')
+    console.error(error)
+  }
+}
+
+// Answer questions
+const answerQuestions = async (repo) => {
+  try {
+    selectedRepo.value = repo
+    loadingQuestions.value = true
+    showQuestionsModal.value = true
+    
+    const response = await api.getQuestions(systemId, repo.id)
+    questions.value = response.data.questions
+    answers.value = {}
+  } catch (error) {
+    notify('Failed to load questions', 'error')
+    console.error(error)
+  } finally {
+    loadingQuestions.value = false
+  }
+}
+
+// Submit answers
+const submitAnswers = async () => {
+  try {
+    submitting.value = true
+    await api.submitAnswers(systemId, selectedRepo.value.id, answers.value)
+    
+    notify('Answers submitted successfully!', 'success')
+    showQuestionsModal.value = false
+    await loadSystem()
+  } catch (error) {
+    notify('Failed to submit answers', 'error')
+    console.error(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+// Select repository
+const selectRepository = (repo) => {
+  console.log('Selected:', repo)
+}
+
+// Load knowledge
+const loadKnowledge = async () => {
+  notify('Knowledge viewer coming soon!', 'info')
+}
+
+// Load on mount
+onMounted(() => {
+  loadSystem()
+})
+</script>
