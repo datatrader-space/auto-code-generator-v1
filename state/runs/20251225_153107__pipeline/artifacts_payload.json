@@ -1,0 +1,802 @@
+{
+  "version": "crs-artifacts-v2",
+  "blueprints": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\state\\blueprints.json",
+  "artifacts": [
+    {
+      "artifact_id": "router_register:admin.site.register:admin.py:20-20",
+      "type": "router_register",
+      "name": "admin.site.register",
+      "file_path": "admin.py",
+      "anchor": {
+        "file_path": "admin.py",
+        "start_line": 20,
+        "start_col": 0,
+        "end_line": 20,
+        "end_col": 44
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "router.register(...) call"
+        }
+      ],
+      "meta": {
+        "router": "admin.site",
+        "prefix": null,
+        "viewset": "CustomerAdmin",
+        "basename": null
+      }
+    },
+    {
+      "artifact_id": "admin_register:admin.site.register(Customer):admin.py:20-20",
+      "type": "admin_register",
+      "name": "admin.site.register(Customer)",
+      "file_path": "admin.py",
+      "anchor": {
+        "file_path": "admin.py",
+        "start_line": 20,
+        "start_col": 0,
+        "end_line": 20,
+        "end_col": 44
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "admin.site.register(...)"
+        }
+      ],
+      "meta": {
+        "model": "Customer"
+      }
+    },
+    {
+      "artifact_id": "admin_register:admin.site.register(CustomerAdmin):admin.py:20-20",
+      "type": "admin_register",
+      "name": "admin.site.register(CustomerAdmin)",
+      "file_path": "admin.py",
+      "anchor": {
+        "file_path": "admin.py",
+        "start_line": 20,
+        "start_col": 0,
+        "end_line": 20,
+        "end_col": 44
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "admin.site.register(...)"
+        }
+      ],
+      "meta": {
+        "model": "CustomerAdmin"
+      }
+    },
+    {
+      "artifact_id": "router_register:admin.site.register:customer/admin.py:20-20",
+      "type": "router_register",
+      "name": "admin.site.register",
+      "file_path": "customer/admin.py",
+      "anchor": {
+        "file_path": "customer/admin.py",
+        "start_line": 20,
+        "start_col": 0,
+        "end_line": 20,
+        "end_col": 44
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "router.register(...) call"
+        }
+      ],
+      "meta": {
+        "router": "admin.site",
+        "prefix": null,
+        "viewset": "CustomerAdmin",
+        "basename": null
+      }
+    },
+    {
+      "artifact_id": "admin_register:admin.site.register(Customer):customer/admin.py:20-20",
+      "type": "admin_register",
+      "name": "admin.site.register(Customer)",
+      "file_path": "customer/admin.py",
+      "anchor": {
+        "file_path": "customer/admin.py",
+        "start_line": 20,
+        "start_col": 0,
+        "end_line": 20,
+        "end_col": 44
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "admin.site.register(...)"
+        }
+      ],
+      "meta": {
+        "model": "Customer"
+      }
+    },
+    {
+      "artifact_id": "admin_register:admin.site.register(CustomerAdmin):customer/admin.py:20-20",
+      "type": "admin_register",
+      "name": "admin.site.register(CustomerAdmin)",
+      "file_path": "customer/admin.py",
+      "anchor": {
+        "file_path": "customer/admin.py",
+        "start_line": 20,
+        "start_col": 0,
+        "end_line": 20,
+        "end_col": 44
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "admin.site.register(...)"
+        }
+      ],
+      "meta": {
+        "model": "CustomerAdmin"
+      }
+    },
+    {
+      "artifact_id": "django_model:Customer:customer/models.py:10-54",
+      "type": "django_model",
+      "name": "Customer",
+      "file_path": "customer/models.py",
+      "anchor": {
+        "file_path": "customer/models.py",
+        "start_line": 10,
+        "start_col": 0,
+        "end_line": 54,
+        "end_col": 35
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "class Customer inherits from models.Model"
+        }
+      ],
+      "meta": {
+        "bases": [
+          "models.Model"
+        ],
+        "fields": [
+          {
+            "name": "user",
+            "type": "models.OneToOneField"
+          },
+          {
+            "name": "stripe_customer_id",
+            "type": "models.CharField"
+          },
+          {
+            "name": "stripe_subscription_id",
+            "type": "models.CharField"
+          },
+          {
+            "name": "subscription_item_id",
+            "type": "models.CharField"
+          },
+          {
+            "name": "email_address",
+            "type": "models.EmailField"
+          },
+          {
+            "name": "name",
+            "type": "models.CharField"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.user:customer/models.py:22-22",
+      "type": "model_field",
+      "name": "Customer.user",
+      "file_path": "customer/models.py",
+      "anchor": {
+        "file_path": "customer/models.py",
+        "start_line": 22,
+        "start_col": 0,
+        "end_line": 22,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "model field user = models.OneToOneField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "user",
+        "field_type": "models.OneToOneField",
+        "validators": [],
+        "related_model": "User",
+        "kwargs": {
+          "primary_key": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.stripe_customer_id:customer/models.py:27-27",
+      "type": "model_field",
+      "name": "Customer.stripe_customer_id",
+      "file_path": "customer/models.py",
+      "anchor": {
+        "file_path": "customer/models.py",
+        "start_line": 27,
+        "start_col": 0,
+        "end_line": 27,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "model field stripe_customer_id = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "stripe_customer_id",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "max_length": 200,
+          "null": true,
+          "blank": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.stripe_subscription_id:customer/models.py:33-33",
+      "type": "model_field",
+      "name": "Customer.stripe_subscription_id",
+      "file_path": "customer/models.py",
+      "anchor": {
+        "file_path": "customer/models.py",
+        "start_line": 33,
+        "start_col": 0,
+        "end_line": 33,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "model field stripe_subscription_id = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "stripe_subscription_id",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "max_length": 200,
+          "null": true,
+          "blank": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.subscription_item_id:customer/models.py:39-39",
+      "type": "model_field",
+      "name": "Customer.subscription_item_id",
+      "file_path": "customer/models.py",
+      "anchor": {
+        "file_path": "customer/models.py",
+        "start_line": 39,
+        "start_col": 0,
+        "end_line": 39,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "model field subscription_item_id = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "subscription_item_id",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "max_length": 200,
+          "null": true,
+          "blank": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.email_address:customer/models.py:45-45",
+      "type": "model_field",
+      "name": "Customer.email_address",
+      "file_path": "customer/models.py",
+      "anchor": {
+        "file_path": "customer/models.py",
+        "start_line": 45,
+        "start_col": 0,
+        "end_line": 45,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "model field email_address = models.EmailField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "email_address",
+        "field_type": "models.EmailField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "null": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.name:customer/models.py:46-46",
+      "type": "model_field",
+      "name": "Customer.name",
+      "file_path": "customer/models.py",
+      "anchor": {
+        "file_path": "customer/models.py",
+        "start_line": 46,
+        "start_col": 0,
+        "end_line": 46,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "model field name = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "name",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "blank": true,
+          "null": true,
+          "max_length": 50
+        }
+      }
+    },
+    {
+      "artifact_id": "django_urlconf:urlpatterns:customer/urls.py:6-17",
+      "type": "django_urlconf",
+      "name": "urlpatterns",
+      "file_path": "customer/urls.py",
+      "anchor": {
+        "file_path": "customer/urls.py",
+        "start_line": 6,
+        "start_col": 0,
+        "end_line": 17,
+        "end_col": 1
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "customer/urls.py",
+            "start_line": 6,
+            "start_col": 0,
+            "end_line": 17,
+            "end_col": 1
+          },
+          "note": "urlpatterns assignment"
+        }
+      ],
+      "meta": {}
+    },
+    {
+      "artifact_id": "django_model:Customer:models.py:10-54",
+      "type": "django_model",
+      "name": "Customer",
+      "file_path": "models.py",
+      "anchor": {
+        "file_path": "models.py",
+        "start_line": 10,
+        "start_col": 0,
+        "end_line": 54,
+        "end_col": 35
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "class Customer inherits from models.Model"
+        }
+      ],
+      "meta": {
+        "bases": [
+          "models.Model"
+        ],
+        "fields": [
+          {
+            "name": "user",
+            "type": "models.OneToOneField"
+          },
+          {
+            "name": "stripe_customer_id",
+            "type": "models.CharField"
+          },
+          {
+            "name": "stripe_subscription_id",
+            "type": "models.CharField"
+          },
+          {
+            "name": "subscription_item_id",
+            "type": "models.CharField"
+          },
+          {
+            "name": "email_address",
+            "type": "models.EmailField"
+          },
+          {
+            "name": "name",
+            "type": "models.CharField"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.user:models.py:22-22",
+      "type": "model_field",
+      "name": "Customer.user",
+      "file_path": "models.py",
+      "anchor": {
+        "file_path": "models.py",
+        "start_line": 22,
+        "start_col": 0,
+        "end_line": 22,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "model field user = models.OneToOneField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "user",
+        "field_type": "models.OneToOneField",
+        "validators": [],
+        "related_model": "User",
+        "kwargs": {
+          "primary_key": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "model_field",
+      "name": "Customer.stripe_customer_id",
+      "file_path": "models.py",
+      "anchor": {
+        "file_path": "models.py",
+        "start_line": 27,
+        "start_col": 0,
+        "end_line": 27,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "model field stripe_customer_id = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "stripe_customer_id",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "max_length": 200,
+          "null": true,
+          "blank": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "model_field",
+      "name": "Customer.stripe_subscription_id",
+      "file_path": "models.py",
+      "anchor": {
+        "file_path": "models.py",
+        "start_line": 33,
+        "start_col": 0,
+        "end_line": 33,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "model field stripe_subscription_id = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "stripe_subscription_id",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "max_length": 200,
+          "null": true,
+          "blank": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "model_field",
+      "name": "Customer.subscription_item_id",
+      "file_path": "models.py",
+      "anchor": {
+        "file_path": "models.py",
+        "start_line": 39,
+        "start_col": 0,
+        "end_line": 39,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "model field subscription_item_id = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "subscription_item_id",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "max_length": 200,
+          "null": true,
+          "blank": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+      "type": "model_field",
+      "name": "Customer.email_address",
+      "file_path": "models.py",
+      "anchor": {
+        "file_path": "models.py",
+        "start_line": 45,
+        "start_col": 0,
+        "end_line": 45,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "model field email_address = models.EmailField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "email_address",
+        "field_type": "models.EmailField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "null": true
+        }
+      }
+    },
+    {
+      "artifact_id": "model_field:Customer.name:models.py:46-46",
+      "type": "model_field",
+      "name": "Customer.name",
+      "file_path": "models.py",
+      "anchor": {
+        "file_path": "models.py",
+        "start_line": 46,
+        "start_col": 0,
+        "end_line": 46,
+        "end_col": 0
+      },
+      "confidence": "probable",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "model field name = models.CharField"
+        }
+      ],
+      "meta": {
+        "model": "Customer",
+        "field_name": "name",
+        "field_type": "models.CharField",
+        "validators": [],
+        "related_model": null,
+        "kwargs": {
+          "blank": true,
+          "null": true,
+          "max_length": 50
+        }
+      }
+    },
+    {
+      "artifact_id": "django_urlconf:urlpatterns:urls.py:6-17",
+      "type": "django_urlconf",
+      "name": "urlpatterns",
+      "file_path": "urls.py",
+      "anchor": {
+        "file_path": "urls.py",
+        "start_line": 6,
+        "start_col": 0,
+        "end_line": 17,
+        "end_col": 1
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "anchor": {
+            "file_path": "urls.py",
+            "start_line": 6,
+            "start_col": 0,
+            "end_line": 17,
+            "end_col": 1
+          },
+          "note": "urlpatterns assignment"
+        }
+      ],
+      "meta": {}
+    }
+  ]
+}

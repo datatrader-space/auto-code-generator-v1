@@ -1,0 +1,20 @@
+{
+  "version": "crs-spec-store-v1",
+  "generated_at": "2025-12-29T17:20:42Z",
+  "specs_dir": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs",
+  "files": {
+    "artifact_types": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/artifact_types.json",
+    "relationship_types": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/relationship_types.json",
+    "attributes": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/attributes.json",
+    "pipeline_steps": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/pipeline_steps.json",
+    "invariants": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/invariants.json",
+    "playbooks": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/playbooks.json",
+    "docs_dir": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/docs"
+  },
+  "notes": [
+    "These specs are AI-first internal documentation for CRS.",
+    "Treat as operational truth for agents: meaning, constraints, usage, examples, and graph connections.",
+    "Do not store prose-only docs here; store structured specs.",
+    "Use state/specs/docs/<kind>/<spec_id>.json for agent-writable spec documents."
+  ]
+}

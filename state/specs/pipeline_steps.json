@@ -1,0 +1,62 @@
+{
+  "version": "crs-pipeline-step-spec-v1",
+  "generated_at": "2025-12-29T17:20:42Z",
+  "steps": [
+    {
+      "id": "patch",
+      "purpose": "Apply patch (file edits) and mark meta_state.patch.dirty=True.",
+      "inputs": [
+        {
+          "env": "CRS_PATCH_IN",
+          "type": "path-to-patch.json"
+        }
+      ],
+      "outputs": [
+        "state/patches/<patch_id>.json",
+        "meta_state.patch"
+      ],
+      "notes": [
+        "Patch step may be skipped if CRS_PATCH_IN is not set."
+      ]
+    },
+    {
+      "id": "blueprints",
+      "purpose": "Index workspace src into blueprints.json (file inventory + raw_text optional).",
+      "outputs": [
+        "state/blueprints.json"
+      ]
+    },
+    {
+      "id": "artifacts",
+      "purpose": "Extract semantic artifacts from blueprints/source.",
+      "outputs": [
+        "state/artifacts.json"
+      ]
+    },
+    {
+      "id": "relationships",
+      "purpose": "Build relationship graph edges from artifacts.",
+      "outputs": [
+        "state/relationships.json"
+      ]
+    },
+    {
+      "id": "impact",
+      "purpose": "Compute affected artifacts and invalidated relationships after patch.",
+      "outputs": [
+        "state/impact/impact_<patch_id>.json"
+      ],
+      "notes": [
+        "Diagnostic; should not fail pipeline if it errors."
+      ]
+    },
+    {
+      "id": "query",
+      "purpose": "Read-only access API over artifacts + relationships.",
+      "outputs": [
+        "in-memory index",
+        "optional run snapshot"
+      ]
+    }
+  ]
+}

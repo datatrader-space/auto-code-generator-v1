@@ -1,0 +1,24 @@
+{
+  "reason": {
+    "src_fingerprint": "dae17dc231c4ac9e686e51f387450f6b346decbc",
+    "patch_dirty": false,
+    "exists": {
+      "blueprints": true,
+      "artifacts": true,
+      "relationships": true
+    },
+    "fp_ok": {
+      "blueprints": true,
+      "artifacts": true,
+      "relationships": true
+    },
+    "will_run": {
+      "blueprints": false,
+      "artifacts": false,
+      "relationships": false
+    }
+  },
+  "run_blueprints": false,
+  "run_artifacts": false,
+  "run_relationships": false
+}

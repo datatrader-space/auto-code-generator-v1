@@ -1,0 +1,2199 @@
+{
+  "version": "crs-relationships-v1",
+  "generated_at": "2025-12-25T15:54:47.650700+00:00",
+  "summary": {
+    "artifacts": 44,
+    "relationships": 69,
+    "by_type": {
+      "declares": 24,
+      "serializes_model": 8,
+      "registers": 2,
+      "mentions_field_string": 35
+    }
+  },
+  "relationships": [
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.user:customer/models.py:22-22",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:customer/models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_customer_id:customer/models.py:27-27",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:customer/models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_subscription_id:customer/models.py:33-33",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:customer/models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.subscription_item_id:customer/models.py:39-39",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:customer/models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.email_address:customer/models.py:45-45",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:customer/models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.name:customer/models.py:46-46",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:customer/models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.user:models.py:22-22",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.email_address:models.py:45-45",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.name:models.py:46-46",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:SuperStrategyTypeSerializer:serializers.py:33-35->serializer_field:SuperStrategyTypeSerializer.name:serializers.py:35-35",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:SuperStrategyTypeSerializer:serializers.py:33-35",
+        "type": "drf_serializer",
+        "name": "SuperStrategyTypeSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:SuperStrategyTypeSerializer.name:serializers.py:35-35",
+        "type": "serializer_field",
+        "name": "SuperStrategyTypeSerializer.name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 35,
+            "start_col": 0,
+            "end_line": 35,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyStatusSerializer:serializers.py:37-39->serializer_field:StrategyStatusSerializer.name:serializers.py:39-39",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyStatusSerializer:serializers.py:37-39",
+        "type": "drf_serializer",
+        "name": "StrategyStatusSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyStatusSerializer.name:serializers.py:39-39",
+        "type": "serializer_field",
+        "name": "StrategyStatusSerializer.name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyKPISerializer:serializers.py:41-53->serializer_field:StrategyKPISerializer.kpi_name:serializers.py:43-43",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyKPISerializer:serializers.py:41-53",
+        "type": "drf_serializer",
+        "name": "StrategyKPISerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyKPISerializer.kpi_name:serializers.py:43-43",
+        "type": "serializer_field",
+        "name": "StrategyKPISerializer.kpi_name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 43,
+            "start_col": 0,
+            "end_line": 43,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyKPISerializer:serializers.py:41-53->serializer_field:StrategyKPISerializer.kpi_unit:serializers.py:44-44",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyKPISerializer:serializers.py:41-53",
+        "type": "drf_serializer",
+        "name": "StrategyKPISerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyKPISerializer.kpi_unit:serializers.py:44-44",
+        "type": "serializer_field",
+        "name": "StrategyKPISerializer.kpi_unit"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 44,
+            "start_col": 0,
+            "end_line": 44,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyKPISerializer:serializers.py:41-53->serializer_field:StrategyKPISerializer.id:serializers.py:45-45",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyKPISerializer:serializers.py:41-53",
+        "type": "drf_serializer",
+        "name": "StrategyKPISerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyKPISerializer.id:serializers.py:45-45",
+        "type": "serializer_field",
+        "name": "StrategyKPISerializer.id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyDetailSerializer:serializers.py:55-71->serializer_field:StrategyDetailSerializer.demographics:serializers.py:60-60",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyDetailSerializer:serializers.py:55-71",
+        "type": "drf_serializer",
+        "name": "StrategyDetailSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyDetailSerializer.demographics:serializers.py:60-60",
+        "type": "serializer_field",
+        "name": "StrategyDetailSerializer.demographics"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 60,
+            "start_col": 0,
+            "end_line": 60,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyDetailSerializer:serializers.py:55-71->serializer_field:StrategyDetailSerializer.tools:serializers.py:61-61",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyDetailSerializer:serializers.py:55-71",
+        "type": "drf_serializer",
+        "name": "StrategyDetailSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyDetailSerializer.tools:serializers.py:61-61",
+        "type": "serializer_field",
+        "name": "StrategyDetailSerializer.tools"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 61,
+            "start_col": 0,
+            "end_line": 61,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyDetailSerializer:serializers.py:55-71->serializer_field:StrategyDetailSerializer.domain_name:serializers.py:62-62",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyDetailSerializer:serializers.py:55-71",
+        "type": "drf_serializer",
+        "name": "StrategyDetailSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyDetailSerializer.domain_name:serializers.py:62-62",
+        "type": "serializer_field",
+        "name": "StrategyDetailSerializer.domain_name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 62,
+            "start_col": 0,
+            "end_line": 62,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyDetailSerializer:serializers.py:55-71->serializer_field:StrategyDetailSerializer.kpis:serializers.py:63-63",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyDetailSerializer:serializers.py:55-71",
+        "type": "drf_serializer",
+        "name": "StrategyDetailSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyDetailSerializer.kpis:serializers.py:63-63",
+        "type": "serializer_field",
+        "name": "StrategyDetailSerializer.kpis"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 63,
+            "start_col": 0,
+            "end_line": 63,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyListSerializer:serializers.py:73-85->serializer_field:StrategyListSerializer.domain_name:serializers.py:78-78",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyListSerializer:serializers.py:73-85",
+        "type": "drf_serializer",
+        "name": "StrategyListSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyListSerializer.domain_name:serializers.py:78-78",
+        "type": "serializer_field",
+        "name": "StrategyListSerializer.domain_name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 78,
+            "start_col": 0,
+            "end_line": 78,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165->serializer_field:StrategyCreateUpdateSerializer.demographicIds:serializers.py:92-92",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165",
+        "type": "drf_serializer",
+        "name": "StrategyCreateUpdateSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyCreateUpdateSerializer.demographicIds:serializers.py:92-92",
+        "type": "serializer_field",
+        "name": "StrategyCreateUpdateSerializer.demographicIds"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 92,
+            "start_col": 0,
+            "end_line": 92,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:declares:drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165->serializer_field:StrategyCreateUpdateSerializer.toolIds:serializers.py:97-97",
+      "type": "declares",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165",
+        "type": "drf_serializer",
+        "name": "StrategyCreateUpdateSerializer"
+      },
+      "to": {
+        "artifact_id": "serializer_field:StrategyCreateUpdateSerializer.toolIds:serializers.py:97-97",
+        "type": "serializer_field",
+        "name": "StrategyCreateUpdateSerializer.toolIds"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 97,
+            "start_col": 0,
+            "end_line": 97,
+            "end_col": 0
+          },
+          "note": "declared serializer field"
+        }
+      ],
+      "meta": {
+        "owner_kind": "serializer"
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:DemographicSerializer:serializers.py:9-13->Demographic",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:DemographicSerializer:serializers.py:9-13",
+        "type": "drf_serializer",
+        "name": "DemographicSerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "Demographic"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 9,
+            "start_col": 0,
+            "end_line": 13,
+            "end_col": 26
+          },
+          "note": "Meta.model=Demographic (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "Demographic",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:DomainSerializer:serializers.py:15-19->Domain",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:DomainSerializer:serializers.py:15-19",
+        "type": "drf_serializer",
+        "name": "DomainSerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "Domain"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 15,
+            "start_col": 0,
+            "end_line": 19,
+            "end_col": 26
+          },
+          "note": "Meta.model=Domain (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "Domain",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:ToolSerializer:serializers.py:21-25->Tool",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:ToolSerializer:serializers.py:21-25",
+        "type": "drf_serializer",
+        "name": "ToolSerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "Tool"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 21,
+            "start_col": 0,
+            "end_line": 25,
+            "end_col": 26
+          },
+          "note": "Meta.model=Tool (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "Tool",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:KPISerializer:serializers.py:27-31->KPI",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:KPISerializer:serializers.py:27-31",
+        "type": "drf_serializer",
+        "name": "KPISerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "KPI"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 31,
+            "end_col": 26
+          },
+          "note": "Meta.model=KPI (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "KPI",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:StrategyKPISerializer:serializers.py:41-53->StrategyKPI",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyKPISerializer:serializers.py:41-53",
+        "type": "drf_serializer",
+        "name": "StrategyKPISerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "StrategyKPI"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 41,
+            "start_col": 0,
+            "end_line": 53,
+            "end_col": 9
+          },
+          "note": "Meta.model=StrategyKPI (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "StrategyKPI",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:StrategyDetailSerializer:serializers.py:55-71->Strategy",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyDetailSerializer:serializers.py:55-71",
+        "type": "drf_serializer",
+        "name": "StrategyDetailSerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "Strategy"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 55,
+            "start_col": 0,
+            "end_line": 71,
+            "end_col": 9
+          },
+          "note": "Meta.model=Strategy (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "Strategy",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:StrategyListSerializer:serializers.py:73-85->Strategy",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyListSerializer:serializers.py:73-85",
+        "type": "drf_serializer",
+        "name": "StrategyListSerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "Strategy"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 73,
+            "start_col": 0,
+            "end_line": 85,
+            "end_col": 9
+          },
+          "note": "Meta.model=Strategy (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "Strategy",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:serializes_model:drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165->Strategy",
+      "type": "serializes_model",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165",
+        "type": "drf_serializer",
+        "name": "StrategyCreateUpdateSerializer"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "Strategy"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 87,
+            "start_col": 0,
+            "end_line": 165,
+            "end_col": 23
+          },
+          "note": "Meta.model=Strategy (unresolved)"
+        }
+      ],
+      "meta": {
+        "meta_model": "Strategy",
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:registers:router_register:admin.site.register:admin.py:20-20->CustomerAdmin",
+      "type": "registers",
+      "from": {
+        "artifact_id": "router_register:admin.site.register:admin.py:20-20",
+        "type": "router_register",
+        "name": "admin.site.register"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "CustomerAdmin"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "admin.py",
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "router.register(..., CustomerAdmin) (unresolved)"
+        }
+      ],
+      "meta": {
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:registers:router_register:admin.site.register:customer/admin.py:20-20->CustomerAdmin",
+      "type": "registers",
+      "from": {
+        "artifact_id": "router_register:admin.site.register:customer/admin.py:20-20",
+        "type": "router_register",
+        "name": "admin.site.register"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "CustomerAdmin"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/admin.py",
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "router.register(..., CustomerAdmin) (unresolved)"
+        }
+      ],
+      "meta": {
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.user:customer/models.py:22-22->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.user:customer/models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_customer_id:customer/models.py:27-27->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:customer/models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_subscription_id:customer/models.py:33-33->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:customer/models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.subscription_item_id:customer/models.py:39-39->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.subscription_item_id:customer/models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.email_address:customer/models.py:45-45->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.email_address:customer/models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.name:customer/models.py:46-46->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.name:customer/models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.user:models.py:22-22->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_customer_id:models.py:27-27->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_subscription_id:models.py:33-33->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.subscription_item_id:models.py:39-39->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.email_address:models.py:45-45->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.name:models.py:46-46->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:drf_serializer:SuperStrategyTypeSerializer:serializers.py:33-35->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "drf_serializer:SuperStrategyTypeSerializer:serializers.py:33-35",
+        "type": "drf_serializer",
+        "name": "SuperStrategyTypeSerializer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 35,
+            "end_col": 34
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:serializer_field:SuperStrategyTypeSerializer.name:serializers.py:35-35->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "serializer_field:SuperStrategyTypeSerializer.name:serializers.py:35-35",
+        "type": "serializer_field",
+        "name": "SuperStrategyTypeSerializer.name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 35,
+            "start_col": 0,
+            "end_line": 35,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:drf_serializer:StrategyStatusSerializer:serializers.py:37-39->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyStatusSerializer:serializers.py:37-39",
+        "type": "drf_serializer",
+        "name": "StrategyStatusSerializer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 37,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 34
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:serializer_field:StrategyStatusSerializer.name:serializers.py:39-39->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "serializer_field:StrategyStatusSerializer.name:serializers.py:39-39",
+        "type": "serializer_field",
+        "name": "StrategyStatusSerializer.name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:drf_serializer:StrategyKPISerializer:serializers.py:41-53->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyKPISerializer:serializers.py:41-53",
+        "type": "drf_serializer",
+        "name": "StrategyKPISerializer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 41,
+            "start_col": 0,
+            "end_line": 53,
+            "end_col": 9
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:serializer_field:StrategyKPISerializer.kpi_name:serializers.py:43-43->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "serializer_field:StrategyKPISerializer.kpi_name:serializers.py:43-43",
+        "type": "serializer_field",
+        "name": "StrategyKPISerializer.kpi_name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 43,
+            "start_col": 0,
+            "end_line": 43,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:drf_serializer:StrategyDetailSerializer:serializers.py:55-71->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyDetailSerializer:serializers.py:55-71",
+        "type": "drf_serializer",
+        "name": "StrategyDetailSerializer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 55,
+            "start_col": 0,
+            "end_line": 71,
+            "end_col": 9
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:serializer_field:StrategyDetailSerializer.domain_name:serializers.py:62-62->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "serializer_field:StrategyDetailSerializer.domain_name:serializers.py:62-62",
+        "type": "serializer_field",
+        "name": "StrategyDetailSerializer.domain_name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 62,
+            "start_col": 0,
+            "end_line": 62,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:drf_serializer:StrategyListSerializer:serializers.py:73-85->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyListSerializer:serializers.py:73-85",
+        "type": "drf_serializer",
+        "name": "StrategyListSerializer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 73,
+            "start_col": 0,
+            "end_line": 85,
+            "end_col": 9
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:serializer_field:StrategyListSerializer.domain_name:serializers.py:78-78->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "serializer_field:StrategyListSerializer.domain_name:serializers.py:78-78",
+        "type": "serializer_field",
+        "name": "StrategyListSerializer.domain_name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 78,
+            "start_col": 0,
+            "end_line": 78,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "drf_serializer:StrategyCreateUpdateSerializer:serializers.py:87-165",
+        "type": "drf_serializer",
+        "name": "StrategyCreateUpdateSerializer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "serializers.py",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 87,
+            "start_col": 0,
+            "end_line": 165,
+            "end_col": 23
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    }
+  ],
+  "source_artifacts": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\state\\artifacts.json"
+}

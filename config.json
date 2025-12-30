@@ -1,0 +1,20 @@
+{
+  "version": "crs-workspace-config-v1",
+  "impact": {
+    "rename_field": {
+      "enabled": false,
+      "model": "User",
+      "old": "email",
+      "new": "primary_email"
+    }
+  },
+  "patch_apply": {
+    "enabled": false,
+    "write_back_to_src": false,
+    "patch_plan_path": "runs/latest/outputs/patch_plan.json"
+  },
+  "artifact_extractor": {
+    "script_path": "artifact_extractor_v1.py",
+    "output_name": "artifacts.json"
+  }
+}

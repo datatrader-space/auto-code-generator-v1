@@ -1,0 +1,56 @@
+# core/agent_memory.py
+import os
+import json
+import time
+from typing import Any, Dict, Optional
+
+from core.fs import WorkspaceFS
+
+
+def _utc_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+class AgentMemoryStore:
+    """
+    Agent memory is operational state for an AI.
+    We store:
+      - append-only event log (memory.jsonl)
+      - compact current state (state.json)
+    """
+
+    VERSION = "crs-agent-memory-v1"
+
+    def __init__(self, fs: WorkspaceFS, agent_id: str = "default"):
+        self.fs = fs
+        self.agent_id = (agent_id or "default").strip() or "default"
+        self.base_dir = os.path.join(self.fs.paths.state_dir, "agents", self.agent_id)
+        self.mem_path = os.path.join(self.base_dir, "memory.jsonl")
+        self.state_path = os.path.join(self.base_dir, "state.json")
+        self.fs.backend.makedirs(self.base_dir)
+
+    def append_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        e = dict(event or {})
+        e.setdefault("version", self.VERSION)
+        e.setdefault("ts_utc", _utc_iso())
+        line = json.dumps(e, ensure_ascii=False)
+
+        # append via read+write (simple, local backend)
+        existing = ""
+        if self.fs.backend.exists(self.mem_path):
+            existing = self.fs.read_text(self.mem_path) or ""
+        self.fs.write_text(self.mem_path, existing + ("" if existing.endswith("\n") or not existing else "\n") + line + "\n")
+        return e
+
+    def load_state(self) -> Dict[str, Any]:
+        if not self.fs.backend.exists(self.state_path):
+            return {"agent_id": self.agent_id, "version": self.VERSION}
+        obj = self.fs.read_json(self.state_path)
+        return obj if isinstance(obj, dict) else {"agent_id": self.agent_id, "version": self.VERSION}
+
+    def save_state(self, state: Dict[str, Any]) -> None:
+        s = dict(state or {})
+        s["agent_id"] = self.agent_id
+        s["version"] = self.VERSION
+        s["updated_at_utc"] = _utc_iso()
+        self.fs.write_json(self.state_path, s)

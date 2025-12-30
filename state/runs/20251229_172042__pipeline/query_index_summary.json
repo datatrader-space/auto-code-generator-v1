@@ -1,0 +1,13 @@
+{
+  "artifacts": 44,
+  "relationship_edges": 69,
+  "artifact_types": {
+    "router_register": 2,
+    "admin_register": 4,
+    "django_model": 2,
+    "model_field": 12,
+    "django_urlconf": 2,
+    "drf_serializer": 10,
+    "serializer_field": 12
+  }
+}

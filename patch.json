@@ -1,0 +1,13 @@
+{
+  "patch_id": "patch_001",
+  "note": "Rename function and update call sites",
+  "changes": [
+    {
+      "op": "replace_text",
+      "path": "src/myapp/foo.py",
+      "find": "old_name(",
+      "replace": "new_name(",
+      "count": 0
+    }
+  ]
+}

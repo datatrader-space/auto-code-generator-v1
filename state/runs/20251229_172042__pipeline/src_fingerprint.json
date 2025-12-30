@@ -1,0 +1,24 @@
+{
+  "src_root": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/src",
+  "file_count": 17,
+  "file_hashes": {
+    "admin.py": "152c4ff44b5191e964d2644db64cdd5c030e49df",
+    "apps.py": "d7fe0cc87e4a16bd35158fd9e956a3c52c766ca2",
+    "models.py": "db462d48345f2334811daf7e234c0664e8ccc6ab",
+    "serializers.py": "2f81496af47066e36a0f0113d4361353e771af39",
+    "settings.py": "d2b86a3f9717e649c49d5def90a5d5486ee9e4e2",
+    "urls.py": "b142f5647f133a44e8c0e75d515584e0ca1bc992",
+    "__init__.py": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+    "customer/admin.py": "152c4ff44b5191e964d2644db64cdd5c030e49df",
+    "customer/apps.py": "d7fe0cc87e4a16bd35158fd9e956a3c52c766ca2",
+    "customer/models.py": "db462d48345f2334811daf7e234c0664e8ccc6ab",
+    "customer/settings.py": "d2b86a3f9717e649c49d5def90a5d5486ee9e4e2",
+    "customer/urls.py": "b142f5647f133a44e8c0e75d515584e0ca1bc992",
+    "customer/__init__.py": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+    "customer/migrations/0001_initial.py": "eb59f533e84314c94287bb4a9a8977e805c78a3f",
+    "customer/migrations/__init__.py": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+    "migrations/0001_initial.py": "eb59f533e84314c94287bb4a9a8977e805c78a3f",
+    "migrations/__init__.py": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+  },
+  "src_fingerprint": "16c28da8bff902c4374dd254366e134c19247c79"
+}

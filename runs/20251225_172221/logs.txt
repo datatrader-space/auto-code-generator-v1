@@ -1,0 +1,20 @@
+=== CRS WORKSPACE RUN ===
+workspace: D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace
+run_dir:   D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace\runs\20251225_172221
+
+--- STEP: BlueprintBuildFromSrc ---
+✅ wrote D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace\state\blueprints.json (files=8)
+
+--- STEP: ArtifactsBuildFromBlueprint ---
+❌ STEP FAILED: ArtifactsBuildFromBlueprint: RuntimeError: Missing artifact extractor at: D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace\artifact_extractor_v1.py
+Put artifact_extractor_v1.py into workspace root or update config.json artifact_extractor.script_path
+Traceback (most recent call last):
+  File "D:\darrxscale\central-v1\strategy\crs_workspace\crs_main.py", line 57, in main
+    step.run(ws, ctx)
+  File "D:\darrxscale\central-v1\strategy\crs_workspace\crs_components.py", line 206, in run
+    raise RuntimeError(
+RuntimeError: Missing artifact extractor at: D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace\artifact_extractor_v1.py
+Put artifact_extractor_v1.py into workspace root or update config.json artifact_extractor.script_path
+
+
+✅ DONE

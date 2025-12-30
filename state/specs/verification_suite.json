@@ -1,0 +1,110 @@
+
+{
+  "version": "crs-verification-suite-v1",
+  "generated_at": "2025-12-26T00:00:00Z",
+  "purpose": "Defines reusable verification suites that an agent can run after patch+pipeline. Suites are machine-operational checks, not human prose tests.",
+  "suite_schema": {
+    "id": "string",
+    "description": "string",
+    "when_to_run": "list[string]",
+    "checks": "list[check]"
+  },
+  "check_schema": {
+    "id": "string",
+    "type": "string (invariant|file_exists|json_schema|graph|query)",
+    "severity": "string (low|medium|high)",
+    "params": "object",
+    "pass_condition": "string (human-readable but stable)"
+  },
+  "suites": [
+    {
+      "id": "vs:post_patch_smoke",
+      "description": "Default smoke checks after a patch + pipeline run. Ensures core state exists and is minimally consistent.",
+      "when_to_run": ["after_pipeline", "after_impact"],
+      "checks": [
+        {
+          "id": "chk:state_exists_blueprints",
+          "type": "file_exists",
+          "severity": "high",
+          "params": { "path_key": "fs.paths.blueprints_json" },
+          "pass_condition": "blueprints.json exists"
+        },
+        {
+          "id": "chk:state_exists_artifacts",
+          "type": "file_exists",
+          "severity": "high",
+          "params": { "path_key": "fs.paths.artifacts_json" },
+          "pass_condition": "artifacts.json exists"
+        },
+        {
+          "id": "chk:state_exists_relationships",
+          "type": "file_exists",
+          "severity": "high",
+          "params": { "path_key": "fs.paths.relationships_json" },
+          "pass_condition": "relationships.json exists"
+        },
+        {
+          "id": "chk:artifacts_has_list",
+          "type": "json_schema",
+          "severity": "high",
+          "params": {
+            "path_key": "fs.paths.artifacts_json",
+            "requires": [
+              { "key": "artifacts", "type": "list" }
+            ]
+          },
+          "pass_condition": "artifacts.json contains artifacts:list"
+        },
+        {
+          "id": "chk:relationships_has_list",
+          "type": "json_schema",
+          "severity": "high",
+          "params": {
+            "path_key": "fs.paths.relationships_json",
+            "requires": [
+              { "key": "relationships", "type": "list" }
+            ]
+          },
+          "pass_condition": "relationships.json contains relationships:list"
+        },
+        {
+          "id": "chk:artifact_id_unique",
+          "type": "invariant",
+          "severity": "high",
+          "params": { "invariant_id": "inv:artifact_id_unique" },
+          "pass_condition": "no duplicate artifact_id collisions"
+        },
+        {
+          "id": "chk:relationship_endpoints_have_types",
+          "type": "invariant",
+          "severity": "medium",
+          "params": { "invariant_id": "inv:relationship_endpoints_have_types" },
+          "pass_condition": "every relationship has from.type and to.type"
+        }
+      ]
+    },
+    {
+      "id": "vs:django_api_route_trace",
+      "description": "Verifies that a given route can be traced to a model (route -> view -> serializer -> model).",
+      "when_to_run": ["on_django_api_changes"],
+      "checks": [
+        {
+          "id": "chk:trace_route_to_model",
+          "type": "query",
+          "severity": "high",
+          "params": {
+            "op": "trace_route_to_model",
+            "args": {
+              "route": "/api/example/"
+            }
+          },
+          "pass_condition": "trace returns found=true and model!=null"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Verification execution engine is intentionally not implemented here. This file defines suites declaratively.",
+    "Agent chooses suite id based on request intent, impacted nodes, or defaults."
+  ]
+}

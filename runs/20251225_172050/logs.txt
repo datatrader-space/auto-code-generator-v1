@@ -1,0 +1,15 @@
+=== CRS WORKSPACE RUN ===
+workspace: D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace
+run_dir:   D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace\runs\20251225_172050
+
+--- STEP: BlueprintBuildFromSrc ---
+❌ STEP FAILED: BlueprintBuildFromSrc: RuntimeError: workspace/src has no .py files: D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace\src
+Traceback (most recent call last):
+  File "D:\darrxscale\central-v1\strategy\crs_workspace\crs_main.py", line 57, in main
+    step.run(ws, ctx)
+  File "D:\darrxscale\central-v1\strategy\crs_workspace\crs_components.py", line 92, in run
+    raise RuntimeError(f"workspace/src has no .py files: {ws.src_dir}")
+RuntimeError: workspace/src has no .py files: D:\darrxscale\central-v1\strategy\crs_workspace\crs_workspace\src
+
+
+✅ DONE

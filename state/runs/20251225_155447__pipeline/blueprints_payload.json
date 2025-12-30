@@ -1,0 +1,2841 @@
+{
+  "version": "crs-blueprints-v1",
+  "workspace_root": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace",
+  "src_root": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\src",
+  "file_count": 17,
+  "blueprints": [
+    {
+      "file_path": "__init__.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "",
+      "segments": [],
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "line_count": 0,
+      "lines": []
+    },
+    {
+      "file_path": "admin.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.contrib import admin\nfrom django_admin_relation_links import AdminChangeLinksMixin\n\nfrom .models import Customer\n\n\nclass CustomerAdmin(AdminChangeLinksMixin,\n                    admin.ModelAdmin):\n    list_display = ('user_id',\n                    'user_link',\n                    'email_address',\n                \n                    )\n    change_links = ('user',)\n\n    def user_id(self, obj):\n        return obj.user.id\n\n\nadmin.site.register(Customer, CustomerAdmin)\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:admin.py:1:0-1:32",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 32
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:admin.py:2:0-2:61",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 2,
+            "start_col": 0,
+            "end_line": 2,
+            "end_col": 61
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:admin.py:4:0-4:28",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 4,
+            "end_col": 28
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:CustomerAdmin:admin.py:7:0-17:26",
+          "kind": "class_def",
+          "name": "CustomerAdmin",
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 7,
+            "start_col": 0,
+            "end_line": 17,
+            "end_col": 26
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "module_block:Expr:admin.py:20:0-20:44",
+          "kind": "module_block",
+          "name": "Expr",
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Expr"
+        }
+      ],
+      "sha1": "152c4ff44b5191e964d2644db64cdd5c030e49df",
+      "line_count": 20,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.contrib import admin\n"
+        },
+        {
+          "i": 2,
+          "t": "from django_admin_relation_links import AdminChangeLinksMixin\n"
+        },
+        {
+          "i": 3,
+          "t": "\n"
+        },
+        {
+          "i": 4,
+          "t": "from .models import Customer\n"
+        },
+        {
+          "i": 5,
+          "t": "\n"
+        },
+        {
+          "i": 6,
+          "t": "\n"
+        },
+        {
+          "i": 7,
+          "t": "class CustomerAdmin(AdminChangeLinksMixin,\n"
+        },
+        {
+          "i": 8,
+          "t": "                    admin.ModelAdmin):\n"
+        },
+        {
+          "i": 9,
+          "t": "    list_display = ('user_id',\n"
+        },
+        {
+          "i": 10,
+          "t": "                    'user_link',\n"
+        },
+        {
+          "i": 11,
+          "t": "                    'email_address',\n"
+        },
+        {
+          "i": 12,
+          "t": "                \n"
+        },
+        {
+          "i": 13,
+          "t": "                    )\n"
+        },
+        {
+          "i": 14,
+          "t": "    change_links = ('user',)\n"
+        },
+        {
+          "i": 15,
+          "t": "\n"
+        },
+        {
+          "i": 16,
+          "t": "    def user_id(self, obj):\n"
+        },
+        {
+          "i": 17,
+          "t": "        return obj.user.id\n"
+        },
+        {
+          "i": 18,
+          "t": "\n"
+        },
+        {
+          "i": 19,
+          "t": "\n"
+        },
+        {
+          "i": 20,
+          "t": "admin.site.register(Customer, CustomerAdmin)\n"
+        }
+      ]
+    },
+    {
+      "file_path": "apps.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.apps import AppConfig\n\n\nclass CustomerConfig(AppConfig):\n    name = 'customer'\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:apps.py:1:0-1:33",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "apps.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 33
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:CustomerConfig:apps.py:4:0-5:21",
+          "kind": "class_def",
+          "name": "CustomerConfig",
+          "anchor": {
+            "file_path": "apps.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 5,
+            "end_col": 21
+          },
+          "confidence": "certain",
+          "notes": null
+        }
+      ],
+      "sha1": "d7fe0cc87e4a16bd35158fd9e956a3c52c766ca2",
+      "line_count": 5,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.apps import AppConfig\n"
+        },
+        {
+          "i": 2,
+          "t": "\n"
+        },
+        {
+          "i": 3,
+          "t": "\n"
+        },
+        {
+          "i": 4,
+          "t": "class CustomerConfig(AppConfig):\n"
+        },
+        {
+          "i": 5,
+          "t": "    name = 'customer'\n"
+        }
+      ]
+    },
+    {
+      "file_path": "customer/__init__.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "",
+      "segments": [],
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "line_count": 0,
+      "lines": []
+    },
+    {
+      "file_path": "customer/admin.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.contrib import admin\nfrom django_admin_relation_links import AdminChangeLinksMixin\n\nfrom .models import Customer\n\n\nclass CustomerAdmin(AdminChangeLinksMixin,\n                    admin.ModelAdmin):\n    list_display = ('user_id',\n                    'user_link',\n                    'email_address',\n                \n                    )\n    change_links = ('user',)\n\n    def user_id(self, obj):\n        return obj.user.id\n\n\nadmin.site.register(Customer, CustomerAdmin)\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:customer/admin.py:1:0-1:32",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 32
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:customer/admin.py:2:0-2:61",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 2,
+            "start_col": 0,
+            "end_line": 2,
+            "end_col": 61
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:customer/admin.py:4:0-4:28",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 4,
+            "end_col": 28
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:CustomerAdmin:customer/admin.py:7:0-17:26",
+          "kind": "class_def",
+          "name": "CustomerAdmin",
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 7,
+            "start_col": 0,
+            "end_line": 17,
+            "end_col": 26
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "module_block:Expr:customer/admin.py:20:0-20:44",
+          "kind": "module_block",
+          "name": "Expr",
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Expr"
+        }
+      ],
+      "sha1": "152c4ff44b5191e964d2644db64cdd5c030e49df",
+      "line_count": 20,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.contrib import admin\n"
+        },
+        {
+          "i": 2,
+          "t": "from django_admin_relation_links import AdminChangeLinksMixin\n"
+        },
+        {
+          "i": 3,
+          "t": "\n"
+        },
+        {
+          "i": 4,
+          "t": "from .models import Customer\n"
+        },
+        {
+          "i": 5,
+          "t": "\n"
+        },
+        {
+          "i": 6,
+          "t": "\n"
+        },
+        {
+          "i": 7,
+          "t": "class CustomerAdmin(AdminChangeLinksMixin,\n"
+        },
+        {
+          "i": 8,
+          "t": "                    admin.ModelAdmin):\n"
+        },
+        {
+          "i": 9,
+          "t": "    list_display = ('user_id',\n"
+        },
+        {
+          "i": 10,
+          "t": "                    'user_link',\n"
+        },
+        {
+          "i": 11,
+          "t": "                    'email_address',\n"
+        },
+        {
+          "i": 12,
+          "t": "                \n"
+        },
+        {
+          "i": 13,
+          "t": "                    )\n"
+        },
+        {
+          "i": 14,
+          "t": "    change_links = ('user',)\n"
+        },
+        {
+          "i": 15,
+          "t": "\n"
+        },
+        {
+          "i": 16,
+          "t": "    def user_id(self, obj):\n"
+        },
+        {
+          "i": 17,
+          "t": "        return obj.user.id\n"
+        },
+        {
+          "i": 18,
+          "t": "\n"
+        },
+        {
+          "i": 19,
+          "t": "\n"
+        },
+        {
+          "i": 20,
+          "t": "admin.site.register(Customer, CustomerAdmin)\n"
+        }
+      ]
+    },
+    {
+      "file_path": "customer/apps.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.apps import AppConfig\n\n\nclass CustomerConfig(AppConfig):\n    name = 'customer'\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:customer/apps.py:1:0-1:33",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/apps.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 33
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:CustomerConfig:customer/apps.py:4:0-5:21",
+          "kind": "class_def",
+          "name": "CustomerConfig",
+          "anchor": {
+            "file_path": "customer/apps.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 5,
+            "end_col": 21
+          },
+          "confidence": "certain",
+          "notes": null
+        }
+      ],
+      "sha1": "d7fe0cc87e4a16bd35158fd9e956a3c52c766ca2",
+      "line_count": 5,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.apps import AppConfig\n"
+        },
+        {
+          "i": 2,
+          "t": "\n"
+        },
+        {
+          "i": 3,
+          "t": "\n"
+        },
+        {
+          "i": 4,
+          "t": "class CustomerConfig(AppConfig):\n"
+        },
+        {
+          "i": 5,
+          "t": "    name = 'customer'\n"
+        }
+      ]
+    },
+    {
+      "file_path": "customer/migrations/0001_initial.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "# Generated by Django 3.2.11 on 2024-01-16 12:03\n\nfrom django.db import migrations, models\nimport django.db.models.deletion\n\n\nclass Migration(migrations.Migration):\n\n    initial = True\n\n    dependencies = [\n        ('auth', '0012_alter_user_first_name_max_length'),\n    ]\n\n    operations = [\n        migrations.CreateModel(\n            name='Customer',\n            fields=[\n                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='auth.user')),\n                ('stripe_customer_id', models.CharField(blank=True, max_length=200, null=True)),\n                ('stripe_subscription_id', models.CharField(blank=True, max_length=200, null=True)),\n                ('subscription_item_id', models.CharField(blank=True, max_length=200, null=True)),\n                ('email_address', models.EmailField(max_length=254, null=True)),\n                ('name', models.CharField(blank=True, max_length=50, null=True)),\n            ],\n        ),\n    ]\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:customer/migrations/0001_initial.py:3:0-3:40",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/migrations/0001_initial.py",
+            "start_line": 3,
+            "start_col": 0,
+            "end_line": 3,
+            "end_col": 40
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:customer/migrations/0001_initial.py:4:0-4:32",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/migrations/0001_initial.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 4,
+            "end_col": 32
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:Migration:customer/migrations/0001_initial.py:7:0-27:5",
+          "kind": "class_def",
+          "name": "Migration",
+          "anchor": {
+            "file_path": "customer/migrations/0001_initial.py",
+            "start_line": 7,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 5
+          },
+          "confidence": "certain",
+          "notes": null
+        }
+      ],
+      "sha1": "eb59f533e84314c94287bb4a9a8977e805c78a3f",
+      "line_count": 27,
+      "lines": [
+        {
+          "i": 1,
+          "t": "# Generated by Django 3.2.11 on 2024-01-16 12:03\n"
+        },
+        {
+          "i": 2,
+          "t": "\n"
+        },
+        {
+          "i": 3,
+          "t": "from django.db import migrations, models\n"
+        },
+        {
+          "i": 4,
+          "t": "import django.db.models.deletion\n"
+        },
+        {
+          "i": 5,
+          "t": "\n"
+        },
+        {
+          "i": 6,
+          "t": "\n"
+        },
+        {
+          "i": 7,
+          "t": "class Migration(migrations.Migration):\n"
+        },
+        {
+          "i": 8,
+          "t": "\n"
+        },
+        {
+          "i": 9,
+          "t": "    initial = True\n"
+        },
+        {
+          "i": 10,
+          "t": "\n"
+        },
+        {
+          "i": 11,
+          "t": "    dependencies = [\n"
+        },
+        {
+          "i": 12,
+          "t": "        ('auth', '0012_alter_user_first_name_max_length'),\n"
+        },
+        {
+          "i": 13,
+          "t": "    ]\n"
+        },
+        {
+          "i": 14,
+          "t": "\n"
+        },
+        {
+          "i": 15,
+          "t": "    operations = [\n"
+        },
+        {
+          "i": 16,
+          "t": "        migrations.CreateModel(\n"
+        },
+        {
+          "i": 17,
+          "t": "            name='Customer',\n"
+        },
+        {
+          "i": 18,
+          "t": "            fields=[\n"
+        },
+        {
+          "i": 19,
+          "t": "                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='auth.user')),\n"
+        },
+        {
+          "i": 20,
+          "t": "                ('stripe_customer_id', models.CharField(blank=True, max_length=200, null=True)),\n"
+        },
+        {
+          "i": 21,
+          "t": "                ('stripe_subscription_id', models.CharField(blank=True, max_length=200, null=True)),\n"
+        },
+        {
+          "i": 22,
+          "t": "                ('subscription_item_id', models.CharField(blank=True, max_length=200, null=True)),\n"
+        },
+        {
+          "i": 23,
+          "t": "                ('email_address', models.EmailField(max_length=254, null=True)),\n"
+        },
+        {
+          "i": 24,
+          "t": "                ('name', models.CharField(blank=True, max_length=50, null=True)),\n"
+        },
+        {
+          "i": 25,
+          "t": "            ],\n"
+        },
+        {
+          "i": 26,
+          "t": "        ),\n"
+        },
+        {
+          "i": 27,
+          "t": "    ]\n"
+        }
+      ]
+    },
+    {
+      "file_path": "customer/migrations/__init__.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "",
+      "segments": [],
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "line_count": 0,
+      "lines": []
+    },
+    {
+      "file_path": "customer/models.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.db import models\nfrom django.contrib.auth import get_user_model\n#from tagging.fields import TagField\n#from tagging.mixins import TaggedModelMixin\nfrom django.contrib.auth import get_user_model\n\n\nUser = get_user_model()\n\nclass Customer( models.Model):\n    \"\"\"\n    # FIXME Backward compatibility with Darrxscale\n    # ?? Not needed in this panel\n\n    Args:\n        TaggedModelMixin ([type]): [description]\n        models ([type]): [description]\n\n    Returns:\n        [type]: [description]\n    \"\"\"\n    user = models.OneToOneField(User,\n                                on_delete=models.CASCADE,\n                                primary_key=True\n                                )\n\n    stripe_customer_id = models.CharField(\n        max_length=200,\n        null=True,\n        blank=True\n    )\n\n    stripe_subscription_id = models.CharField(\n        max_length=200,\n        null=True,\n        blank=True\n    )\n\n    subscription_item_id = models.CharField(\n        max_length=200,\n        null=True,\n        blank=True\n    )\n\n    email_address = models.EmailField(null=True)\n    name = models.CharField(blank=True,\n                            null=True,\n                            max_length=50\n                            )\n\n    #tags = TagField()\n\n    def __str__(self):\n        return (self.user.username)\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:customer/models.py:1:0-1:28",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 28
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:customer/models.py:2:0-2:46",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 2,
+            "start_col": 0,
+            "end_line": 2,
+            "end_col": 46
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:customer/models.py:5:0-5:46",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 5,
+            "start_col": 0,
+            "end_line": 5,
+            "end_col": 46
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "module_block:Assign:customer/models.py:8:0-8:23",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 8,
+            "start_col": 0,
+            "end_line": 8,
+            "end_col": 23
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        },
+        {
+          "segment_id": "class_def:Customer:customer/models.py:10:0-54:35",
+          "kind": "class_def",
+          "name": "Customer",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "confidence": "certain",
+          "notes": null
+        }
+      ],
+      "sha1": "db462d48345f2334811daf7e234c0664e8ccc6ab",
+      "line_count": 54,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.db import models\n"
+        },
+        {
+          "i": 2,
+          "t": "from django.contrib.auth import get_user_model\n"
+        },
+        {
+          "i": 3,
+          "t": "#from tagging.fields import TagField\n"
+        },
+        {
+          "i": 4,
+          "t": "#from tagging.mixins import TaggedModelMixin\n"
+        },
+        {
+          "i": 5,
+          "t": "from django.contrib.auth import get_user_model\n"
+        },
+        {
+          "i": 6,
+          "t": "\n"
+        },
+        {
+          "i": 7,
+          "t": "\n"
+        },
+        {
+          "i": 8,
+          "t": "User = get_user_model()\n"
+        },
+        {
+          "i": 9,
+          "t": "\n"
+        },
+        {
+          "i": 10,
+          "t": "class Customer( models.Model):\n"
+        },
+        {
+          "i": 11,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 12,
+          "t": "    # FIXME Backward compatibility with Darrxscale\n"
+        },
+        {
+          "i": 13,
+          "t": "    # ?? Not needed in this panel\n"
+        },
+        {
+          "i": 14,
+          "t": "\n"
+        },
+        {
+          "i": 15,
+          "t": "    Args:\n"
+        },
+        {
+          "i": 16,
+          "t": "        TaggedModelMixin ([type]): [description]\n"
+        },
+        {
+          "i": 17,
+          "t": "        models ([type]): [description]\n"
+        },
+        {
+          "i": 18,
+          "t": "\n"
+        },
+        {
+          "i": 19,
+          "t": "    Returns:\n"
+        },
+        {
+          "i": 20,
+          "t": "        [type]: [description]\n"
+        },
+        {
+          "i": 21,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 22,
+          "t": "    user = models.OneToOneField(User,\n"
+        },
+        {
+          "i": 23,
+          "t": "                                on_delete=models.CASCADE,\n"
+        },
+        {
+          "i": 24,
+          "t": "                                primary_key=True\n"
+        },
+        {
+          "i": 25,
+          "t": "                                )\n"
+        },
+        {
+          "i": 26,
+          "t": "\n"
+        },
+        {
+          "i": 27,
+          "t": "    stripe_customer_id = models.CharField(\n"
+        },
+        {
+          "i": 28,
+          "t": "        max_length=200,\n"
+        },
+        {
+          "i": 29,
+          "t": "        null=True,\n"
+        },
+        {
+          "i": 30,
+          "t": "        blank=True\n"
+        },
+        {
+          "i": 31,
+          "t": "    )\n"
+        },
+        {
+          "i": 32,
+          "t": "\n"
+        },
+        {
+          "i": 33,
+          "t": "    stripe_subscription_id = models.CharField(\n"
+        },
+        {
+          "i": 34,
+          "t": "        max_length=200,\n"
+        },
+        {
+          "i": 35,
+          "t": "        null=True,\n"
+        },
+        {
+          "i": 36,
+          "t": "        blank=True\n"
+        },
+        {
+          "i": 37,
+          "t": "    )\n"
+        },
+        {
+          "i": 38,
+          "t": "\n"
+        },
+        {
+          "i": 39,
+          "t": "    subscription_item_id = models.CharField(\n"
+        },
+        {
+          "i": 40,
+          "t": "        max_length=200,\n"
+        },
+        {
+          "i": 41,
+          "t": "        null=True,\n"
+        },
+        {
+          "i": 42,
+          "t": "        blank=True\n"
+        },
+        {
+          "i": 43,
+          "t": "    )\n"
+        },
+        {
+          "i": 44,
+          "t": "\n"
+        },
+        {
+          "i": 45,
+          "t": "    email_address = models.EmailField(null=True)\n"
+        },
+        {
+          "i": 46,
+          "t": "    name = models.CharField(blank=True,\n"
+        },
+        {
+          "i": 47,
+          "t": "                            null=True,\n"
+        },
+        {
+          "i": 48,
+          "t": "                            max_length=50\n"
+        },
+        {
+          "i": 49,
+          "t": "                            )\n"
+        },
+        {
+          "i": 50,
+          "t": "\n"
+        },
+        {
+          "i": 51,
+          "t": "    #tags = TagField()\n"
+        },
+        {
+          "i": 52,
+          "t": "\n"
+        },
+        {
+          "i": 53,
+          "t": "    def __str__(self):\n"
+        },
+        {
+          "i": 54,
+          "t": "        return (self.user.username)\n"
+        }
+      ]
+    },
+    {
+      "file_path": "customer/settings.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "DEFAULT_SETTINGS = {\n    'phoneProviders': {\n        'SMSPVA': {\n            'api_key': ''\n        }\n    },\n    'captchaProviders': {\n        'ANTI_CAPTCHA': {\n            'api_key': '',\n            'api_secret': ''\n        }\n    }\n}\n\nLOGGING = {\n    'version': 1,\n    'disable_existing_loggers': False,\n    'handlers': {\n        'console': {\n            'class': 'logging.StreamHandler',\n        },\n    },\n    'loggers': {\n        'django': {\n            'handlers': ['console'],\n            'level': 'DEBUG',\n        },\n    },\n}",
+      "segments": [
+        {
+          "segment_id": "module_block:Assign:customer/settings.py:1:0-13:1",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "customer/settings.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 13,
+            "end_col": 1
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        },
+        {
+          "segment_id": "module_block:Assign:customer/settings.py:15:0-29:1",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "customer/settings.py",
+            "start_line": 15,
+            "start_col": 0,
+            "end_line": 29,
+            "end_col": 1
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        }
+      ],
+      "sha1": "d2b86a3f9717e649c49d5def90a5d5486ee9e4e2",
+      "line_count": 29,
+      "lines": [
+        {
+          "i": 1,
+          "t": "DEFAULT_SETTINGS = {\n"
+        },
+        {
+          "i": 2,
+          "t": "    'phoneProviders': {\n"
+        },
+        {
+          "i": 3,
+          "t": "        'SMSPVA': {\n"
+        },
+        {
+          "i": 4,
+          "t": "            'api_key': ''\n"
+        },
+        {
+          "i": 5,
+          "t": "        }\n"
+        },
+        {
+          "i": 6,
+          "t": "    },\n"
+        },
+        {
+          "i": 7,
+          "t": "    'captchaProviders': {\n"
+        },
+        {
+          "i": 8,
+          "t": "        'ANTI_CAPTCHA': {\n"
+        },
+        {
+          "i": 9,
+          "t": "            'api_key': '',\n"
+        },
+        {
+          "i": 10,
+          "t": "            'api_secret': ''\n"
+        },
+        {
+          "i": 11,
+          "t": "        }\n"
+        },
+        {
+          "i": 12,
+          "t": "    }\n"
+        },
+        {
+          "i": 13,
+          "t": "}\n"
+        },
+        {
+          "i": 14,
+          "t": "\n"
+        },
+        {
+          "i": 15,
+          "t": "LOGGING = {\n"
+        },
+        {
+          "i": 16,
+          "t": "    'version': 1,\n"
+        },
+        {
+          "i": 17,
+          "t": "    'disable_existing_loggers': False,\n"
+        },
+        {
+          "i": 18,
+          "t": "    'handlers': {\n"
+        },
+        {
+          "i": 19,
+          "t": "        'console': {\n"
+        },
+        {
+          "i": 20,
+          "t": "            'class': 'logging.StreamHandler',\n"
+        },
+        {
+          "i": 21,
+          "t": "        },\n"
+        },
+        {
+          "i": 22,
+          "t": "    },\n"
+        },
+        {
+          "i": 23,
+          "t": "    'loggers': {\n"
+        },
+        {
+          "i": 24,
+          "t": "        'django': {\n"
+        },
+        {
+          "i": 25,
+          "t": "            'handlers': ['console'],\n"
+        },
+        {
+          "i": 26,
+          "t": "            'level': 'DEBUG',\n"
+        },
+        {
+          "i": 27,
+          "t": "        },\n"
+        },
+        {
+          "i": 28,
+          "t": "    },\n"
+        },
+        {
+          "i": 29,
+          "t": "}"
+        }
+      ]
+    },
+    {
+      "file_path": "customer/urls.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.conf.urls import url\nfrom django.contrib.auth import views as auth_views\n\nfrom .views import customer_login, customer_signup\n\nurlpatterns = [\n    url('signup', customer_signup, name='signup'),\n    url(r'^login/$', customer_login, name='login'),\n    url(r'^logout/$',\n        auth_views.logout,\n        {\n            'template_name': 'logged_out.html',\n            'next_page': 'home'\n        },\n        name='logout'\n        )\n]\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:customer/urls.py:1:0-1:32",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/urls.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 32
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:customer/urls.py:2:0-2:51",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/urls.py",
+            "start_line": 2,
+            "start_col": 0,
+            "end_line": 2,
+            "end_col": 51
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:customer/urls.py:4:0-4:50",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "customer/urls.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 4,
+            "end_col": 50
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "module_block:Assign:customer/urls.py:6:0-17:1",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "customer/urls.py",
+            "start_line": 6,
+            "start_col": 0,
+            "end_line": 17,
+            "end_col": 1
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        }
+      ],
+      "sha1": "b142f5647f133a44e8c0e75d515584e0ca1bc992",
+      "line_count": 17,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.conf.urls import url\n"
+        },
+        {
+          "i": 2,
+          "t": "from django.contrib.auth import views as auth_views\n"
+        },
+        {
+          "i": 3,
+          "t": "\n"
+        },
+        {
+          "i": 4,
+          "t": "from .views import customer_login, customer_signup\n"
+        },
+        {
+          "i": 5,
+          "t": "\n"
+        },
+        {
+          "i": 6,
+          "t": "urlpatterns = [\n"
+        },
+        {
+          "i": 7,
+          "t": "    url('signup', customer_signup, name='signup'),\n"
+        },
+        {
+          "i": 8,
+          "t": "    url(r'^login/$', customer_login, name='login'),\n"
+        },
+        {
+          "i": 9,
+          "t": "    url(r'^logout/$',\n"
+        },
+        {
+          "i": 10,
+          "t": "        auth_views.logout,\n"
+        },
+        {
+          "i": 11,
+          "t": "        {\n"
+        },
+        {
+          "i": 12,
+          "t": "            'template_name': 'logged_out.html',\n"
+        },
+        {
+          "i": 13,
+          "t": "            'next_page': 'home'\n"
+        },
+        {
+          "i": 14,
+          "t": "        },\n"
+        },
+        {
+          "i": 15,
+          "t": "        name='logout'\n"
+        },
+        {
+          "i": 16,
+          "t": "        )\n"
+        },
+        {
+          "i": 17,
+          "t": "]\n"
+        }
+      ]
+    },
+    {
+      "file_path": "migrations/0001_initial.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "# Generated by Django 3.2.11 on 2024-01-16 12:03\n\nfrom django.db import migrations, models\nimport django.db.models.deletion\n\n\nclass Migration(migrations.Migration):\n\n    initial = True\n\n    dependencies = [\n        ('auth', '0012_alter_user_first_name_max_length'),\n    ]\n\n    operations = [\n        migrations.CreateModel(\n            name='Customer',\n            fields=[\n                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='auth.user')),\n                ('stripe_customer_id', models.CharField(blank=True, max_length=200, null=True)),\n                ('stripe_subscription_id', models.CharField(blank=True, max_length=200, null=True)),\n                ('subscription_item_id', models.CharField(blank=True, max_length=200, null=True)),\n                ('email_address', models.EmailField(max_length=254, null=True)),\n                ('name', models.CharField(blank=True, max_length=50, null=True)),\n            ],\n        ),\n    ]\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:migrations/0001_initial.py:3:0-3:40",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "migrations/0001_initial.py",
+            "start_line": 3,
+            "start_col": 0,
+            "end_line": 3,
+            "end_col": 40
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:migrations/0001_initial.py:4:0-4:32",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "migrations/0001_initial.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 4,
+            "end_col": 32
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:Migration:migrations/0001_initial.py:7:0-27:5",
+          "kind": "class_def",
+          "name": "Migration",
+          "anchor": {
+            "file_path": "migrations/0001_initial.py",
+            "start_line": 7,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 5
+          },
+          "confidence": "certain",
+          "notes": null
+        }
+      ],
+      "sha1": "eb59f533e84314c94287bb4a9a8977e805c78a3f",
+      "line_count": 27,
+      "lines": [
+        {
+          "i": 1,
+          "t": "# Generated by Django 3.2.11 on 2024-01-16 12:03\n"
+        },
+        {
+          "i": 2,
+          "t": "\n"
+        },
+        {
+          "i": 3,
+          "t": "from django.db import migrations, models\n"
+        },
+        {
+          "i": 4,
+          "t": "import django.db.models.deletion\n"
+        },
+        {
+          "i": 5,
+          "t": "\n"
+        },
+        {
+          "i": 6,
+          "t": "\n"
+        },
+        {
+          "i": 7,
+          "t": "class Migration(migrations.Migration):\n"
+        },
+        {
+          "i": 8,
+          "t": "\n"
+        },
+        {
+          "i": 9,
+          "t": "    initial = True\n"
+        },
+        {
+          "i": 10,
+          "t": "\n"
+        },
+        {
+          "i": 11,
+          "t": "    dependencies = [\n"
+        },
+        {
+          "i": 12,
+          "t": "        ('auth', '0012_alter_user_first_name_max_length'),\n"
+        },
+        {
+          "i": 13,
+          "t": "    ]\n"
+        },
+        {
+          "i": 14,
+          "t": "\n"
+        },
+        {
+          "i": 15,
+          "t": "    operations = [\n"
+        },
+        {
+          "i": 16,
+          "t": "        migrations.CreateModel(\n"
+        },
+        {
+          "i": 17,
+          "t": "            name='Customer',\n"
+        },
+        {
+          "i": 18,
+          "t": "            fields=[\n"
+        },
+        {
+          "i": 19,
+          "t": "                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, serialize=False, to='auth.user')),\n"
+        },
+        {
+          "i": 20,
+          "t": "                ('stripe_customer_id', models.CharField(blank=True, max_length=200, null=True)),\n"
+        },
+        {
+          "i": 21,
+          "t": "                ('stripe_subscription_id', models.CharField(blank=True, max_length=200, null=True)),\n"
+        },
+        {
+          "i": 22,
+          "t": "                ('subscription_item_id', models.CharField(blank=True, max_length=200, null=True)),\n"
+        },
+        {
+          "i": 23,
+          "t": "                ('email_address', models.EmailField(max_length=254, null=True)),\n"
+        },
+        {
+          "i": 24,
+          "t": "                ('name', models.CharField(blank=True, max_length=50, null=True)),\n"
+        },
+        {
+          "i": 25,
+          "t": "            ],\n"
+        },
+        {
+          "i": 26,
+          "t": "        ),\n"
+        },
+        {
+          "i": 27,
+          "t": "    ]\n"
+        }
+      ]
+    },
+    {
+      "file_path": "migrations/__init__.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "",
+      "segments": [],
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "line_count": 0,
+      "lines": []
+    },
+    {
+      "file_path": "models.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.db import models\nfrom django.contrib.auth import get_user_model\n#from tagging.fields import TagField\n#from tagging.mixins import TaggedModelMixin\nfrom django.contrib.auth import get_user_model\n\n\nUser = get_user_model()\n\nclass Customer( models.Model):\n    \"\"\"\n    # FIXME Backward compatibility with Darrxscale\n    # ?? Not needed in this panel\n\n    Args:\n        TaggedModelMixin ([type]): [description]\n        models ([type]): [description]\n\n    Returns:\n        [type]: [description]\n    \"\"\"\n    user = models.OneToOneField(User,\n                                on_delete=models.CASCADE,\n                                primary_key=True\n                                )\n\n    stripe_customer_id = models.CharField(\n        max_length=200,\n        null=True,\n        blank=True\n    )\n\n    stripe_subscription_id = models.CharField(\n        max_length=200,\n        null=True,\n        blank=True\n    )\n\n    subscription_item_id = models.CharField(\n        max_length=200,\n        null=True,\n        blank=True\n    )\n\n    email_address = models.EmailField(null=True)\n    name = models.CharField(blank=True,\n                            null=True,\n                            max_length=50\n                            )\n\n    #tags = TagField()\n\n    def __str__(self):\n        return (self.user.username)\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:models.py:1:0-1:28",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 28
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:models.py:2:0-2:46",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 2,
+            "start_col": 0,
+            "end_line": 2,
+            "end_col": 46
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:models.py:5:0-5:46",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 5,
+            "start_col": 0,
+            "end_line": 5,
+            "end_col": 46
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "module_block:Assign:models.py:8:0-8:23",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 8,
+            "start_col": 0,
+            "end_line": 8,
+            "end_col": 23
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        },
+        {
+          "segment_id": "class_def:Customer:models.py:10:0-54:35",
+          "kind": "class_def",
+          "name": "Customer",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "confidence": "certain",
+          "notes": null
+        }
+      ],
+      "sha1": "db462d48345f2334811daf7e234c0664e8ccc6ab",
+      "line_count": 54,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.db import models\n"
+        },
+        {
+          "i": 2,
+          "t": "from django.contrib.auth import get_user_model\n"
+        },
+        {
+          "i": 3,
+          "t": "#from tagging.fields import TagField\n"
+        },
+        {
+          "i": 4,
+          "t": "#from tagging.mixins import TaggedModelMixin\n"
+        },
+        {
+          "i": 5,
+          "t": "from django.contrib.auth import get_user_model\n"
+        },
+        {
+          "i": 6,
+          "t": "\n"
+        },
+        {
+          "i": 7,
+          "t": "\n"
+        },
+        {
+          "i": 8,
+          "t": "User = get_user_model()\n"
+        },
+        {
+          "i": 9,
+          "t": "\n"
+        },
+        {
+          "i": 10,
+          "t": "class Customer( models.Model):\n"
+        },
+        {
+          "i": 11,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 12,
+          "t": "    # FIXME Backward compatibility with Darrxscale\n"
+        },
+        {
+          "i": 13,
+          "t": "    # ?? Not needed in this panel\n"
+        },
+        {
+          "i": 14,
+          "t": "\n"
+        },
+        {
+          "i": 15,
+          "t": "    Args:\n"
+        },
+        {
+          "i": 16,
+          "t": "        TaggedModelMixin ([type]): [description]\n"
+        },
+        {
+          "i": 17,
+          "t": "        models ([type]): [description]\n"
+        },
+        {
+          "i": 18,
+          "t": "\n"
+        },
+        {
+          "i": 19,
+          "t": "    Returns:\n"
+        },
+        {
+          "i": 20,
+          "t": "        [type]: [description]\n"
+        },
+        {
+          "i": 21,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 22,
+          "t": "    user = models.OneToOneField(User,\n"
+        },
+        {
+          "i": 23,
+          "t": "                                on_delete=models.CASCADE,\n"
+        },
+        {
+          "i": 24,
+          "t": "                                primary_key=True\n"
+        },
+        {
+          "i": 25,
+          "t": "                                )\n"
+        },
+        {
+          "i": 26,
+          "t": "\n"
+        },
+        {
+          "i": 27,
+          "t": "    stripe_customer_id = models.CharField(\n"
+        },
+        {
+          "i": 28,
+          "t": "        max_length=200,\n"
+        },
+        {
+          "i": 29,
+          "t": "        null=True,\n"
+        },
+        {
+          "i": 30,
+          "t": "        blank=True\n"
+        },
+        {
+          "i": 31,
+          "t": "    )\n"
+        },
+        {
+          "i": 32,
+          "t": "\n"
+        },
+        {
+          "i": 33,
+          "t": "    stripe_subscription_id = models.CharField(\n"
+        },
+        {
+          "i": 34,
+          "t": "        max_length=200,\n"
+        },
+        {
+          "i": 35,
+          "t": "        null=True,\n"
+        },
+        {
+          "i": 36,
+          "t": "        blank=True\n"
+        },
+        {
+          "i": 37,
+          "t": "    )\n"
+        },
+        {
+          "i": 38,
+          "t": "\n"
+        },
+        {
+          "i": 39,
+          "t": "    subscription_item_id = models.CharField(\n"
+        },
+        {
+          "i": 40,
+          "t": "        max_length=200,\n"
+        },
+        {
+          "i": 41,
+          "t": "        null=True,\n"
+        },
+        {
+          "i": 42,
+          "t": "        blank=True\n"
+        },
+        {
+          "i": 43,
+          "t": "    )\n"
+        },
+        {
+          "i": 44,
+          "t": "\n"
+        },
+        {
+          "i": 45,
+          "t": "    email_address = models.EmailField(null=True)\n"
+        },
+        {
+          "i": 46,
+          "t": "    name = models.CharField(blank=True,\n"
+        },
+        {
+          "i": 47,
+          "t": "                            null=True,\n"
+        },
+        {
+          "i": 48,
+          "t": "                            max_length=50\n"
+        },
+        {
+          "i": 49,
+          "t": "                            )\n"
+        },
+        {
+          "i": 50,
+          "t": "\n"
+        },
+        {
+          "i": 51,
+          "t": "    #tags = TagField()\n"
+        },
+        {
+          "i": 52,
+          "t": "\n"
+        },
+        {
+          "i": 53,
+          "t": "    def __str__(self):\n"
+        },
+        {
+          "i": 54,
+          "t": "        return (self.user.username)\n"
+        }
+      ]
+    },
+    {
+      "file_path": "serializers.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "# -----------------------------------------------------------------------------\n# File: backend/strategies/serializers.py\n#\n# Django REST Framework serializers to convert model instances to JSON.\n# -----------------------------------------------------------------------------\nfrom rest_framework import serializers\nfrom .models import Demographic, Domain, Tool, KPI, Strategy, StrategyKPI\n\nclass DemographicSerializer(serializers.ModelSerializer):\n    \"\"\"Serializes the Demographic model.\"\"\"\n    class Meta:\n        model = Demographic\n        fields = '__all__'\n\nclass DomainSerializer(serializers.ModelSerializer):\n    \"\"\"Serializes the Domain model.\"\"\"\n    class Meta:\n        model = Domain\n        fields = '__all__'\n\nclass ToolSerializer(serializers.ModelSerializer):\n    \"\"\"Serializes the Tool model.\"\"\"\n    class Meta:\n        model = Tool\n        fields = '__all__'\n\nclass KPISerializer(serializers.ModelSerializer):\n    \"\"\"Serializes the KPI model.\"\"\"\n    class Meta:\n        model = KPI\n        fields = '__all__'\n\nclass SuperStrategyTypeSerializer(serializers.Serializer):\n    \"\"\"Serializes the hardcoded SuperStrategyType data.\"\"\"\n    name = serializers.CharField()\n\nclass StrategyStatusSerializer(serializers.Serializer):\n    \"\"\"Serializes the hardcoded StrategyStatus data.\"\"\"\n    name = serializers.CharField()\n\nclass StrategyKPISerializer(serializers.ModelSerializer):\n    \"\"\"Serializes the StrategyKPI intermediate model.\"\"\"\n    kpi_name = serializers.CharField(source='kpi.name', read_only=True)\n    kpi_unit = serializers.CharField(source='kpi.unit', read_only=True)\n    id = serializers.IntegerField(source='kpi.id', read_only=True) # Expose KPI ID\n\n    class Meta:\n        model = StrategyKPI\n        fields = ['id', 'kpi_name', 'kpi_unit', 'target_value', 'timeline']\n        extra_kwargs = {\n            'target_value': {'required': True},\n            'timeline': {'required': True},\n        }\n\nclass StrategyDetailSerializer(serializers.ModelSerializer):\n    \"\"\"\n    Serializes the Strategy model for detail view.\n    It includes nested serializers for related objects.\n    \"\"\"\n    demographics = DemographicSerializer(many=True, read_only=True)\n    tools = ToolSerializer(many=True, read_only=True)\n    domain_name = serializers.CharField(source='domain.name', read_only=True)\n    kpis = StrategyKPISerializer(many=True, read_only=True)\n\n    class Meta:\n        model = Strategy\n        fields = [\n            'id', 'strategy_name', 'parent_strategy','super_strategy_type', 'domain', 'domain_name',\n            'target_audience', 'description', 'budget', 'status',\n            'demographics', 'tools', 'kpis'\n        ]\n\nclass StrategyListSerializer(serializers.ModelSerializer):\n    \"\"\"\n    Serializes the Strategy model for list view.\n    This serializer is more concise for the list view.\n    \"\"\"\n    domain_name = serializers.CharField(source='domain.name', read_only=True)\n\n    class Meta:\n        model = Strategy\n        fields = [\n            'id', 'strategy_name', 'parent_strategy','super_strategy_type', 'domain_name',\n            'target_audience', 'status','kpis','description','tools'\n        ]\n\nclass StrategyCreateUpdateSerializer(serializers.ModelSerializer):\n    \"\"\"\n    Serializer for creating and updating a Strategy.\n    This serializer accepts related object IDs and nested KPI data.\n    \"\"\"\n    demographicIds = serializers.PrimaryKeyRelatedField(\n        many=True,\n        source='demographics',\n        queryset=Demographic.objects.all()\n    )\n    toolIds = serializers.PrimaryKeyRelatedField(\n        many=True,\n        source='tools',\n        queryset=Tool.objects.all()\n    )\n   \n\n    class Meta:\n        model = Strategy\n        fields = [\n            'strategy_name', 'parent_strategy','super_strategy_type', 'domain', 'target_audience',\n            'description', 'budget', 'status', 'demographicIds', 'toolIds', 'kpis','id'\n        ]\n\n    def create(self, validated_data):\n        demographics_data = validated_data.pop('demographics', [])\n\n        tools_data = validated_data.pop('tools', [])\n        \n        print(validated_data)\n        strategy = Strategy.objects.create(**validated_data)\n       \n        strategy.tools.set(tools_data)\n        strategy.demographics.set(demographics_data)\n        selected_kpis_data = validated_data.pop('kpis', [])\n        for kpi_data in selected_kpis_data:\n            # Assuming kpi.id is passed from the frontend, extract the ID\n            kpi_id = kpi_data.get('id')\n            if kpi_id:\n                StrategyKPI.objects.create(\n                    strategy=strategy,\n                    kpi_id=kpi_id,\n                    target_value=kpi_data.get('target_value'),\n                    timeline=kpi_data.get('timeline')\n                )\n        return strategy\n\n    def update(self, instance, validated_data):\n        print(validated_data)\n        demographics_data = validated_data.pop('demographics', [])\n        tools_data = validated_data.pop('tools', [])\n        \n\n        # Update simple fields\n        for attr, value in validated_data.items():\n            print(attr)\n            print(value)\n            setattr(instance, attr, value)\n        instance.save()\n\n        # Update many-to-many relationships\n        print(demographics_data)\n        instance.demographics.set(demographics_data)\n        instance.tools.set(tools_data)\n\n        # Update nested StrategyKPIs\n        selected_kpis_data = validated_data.pop('kpis', [])\n        instance.selected_kpis.all().delete() # Easiest way to handle updates is to delete and recreate\n        for kpi_data in selected_kpis_data:\n            kpi_id = kpi_data.get('id')\n            if kpi_id:\n                StrategyKPI.objects.create(\n                    strategy=instance,\n                    kpi_id=kpi_id,\n                    target_value=kpi_data.get('target_value'),\n                    timeline=kpi_data.get('timeline')\n                )\n\n        return instance\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:serializers.py:6:0-6:38",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 6,
+            "start_col": 0,
+            "end_line": 6,
+            "end_col": 38
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:serializers.py:7:0-7:73",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 7,
+            "start_col": 0,
+            "end_line": 7,
+            "end_col": 73
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:DemographicSerializer:serializers.py:9:0-13:26",
+          "kind": "class_def",
+          "name": "DemographicSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 9,
+            "start_col": 0,
+            "end_line": 13,
+            "end_col": 26
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:DomainSerializer:serializers.py:15:0-19:26",
+          "kind": "class_def",
+          "name": "DomainSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 15,
+            "start_col": 0,
+            "end_line": 19,
+            "end_col": 26
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:ToolSerializer:serializers.py:21:0-25:26",
+          "kind": "class_def",
+          "name": "ToolSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 21,
+            "start_col": 0,
+            "end_line": 25,
+            "end_col": 26
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:KPISerializer:serializers.py:27:0-31:26",
+          "kind": "class_def",
+          "name": "KPISerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 31,
+            "end_col": 26
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:SuperStrategyTypeSerializer:serializers.py:33:0-35:34",
+          "kind": "class_def",
+          "name": "SuperStrategyTypeSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 35,
+            "end_col": 34
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:StrategyStatusSerializer:serializers.py:37:0-39:34",
+          "kind": "class_def",
+          "name": "StrategyStatusSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 37,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 34
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:StrategyKPISerializer:serializers.py:41:0-53:9",
+          "kind": "class_def",
+          "name": "StrategyKPISerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 41,
+            "start_col": 0,
+            "end_line": 53,
+            "end_col": 9
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:StrategyDetailSerializer:serializers.py:55:0-71:9",
+          "kind": "class_def",
+          "name": "StrategyDetailSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 55,
+            "start_col": 0,
+            "end_line": 71,
+            "end_col": 9
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:StrategyListSerializer:serializers.py:73:0-85:9",
+          "kind": "class_def",
+          "name": "StrategyListSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 73,
+            "start_col": 0,
+            "end_line": 85,
+            "end_col": 9
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "class_def:StrategyCreateUpdateSerializer:serializers.py:87:0-165:23",
+          "kind": "class_def",
+          "name": "StrategyCreateUpdateSerializer",
+          "anchor": {
+            "file_path": "serializers.py",
+            "start_line": 87,
+            "start_col": 0,
+            "end_line": 165,
+            "end_col": 23
+          },
+          "confidence": "certain",
+          "notes": null
+        }
+      ],
+      "sha1": "2f81496af47066e36a0f0113d4361353e771af39",
+      "line_count": 165,
+      "lines": [
+        {
+          "i": 1,
+          "t": "# -----------------------------------------------------------------------------\n"
+        },
+        {
+          "i": 2,
+          "t": "# File: backend/strategies/serializers.py\n"
+        },
+        {
+          "i": 3,
+          "t": "#\n"
+        },
+        {
+          "i": 4,
+          "t": "# Django REST Framework serializers to convert model instances to JSON.\n"
+        },
+        {
+          "i": 5,
+          "t": "# -----------------------------------------------------------------------------\n"
+        },
+        {
+          "i": 6,
+          "t": "from rest_framework import serializers\n"
+        },
+        {
+          "i": 7,
+          "t": "from .models import Demographic, Domain, Tool, KPI, Strategy, StrategyKPI\n"
+        },
+        {
+          "i": 8,
+          "t": "\n"
+        },
+        {
+          "i": 9,
+          "t": "class DemographicSerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 10,
+          "t": "    \"\"\"Serializes the Demographic model.\"\"\"\n"
+        },
+        {
+          "i": 11,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 12,
+          "t": "        model = Demographic\n"
+        },
+        {
+          "i": 13,
+          "t": "        fields = '__all__'\n"
+        },
+        {
+          "i": 14,
+          "t": "\n"
+        },
+        {
+          "i": 15,
+          "t": "class DomainSerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 16,
+          "t": "    \"\"\"Serializes the Domain model.\"\"\"\n"
+        },
+        {
+          "i": 17,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 18,
+          "t": "        model = Domain\n"
+        },
+        {
+          "i": 19,
+          "t": "        fields = '__all__'\n"
+        },
+        {
+          "i": 20,
+          "t": "\n"
+        },
+        {
+          "i": 21,
+          "t": "class ToolSerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 22,
+          "t": "    \"\"\"Serializes the Tool model.\"\"\"\n"
+        },
+        {
+          "i": 23,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 24,
+          "t": "        model = Tool\n"
+        },
+        {
+          "i": 25,
+          "t": "        fields = '__all__'\n"
+        },
+        {
+          "i": 26,
+          "t": "\n"
+        },
+        {
+          "i": 27,
+          "t": "class KPISerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 28,
+          "t": "    \"\"\"Serializes the KPI model.\"\"\"\n"
+        },
+        {
+          "i": 29,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 30,
+          "t": "        model = KPI\n"
+        },
+        {
+          "i": 31,
+          "t": "        fields = '__all__'\n"
+        },
+        {
+          "i": 32,
+          "t": "\n"
+        },
+        {
+          "i": 33,
+          "t": "class SuperStrategyTypeSerializer(serializers.Serializer):\n"
+        },
+        {
+          "i": 34,
+          "t": "    \"\"\"Serializes the hardcoded SuperStrategyType data.\"\"\"\n"
+        },
+        {
+          "i": 35,
+          "t": "    name = serializers.CharField()\n"
+        },
+        {
+          "i": 36,
+          "t": "\n"
+        },
+        {
+          "i": 37,
+          "t": "class StrategyStatusSerializer(serializers.Serializer):\n"
+        },
+        {
+          "i": 38,
+          "t": "    \"\"\"Serializes the hardcoded StrategyStatus data.\"\"\"\n"
+        },
+        {
+          "i": 39,
+          "t": "    name = serializers.CharField()\n"
+        },
+        {
+          "i": 40,
+          "t": "\n"
+        },
+        {
+          "i": 41,
+          "t": "class StrategyKPISerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 42,
+          "t": "    \"\"\"Serializes the StrategyKPI intermediate model.\"\"\"\n"
+        },
+        {
+          "i": 43,
+          "t": "    kpi_name = serializers.CharField(source='kpi.name', read_only=True)\n"
+        },
+        {
+          "i": 44,
+          "t": "    kpi_unit = serializers.CharField(source='kpi.unit', read_only=True)\n"
+        },
+        {
+          "i": 45,
+          "t": "    id = serializers.IntegerField(source='kpi.id', read_only=True) # Expose KPI ID\n"
+        },
+        {
+          "i": 46,
+          "t": "\n"
+        },
+        {
+          "i": 47,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 48,
+          "t": "        model = StrategyKPI\n"
+        },
+        {
+          "i": 49,
+          "t": "        fields = ['id', 'kpi_name', 'kpi_unit', 'target_value', 'timeline']\n"
+        },
+        {
+          "i": 50,
+          "t": "        extra_kwargs = {\n"
+        },
+        {
+          "i": 51,
+          "t": "            'target_value': {'required': True},\n"
+        },
+        {
+          "i": 52,
+          "t": "            'timeline': {'required': True},\n"
+        },
+        {
+          "i": 53,
+          "t": "        }\n"
+        },
+        {
+          "i": 54,
+          "t": "\n"
+        },
+        {
+          "i": 55,
+          "t": "class StrategyDetailSerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 56,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 57,
+          "t": "    Serializes the Strategy model for detail view.\n"
+        },
+        {
+          "i": 58,
+          "t": "    It includes nested serializers for related objects.\n"
+        },
+        {
+          "i": 59,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 60,
+          "t": "    demographics = DemographicSerializer(many=True, read_only=True)\n"
+        },
+        {
+          "i": 61,
+          "t": "    tools = ToolSerializer(many=True, read_only=True)\n"
+        },
+        {
+          "i": 62,
+          "t": "    domain_name = serializers.CharField(source='domain.name', read_only=True)\n"
+        },
+        {
+          "i": 63,
+          "t": "    kpis = StrategyKPISerializer(many=True, read_only=True)\n"
+        },
+        {
+          "i": 64,
+          "t": "\n"
+        },
+        {
+          "i": 65,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 66,
+          "t": "        model = Strategy\n"
+        },
+        {
+          "i": 67,
+          "t": "        fields = [\n"
+        },
+        {
+          "i": 68,
+          "t": "            'id', 'strategy_name', 'parent_strategy','super_strategy_type', 'domain', 'domain_name',\n"
+        },
+        {
+          "i": 69,
+          "t": "            'target_audience', 'description', 'budget', 'status',\n"
+        },
+        {
+          "i": 70,
+          "t": "            'demographics', 'tools', 'kpis'\n"
+        },
+        {
+          "i": 71,
+          "t": "        ]\n"
+        },
+        {
+          "i": 72,
+          "t": "\n"
+        },
+        {
+          "i": 73,
+          "t": "class StrategyListSerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 74,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 75,
+          "t": "    Serializes the Strategy model for list view.\n"
+        },
+        {
+          "i": 76,
+          "t": "    This serializer is more concise for the list view.\n"
+        },
+        {
+          "i": 77,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 78,
+          "t": "    domain_name = serializers.CharField(source='domain.name', read_only=True)\n"
+        },
+        {
+          "i": 79,
+          "t": "\n"
+        },
+        {
+          "i": 80,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 81,
+          "t": "        model = Strategy\n"
+        },
+        {
+          "i": 82,
+          "t": "        fields = [\n"
+        },
+        {
+          "i": 83,
+          "t": "            'id', 'strategy_name', 'parent_strategy','super_strategy_type', 'domain_name',\n"
+        },
+        {
+          "i": 84,
+          "t": "            'target_audience', 'status','kpis','description','tools'\n"
+        },
+        {
+          "i": 85,
+          "t": "        ]\n"
+        },
+        {
+          "i": 86,
+          "t": "\n"
+        },
+        {
+          "i": 87,
+          "t": "class StrategyCreateUpdateSerializer(serializers.ModelSerializer):\n"
+        },
+        {
+          "i": 88,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 89,
+          "t": "    Serializer for creating and updating a Strategy.\n"
+        },
+        {
+          "i": 90,
+          "t": "    This serializer accepts related object IDs and nested KPI data.\n"
+        },
+        {
+          "i": 91,
+          "t": "    \"\"\"\n"
+        },
+        {
+          "i": 92,
+          "t": "    demographicIds = serializers.PrimaryKeyRelatedField(\n"
+        },
+        {
+          "i": 93,
+          "t": "        many=True,\n"
+        },
+        {
+          "i": 94,
+          "t": "        source='demographics',\n"
+        },
+        {
+          "i": 95,
+          "t": "        queryset=Demographic.objects.all()\n"
+        },
+        {
+          "i": 96,
+          "t": "    )\n"
+        },
+        {
+          "i": 97,
+          "t": "    toolIds = serializers.PrimaryKeyRelatedField(\n"
+        },
+        {
+          "i": 98,
+          "t": "        many=True,\n"
+        },
+        {
+          "i": 99,
+          "t": "        source='tools',\n"
+        },
+        {
+          "i": 100,
+          "t": "        queryset=Tool.objects.all()\n"
+        },
+        {
+          "i": 101,
+          "t": "    )\n"
+        },
+        {
+          "i": 102,
+          "t": "   \n"
+        },
+        {
+          "i": 103,
+          "t": "\n"
+        },
+        {
+          "i": 104,
+          "t": "    class Meta:\n"
+        },
+        {
+          "i": 105,
+          "t": "        model = Strategy\n"
+        },
+        {
+          "i": 106,
+          "t": "        fields = [\n"
+        },
+        {
+          "i": 107,
+          "t": "            'strategy_name', 'parent_strategy','super_strategy_type', 'domain', 'target_audience',\n"
+        },
+        {
+          "i": 108,
+          "t": "            'description', 'budget', 'status', 'demographicIds', 'toolIds', 'kpis','id'\n"
+        },
+        {
+          "i": 109,
+          "t": "        ]\n"
+        },
+        {
+          "i": 110,
+          "t": "\n"
+        },
+        {
+          "i": 111,
+          "t": "    def create(self, validated_data):\n"
+        },
+        {
+          "i": 112,
+          "t": "        demographics_data = validated_data.pop('demographics', [])\n"
+        },
+        {
+          "i": 113,
+          "t": "\n"
+        },
+        {
+          "i": 114,
+          "t": "        tools_data = validated_data.pop('tools', [])\n"
+        },
+        {
+          "i": 115,
+          "t": "        \n"
+        },
+        {
+          "i": 116,
+          "t": "        print(validated_data)\n"
+        },
+        {
+          "i": 117,
+          "t": "        strategy = Strategy.objects.create(**validated_data)\n"
+        },
+        {
+          "i": 118,
+          "t": "       \n"
+        },
+        {
+          "i": 119,
+          "t": "        strategy.tools.set(tools_data)\n"
+        },
+        {
+          "i": 120,
+          "t": "        strategy.demographics.set(demographics_data)\n"
+        },
+        {
+          "i": 121,
+          "t": "        selected_kpis_data = validated_data.pop('kpis', [])\n"
+        },
+        {
+          "i": 122,
+          "t": "        for kpi_data in selected_kpis_data:\n"
+        },
+        {
+          "i": 123,
+          "t": "            # Assuming kpi.id is passed from the frontend, extract the ID\n"
+        },
+        {
+          "i": 124,
+          "t": "            kpi_id = kpi_data.get('id')\n"
+        },
+        {
+          "i": 125,
+          "t": "            if kpi_id:\n"
+        },
+        {
+          "i": 126,
+          "t": "                StrategyKPI.objects.create(\n"
+        },
+        {
+          "i": 127,
+          "t": "                    strategy=strategy,\n"
+        },
+        {
+          "i": 128,
+          "t": "                    kpi_id=kpi_id,\n"
+        },
+        {
+          "i": 129,
+          "t": "                    target_value=kpi_data.get('target_value'),\n"
+        },
+        {
+          "i": 130,
+          "t": "                    timeline=kpi_data.get('timeline')\n"
+        },
+        {
+          "i": 131,
+          "t": "                )\n"
+        },
+        {
+          "i": 132,
+          "t": "        return strategy\n"
+        },
+        {
+          "i": 133,
+          "t": "\n"
+        },
+        {
+          "i": 134,
+          "t": "    def update(self, instance, validated_data):\n"
+        },
+        {
+          "i": 135,
+          "t": "        print(validated_data)\n"
+        },
+        {
+          "i": 136,
+          "t": "        demographics_data = validated_data.pop('demographics', [])\n"
+        },
+        {
+          "i": 137,
+          "t": "        tools_data = validated_data.pop('tools', [])\n"
+        },
+        {
+          "i": 138,
+          "t": "        \n"
+        },
+        {
+          "i": 139,
+          "t": "\n"
+        },
+        {
+          "i": 140,
+          "t": "        # Update simple fields\n"
+        },
+        {
+          "i": 141,
+          "t": "        for attr, value in validated_data.items():\n"
+        },
+        {
+          "i": 142,
+          "t": "            print(attr)\n"
+        },
+        {
+          "i": 143,
+          "t": "            print(value)\n"
+        },
+        {
+          "i": 144,
+          "t": "            setattr(instance, attr, value)\n"
+        },
+        {
+          "i": 145,
+          "t": "        instance.save()\n"
+        },
+        {
+          "i": 146,
+          "t": "\n"
+        },
+        {
+          "i": 147,
+          "t": "        # Update many-to-many relationships\n"
+        },
+        {
+          "i": 148,
+          "t": "        print(demographics_data)\n"
+        },
+        {
+          "i": 149,
+          "t": "        instance.demographics.set(demographics_data)\n"
+        },
+        {
+          "i": 150,
+          "t": "        instance.tools.set(tools_data)\n"
+        },
+        {
+          "i": 151,
+          "t": "\n"
+        },
+        {
+          "i": 152,
+          "t": "        # Update nested StrategyKPIs\n"
+        },
+        {
+          "i": 153,
+          "t": "        selected_kpis_data = validated_data.pop('kpis', [])\n"
+        },
+        {
+          "i": 154,
+          "t": "        instance.selected_kpis.all().delete() # Easiest way to handle updates is to delete and recreate\n"
+        },
+        {
+          "i": 155,
+          "t": "        for kpi_data in selected_kpis_data:\n"
+        },
+        {
+          "i": 156,
+          "t": "            kpi_id = kpi_data.get('id')\n"
+        },
+        {
+          "i": 157,
+          "t": "            if kpi_id:\n"
+        },
+        {
+          "i": 158,
+          "t": "                StrategyKPI.objects.create(\n"
+        },
+        {
+          "i": 159,
+          "t": "                    strategy=instance,\n"
+        },
+        {
+          "i": 160,
+          "t": "                    kpi_id=kpi_id,\n"
+        },
+        {
+          "i": 161,
+          "t": "                    target_value=kpi_data.get('target_value'),\n"
+        },
+        {
+          "i": 162,
+          "t": "                    timeline=kpi_data.get('timeline')\n"
+        },
+        {
+          "i": 163,
+          "t": "                )\n"
+        },
+        {
+          "i": 164,
+          "t": "\n"
+        },
+        {
+          "i": 165,
+          "t": "        return instance\n"
+        }
+      ]
+    },
+    {
+      "file_path": "settings.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "DEFAULT_SETTINGS = {\n    'phoneProviders': {\n        'SMSPVA': {\n            'api_key': ''\n        }\n    },\n    'captchaProviders': {\n        'ANTI_CAPTCHA': {\n            'api_key': '',\n            'api_secret': ''\n        }\n    }\n}\n\nLOGGING = {\n    'version': 1,\n    'disable_existing_loggers': False,\n    'handlers': {\n        'console': {\n            'class': 'logging.StreamHandler',\n        },\n    },\n    'loggers': {\n        'django': {\n            'handlers': ['console'],\n            'level': 'DEBUG',\n        },\n    },\n}",
+      "segments": [
+        {
+          "segment_id": "module_block:Assign:settings.py:1:0-13:1",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "settings.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 13,
+            "end_col": 1
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        },
+        {
+          "segment_id": "module_block:Assign:settings.py:15:0-29:1",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "settings.py",
+            "start_line": 15,
+            "start_col": 0,
+            "end_line": 29,
+            "end_col": 1
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        }
+      ],
+      "sha1": "d2b86a3f9717e649c49d5def90a5d5486ee9e4e2",
+      "line_count": 29,
+      "lines": [
+        {
+          "i": 1,
+          "t": "DEFAULT_SETTINGS = {\n"
+        },
+        {
+          "i": 2,
+          "t": "    'phoneProviders': {\n"
+        },
+        {
+          "i": 3,
+          "t": "        'SMSPVA': {\n"
+        },
+        {
+          "i": 4,
+          "t": "            'api_key': ''\n"
+        },
+        {
+          "i": 5,
+          "t": "        }\n"
+        },
+        {
+          "i": 6,
+          "t": "    },\n"
+        },
+        {
+          "i": 7,
+          "t": "    'captchaProviders': {\n"
+        },
+        {
+          "i": 8,
+          "t": "        'ANTI_CAPTCHA': {\n"
+        },
+        {
+          "i": 9,
+          "t": "            'api_key': '',\n"
+        },
+        {
+          "i": 10,
+          "t": "            'api_secret': ''\n"
+        },
+        {
+          "i": 11,
+          "t": "        }\n"
+        },
+        {
+          "i": 12,
+          "t": "    }\n"
+        },
+        {
+          "i": 13,
+          "t": "}\n"
+        },
+        {
+          "i": 14,
+          "t": "\n"
+        },
+        {
+          "i": 15,
+          "t": "LOGGING = {\n"
+        },
+        {
+          "i": 16,
+          "t": "    'version': 1,\n"
+        },
+        {
+          "i": 17,
+          "t": "    'disable_existing_loggers': False,\n"
+        },
+        {
+          "i": 18,
+          "t": "    'handlers': {\n"
+        },
+        {
+          "i": 19,
+          "t": "        'console': {\n"
+        },
+        {
+          "i": 20,
+          "t": "            'class': 'logging.StreamHandler',\n"
+        },
+        {
+          "i": 21,
+          "t": "        },\n"
+        },
+        {
+          "i": 22,
+          "t": "    },\n"
+        },
+        {
+          "i": 23,
+          "t": "    'loggers': {\n"
+        },
+        {
+          "i": 24,
+          "t": "        'django': {\n"
+        },
+        {
+          "i": 25,
+          "t": "            'handlers': ['console'],\n"
+        },
+        {
+          "i": 26,
+          "t": "            'level': 'DEBUG',\n"
+        },
+        {
+          "i": 27,
+          "t": "        },\n"
+        },
+        {
+          "i": 28,
+          "t": "    },\n"
+        },
+        {
+          "i": 29,
+          "t": "}"
+        }
+      ]
+    },
+    {
+      "file_path": "urls.py",
+      "parse_ok": true,
+      "parse_error": null,
+      "raw_text": "from django.conf.urls import url\nfrom django.contrib.auth import views as auth_views\n\nfrom .views import customer_login, customer_signup\n\nurlpatterns = [\n    url('signup', customer_signup, name='signup'),\n    url(r'^login/$', customer_login, name='login'),\n    url(r'^logout/$',\n        auth_views.logout,\n        {\n            'template_name': 'logged_out.html',\n            'next_page': 'home'\n        },\n        name='logout'\n        )\n]\n",
+      "segments": [
+        {
+          "segment_id": "import:anon:urls.py:1:0-1:32",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "urls.py",
+            "start_line": 1,
+            "start_col": 0,
+            "end_line": 1,
+            "end_col": 32
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:urls.py:2:0-2:51",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "urls.py",
+            "start_line": 2,
+            "start_col": 0,
+            "end_line": 2,
+            "end_col": 51
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "import:anon:urls.py:4:0-4:50",
+          "kind": "import",
+          "name": null,
+          "anchor": {
+            "file_path": "urls.py",
+            "start_line": 4,
+            "start_col": 0,
+            "end_line": 4,
+            "end_col": 50
+          },
+          "confidence": "certain",
+          "notes": null
+        },
+        {
+          "segment_id": "module_block:Assign:urls.py:6:0-17:1",
+          "kind": "module_block",
+          "name": "Assign",
+          "anchor": {
+            "file_path": "urls.py",
+            "start_line": 6,
+            "start_col": 0,
+            "end_line": 17,
+            "end_col": 1
+          },
+          "confidence": "probable",
+          "notes": "Top-level executable statement: Assign"
+        }
+      ],
+      "sha1": "b142f5647f133a44e8c0e75d515584e0ca1bc992",
+      "line_count": 17,
+      "lines": [
+        {
+          "i": 1,
+          "t": "from django.conf.urls import url\n"
+        },
+        {
+          "i": 2,
+          "t": "from django.contrib.auth import views as auth_views\n"
+        },
+        {
+          "i": 3,
+          "t": "\n"
+        },
+        {
+          "i": 4,
+          "t": "from .views import customer_login, customer_signup\n"
+        },
+        {
+          "i": 5,
+          "t": "\n"
+        },
+        {
+          "i": 6,
+          "t": "urlpatterns = [\n"
+        },
+        {
+          "i": 7,
+          "t": "    url('signup', customer_signup, name='signup'),\n"
+        },
+        {
+          "i": 8,
+          "t": "    url(r'^login/$', customer_login, name='login'),\n"
+        },
+        {
+          "i": 9,
+          "t": "    url(r'^logout/$',\n"
+        },
+        {
+          "i": 10,
+          "t": "        auth_views.logout,\n"
+        },
+        {
+          "i": 11,
+          "t": "        {\n"
+        },
+        {
+          "i": 12,
+          "t": "            'template_name': 'logged_out.html',\n"
+        },
+        {
+          "i": 13,
+          "t": "            'next_page': 'home'\n"
+        },
+        {
+          "i": 14,
+          "t": "        },\n"
+        },
+        {
+          "i": 15,
+          "t": "        name='logout'\n"
+        },
+        {
+          "i": 16,
+          "t": "        )\n"
+        },
+        {
+          "i": 17,
+          "t": "]\n"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "file_path values are relative to workspace/src for stable anchors and patching.",
+    "segments logic unchanged from v1 (imports/classes/funcs/module_block + fallback unresolved).",
+    "All file IO is routed through core.fs.WorkspaceFS."
+  ]
+}

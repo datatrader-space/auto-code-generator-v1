@@ -1,0 +1,148 @@
+{
+  "version": "crs-artifact-type-spec-v1",
+  "generated_at": "2025-12-29T17:20:42Z",
+  "artifact_types": [
+    {
+      "type": "django_model",
+      "purpose": "Represents a Django model class.",
+      "key_fields": [
+        "artifact_id",
+        "name",
+        "file_path",
+        "anchor",
+        "meta.bases",
+        "meta.fields"
+      ],
+      "examples": [
+        {
+          "name": "User",
+          "meta_example": {
+            "bases": [
+              "models.Model"
+            ],
+            "fields": [
+              {
+                "name": "email",
+                "type": "models.EmailField"
+              }
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "id": "inv:model_has_name",
+          "statement": "Model artifacts must have a stable class name.",
+          "severity": "high"
+        }
+      ]
+    },
+    {
+      "type": "model_field",
+      "purpose": "Represents a model field declared on a Django model.",
+      "key_fields": [
+        "name",
+        "meta.model",
+        "meta.field_name",
+        "meta.field_type",
+        "meta.validators",
+        "meta.kwargs"
+      ],
+      "examples": [
+        {
+          "name": "User.email",
+          "meta_example": {
+            "model": "User",
+            "field_name": "email",
+            "field_type": "models.EmailField"
+          }
+        }
+      ]
+    },
+    {
+      "type": "drf_serializer",
+      "purpose": "Represents a DRF Serializer / ModelSerializer class.",
+      "key_fields": [
+        "name",
+        "meta.meta_model",
+        "meta.meta_fields",
+        "meta.declared_fields",
+        "meta.validators",
+        "meta.overrides"
+      ]
+    },
+    {
+      "type": "serializer_field",
+      "purpose": "Represents a declared serializer field.",
+      "key_fields": [
+        "name",
+        "meta.serializer",
+        "meta.field_name",
+        "meta.call",
+        "meta.kwargs",
+        "meta.validators"
+      ]
+    },
+    {
+      "type": "serializer_validator",
+      "purpose": "Represents validate()/validate_<field> methods inside serializer.",
+      "key_fields": [
+        "name",
+        "meta.serializer",
+        "meta.method"
+      ]
+    },
+    {
+      "type": "drf_viewset",
+      "purpose": "Represents a DRF viewset class.",
+      "key_fields": [
+        "name",
+        "meta.serializer_class",
+        "meta.queryset_model",
+        "meta.permission_classes",
+        "meta.methods"
+      ]
+    },
+    {
+      "type": "drf_apiview",
+      "purpose": "Represents DRF APIView/generic view class.",
+      "key_fields": [
+        "name",
+        "meta.serializer_class",
+        "meta.queryset_model",
+        "meta.methods"
+      ]
+    },
+    {
+      "type": "url_pattern",
+      "purpose": "Represents a Django URL pattern entry (path/re_path/include).",
+      "key_fields": [
+        "name",
+        "meta.fn",
+        "meta.route",
+        "meta.target",
+        "meta.name"
+      ]
+    },
+    {
+      "type": "router_register",
+      "purpose": "Represents router.register(prefix, viewset, basename=...).",
+      "key_fields": [
+        "name",
+        "meta.router",
+        "meta.prefix",
+        "meta.viewset",
+        "meta.basename"
+      ]
+    },
+    {
+      "type": "parse_error",
+      "purpose": "Represents a file parse error or missing file referenced by blueprint.",
+      "key_fields": [
+        "name",
+        "meta.error",
+        "meta.abs_path"
+      ]
+    }
+  ]
+}

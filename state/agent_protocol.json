@@ -1,0 +1,181 @@
+
+{
+  "version": "crs-agent-protocol-v1",
+  "generated_at": "2025-12-26T00:00:00Z",
+  "purpose": "Defines how an AI/agent interacts with CRS end-to-end: query -> plan -> patch -> run pipeline -> impact -> verify -> document updates.",
+  "design_principles": [
+    "AI-first: specs are operational truth for machines, not prose for humans.",
+    "Deterministic IO: everything material is written to state/ or runs/<run_id>/ for replay/debug.",
+    "Minimal coupling: CRS engines expose small stable APIs; agent logic lives above them.",
+    "Safe-by-default: patches are applied from explicit patch payloads; verification gates completion.",
+    "Traceable: every agent action must leave a durable artifact (request, patch, run logs, verification report)."
+  ],
+  "interfaces": {
+    "workspace_fs": {
+      "class": "core.fs.WorkspaceFS",
+      "role": "Single source of truth for reading/writing all workspace state, runs, and tools paths."
+    },
+    "pipeline_state": {
+      "class": "core.pipeline_state.PipelineState",
+      "role": "Decides which steps must run; stores meta_state and patch dirty marker; hashes outputs."
+    },
+    "patch_engine": {
+      "module": "core.patch_engine",
+      "entrypoints": [
+        "apply_patch_from_file(fs, state, patch_file_path, run_id=None)"
+      ],
+      "role": "Applies patch payload (file edits) and records patch to state/patches/<patch_id>.json and meta_state.patch.dirty=True."
+    },
+    "impact_engine": {
+      "class": "core.impact_engine.ImpactEngine",
+      "entrypoints": [
+        "build_workspace_impact(run_id=None, patch_payload=None)"
+      ],
+      "role": "Computes impacted artifacts/relationships from patch and writes state/impact/impact_<patch_id>.json."
+    },
+    "query_runner": {
+      "class": "core.query_runner.CRSQueryRunner",
+      "role": "Usable high-level query surface for agent + humans; wraps CRSQueryAPI and adds traces & impact helpers."
+    },
+    "spec_store": {
+      "class": "core.spec_store.SpecStore",
+      "role": "Stores AI-first specs and playbooks. Agent should update specs after changes."
+    }
+  },
+  "agent_request": {
+    "file_convention": "inputs/agent_request.json OR path provided via env CRS_AGENT_REQUEST_IN",
+    "schema": {
+      "request_id": "string (stable id for dedupe/replay)",
+      "goal": "string (what user wants)",
+      "context": {
+        "hints": "list[string] optional",
+        "constraints": "list[string] optional",
+        "files_of_interest": "list[string] optional",
+        "routes_of_interest": "list[string] optional",
+        "models_of_interest": "list[string] optional"
+      },
+      "plan": {
+        "queries": "list[query_operation]",
+        "patches": "list[patch_ref or patch_payload]",
+        "verification_suite": "string optional (suite id)"
+      }
+    }
+  },
+  "query_operation": {
+    "op": "string (e.g. search, find_model, trace_route_to_model, trace_model_to_routes, neighbors, find_routes_for_model)",
+    "args": "object"
+  },
+  "execution_flow": [
+    {
+      "step": "init_run",
+      "actions": [
+        "fs.new_run_id(prefix='pipeline')",
+        "fs.ensure_run_dir(run_id)",
+        "write runs/<run_id>/run.json header"
+      ],
+      "outputs": [
+        "runs/<run_id>/run.json"
+      ]
+    },
+    {
+      "step": "ingest_request",
+      "trigger": "CRS_AGENT_REQUEST_IN env var OR inputs/agent_request.json exists",
+      "actions": [
+        "copy request into runs/<run_id>/ai/request.json",
+        "optional: SpecStore.upsert_doc(kind='requests', spec_id=request_id, payload=request)"
+      ],
+      "outputs": [
+        "runs/<run_id>/ai/request.json",
+        "state/specs/docs/requests/<request_id>.json (optional)"
+      ]
+    },
+    {
+      "step": "query_and_plan",
+      "actions": [
+        "Use CRSQueryRunner to gather relevant graph context",
+        "Produce a patch payload (or select a patch file) and a verification suite id",
+        "Write plan into runs/<run_id>/ai/plan.json"
+      ],
+      "outputs": [
+        "runs/<run_id>/ai/plan.json"
+      ]
+    },
+    {
+      "step": "apply_patch",
+      "trigger": "CRS_PATCH_IN env var OR plan contains patch",
+      "actions": [
+        "apply_patch_from_file(...) or apply_patch_from_payload(...)",
+        "mark patch dirty",
+        "persist patch record to state/patches/<patch_id>.json"
+      ],
+      "outputs": [
+        "state/patches/<patch_id>.json",
+        "meta_state.patch (dirty=true)",
+        "runs/<run_id>/patch.json (optional)"
+      ]
+    },
+    {
+      "step": "pipeline",
+      "actions": [
+        "PipelineState.decide()",
+        "Run blueprints/artifacts/relationships as needed",
+        "Write step logs to runs/<run_id>/*.log and payload snapshots"
+      ],
+      "outputs": [
+        "state/blueprints.json",
+        "state/artifacts.json",
+        "state/relationships.json",
+        "runs/<run_id>/*.log",
+        "runs/<run_id>/*_payload.json"
+      ]
+    },
+    {
+      "step": "impact",
+      "actions": [
+        "ImpactEngine.build_workspace_impact(run_id=run_id)"
+      ],
+      "outputs": [
+        "state/impact/impact_<patch_id>.json",
+        "runs/<run_id>/impact.json"
+      ],
+      "notes": [
+        "Impact is diagnostic; should not fail pipeline."
+      ]
+    },
+    {
+      "step": "verify",
+      "actions": [
+        "Load verification suite by id (state/specs/verification_suite.json)",
+        "Execute checks (graph-based, file-based, invariants)",
+        "Write runs/<run_id>/verification.json"
+      ],
+      "outputs": [
+        "runs/<run_id>/verification.json"
+      ]
+    },
+    {
+      "step": "finalize",
+      "actions": [
+        "If verification passes: clear patch dirty",
+        "Update spec docs (playbooks/norms/constraints) if needed",
+        "Write run.json status ok/error"
+      ],
+      "outputs": [
+        "meta_state.patch (dirty=false)",
+        "runs/<run_id>/run.json"
+      ]
+    }
+  ],
+  "outputs_contract": {
+    "must_write": [
+      "runs/<run_id>/run.json",
+      "runs/<run_id>/decision.json",
+      "runs/<run_id>/src_fingerprint.json"
+    ],
+    "recommended_write": [
+      "runs/<run_id>/ai/request.json",
+      "runs/<run_id>/ai/plan.json",
+      "runs/<run_id>/verification.json"
+    ]
+  }
+}

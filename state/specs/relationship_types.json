@@ -1,0 +1,93 @@
+{
+  "version": "crs-relationship-type-spec-v1",
+  "generated_at": "2025-12-29T17:20:42Z",
+  "relationship_types": [
+    {
+      "type": "declares",
+      "purpose": "Owner declares a child component (model->field, serializer->field/validator).",
+      "from_types": [
+        "django_model",
+        "drf_serializer"
+      ],
+      "to_types": [
+        "model_field",
+        "serializer_field",
+        "serializer_validator"
+      ],
+      "confidence_rules": [
+        "certain when derived from explicit ownership meta keys"
+      ],
+      "examples": [
+        {
+          "from": "django_model:User",
+          "to": "model_field:User.email"
+        }
+      ]
+    },
+    {
+      "type": "serializes_model",
+      "purpose": "Serializer Meta.model points to model.",
+      "from_types": [
+        "drf_serializer"
+      ],
+      "to_types": [
+        "django_model",
+        "unresolved_ref"
+      ],
+      "examples": [
+        {
+          "from": "UserSerializer",
+          "to": "User"
+        }
+      ]
+    },
+    {
+      "type": "view_uses_serializer",
+      "purpose": "View references serializer_class or get_serializer_class return targets.",
+      "from_types": [
+        "drf_viewset",
+        "drf_apiview"
+      ],
+      "to_types": [
+        "drf_serializer",
+        "unresolved_ref"
+      ]
+    },
+    {
+      "type": "routes_to",
+      "purpose": "URL pattern targets a view callable/class (best-effort).",
+      "from_types": [
+        "url_pattern"
+      ],
+      "to_types": [
+        "drf_viewset",
+        "drf_apiview",
+        "unresolved_ref"
+      ]
+    },
+    {
+      "type": "registers",
+      "purpose": "router.register(...) registers a viewset.",
+      "from_types": [
+        "router_register"
+      ],
+      "to_types": [
+        "drf_viewset",
+        "unresolved_ref"
+      ]
+    },
+    {
+      "type": "mentions_field_string",
+      "purpose": "Heuristic string mention of a model field token inside artifact meta.",
+      "from_types": [
+        "*"
+      ],
+      "to_types": [
+        "model_field"
+      ],
+      "notes": [
+        "Heuristic; can produce false positives; used for hints not truth."
+      ]
+    }
+  ]
+}

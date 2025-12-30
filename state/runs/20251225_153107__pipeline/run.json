@@ -1,0 +1,40 @@
+{
+  "run_id": "20251225_153107__pipeline",
+  "workspace_root": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace",
+  "tools_dir": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\tools",
+  "started_at_utc": "2025-12-25T15:31:07Z",
+  "status": "ok",
+  "steps": {
+    "blueprints": {
+      "ok": true,
+      "duration_seconds": 0.03171730041503906,
+      "stdout_len": 0,
+      "stderr_len": 0,
+      "extra": {
+        "file_count": 16,
+        "output": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\state\\blueprints.json"
+      }
+    },
+    "artifacts": {
+      "ok": true,
+      "duration_seconds": 0.031726837158203125,
+      "stdout_len": 0,
+      "stderr_len": 0,
+      "extra": {
+        "artifacts": 22,
+        "output": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\state\\artifacts.json"
+      }
+    },
+    "relationships": {
+      "ok": true,
+      "duration_seconds": 0.012072324752807617,
+      "stdout_len": 0,
+      "stderr_len": 0,
+      "extra": {
+        "relationships": 38,
+        "output": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\state\\relationships.json"
+      }
+    }
+  },
+  "ended_at_utc": "2025-12-25T15:31:07Z"
+}

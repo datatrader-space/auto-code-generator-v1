@@ -1,0 +1,21 @@
+{
+  "version": "crs-meta-state-v1",
+  "steps": {
+    "blueprints": {
+      "done_at": "2025-12-25T15:54:47Z",
+      "src_fingerprint": "16c28da8bff902c4374dd254366e134c19247c79",
+      "output_sha1": "cbd637412d633e2f03839285ce295269244b7f1e"
+    },
+    "artifacts": {
+      "done_at": "2025-12-25T15:54:47Z",
+      "src_fingerprint": "16c28da8bff902c4374dd254366e134c19247c79",
+      "output_sha1": "6ddea56bbaa368f5609384592deda046108fa93d"
+    },
+    "relationships": {
+      "done_at": "2025-12-25T15:54:47Z",
+      "src_fingerprint": "16c28da8bff902c4374dd254366e134c19247c79",
+      "output_sha1": "cf606c18e1b17400ff363e39334c5e1ee8502c29"
+    }
+  },
+  "last_src_fingerprint": "16c28da8bff902c4374dd254366e134c19247c79"
+}

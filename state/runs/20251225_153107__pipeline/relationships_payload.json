@@ -1,0 +1,1218 @@
+{
+  "version": "crs-relationships-v1",
+  "generated_at": "2025-12-25T15:31:07.512743+00:00",
+  "summary": {
+    "artifacts": 22,
+    "relationships": 38,
+    "by_type": {
+      "declares": 12,
+      "registers": 2,
+      "mentions_field_string": 24
+    }
+  },
+  "relationships": [
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.user:customer/models.py:22-22",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:customer/models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_customer_id:customer/models.py:27-27",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:customer/models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_subscription_id:customer/models.py:33-33",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:customer/models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.subscription_item_id:customer/models.py:39-39",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:customer/models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.email_address:customer/models.py:45-45",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:customer/models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.name:customer/models.py:46-46",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:customer/models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.user:models.py:22-22",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.email_address:models.py:45-45",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:declares:django_model:Customer:models.py:10-54->model_field:Customer.name:models.py:46-46",
+      "type": "declares",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "field declared in model class body"
+        }
+      ],
+      "meta": {
+        "owner_kind": "model"
+      }
+    },
+    {
+      "rel_id": "rel:registers:router_register:admin.site.register:admin.py:20-20->CustomerAdmin",
+      "type": "registers",
+      "from": {
+        "artifact_id": "router_register:admin.site.register:admin.py:20-20",
+        "type": "router_register",
+        "name": "admin.site.register"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "CustomerAdmin"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "admin.py",
+          "anchor": {
+            "file_path": "admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "router.register(..., CustomerAdmin) (unresolved)"
+        }
+      ],
+      "meta": {
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:registers:router_register:admin.site.register:customer/admin.py:20-20->CustomerAdmin",
+      "type": "registers",
+      "from": {
+        "artifact_id": "router_register:admin.site.register:customer/admin.py:20-20",
+        "type": "router_register",
+        "name": "admin.site.register"
+      },
+      "to": {
+        "artifact_id": null,
+        "type": "unresolved_ref",
+        "name": "CustomerAdmin"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/admin.py",
+          "anchor": {
+            "file_path": "customer/admin.py",
+            "start_line": 20,
+            "start_col": 0,
+            "end_line": 20,
+            "end_col": 44
+          },
+          "note": "router.register(..., CustomerAdmin) (unresolved)"
+        }
+      ],
+      "meta": {
+        "unresolved": true
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:customer/models.py:10-54->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:customer/models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.user:customer/models.py:22-22->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.user:customer/models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_customer_id:customer/models.py:27-27->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:customer/models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_subscription_id:customer/models.py:33-33->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:customer/models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.subscription_item_id:customer/models.py:39-39->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.subscription_item_id:customer/models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.email_address:customer/models.py:45-45->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.email_address:customer/models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.name:customer/models.py:46-46->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.name:customer/models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "customer/models.py",
+          "anchor": {
+            "file_path": "customer/models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:django_model:Customer:models.py:10-54->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "django_model:Customer:models.py:10-54",
+        "type": "django_model",
+        "name": "Customer"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 10,
+            "start_col": 0,
+            "end_line": 54,
+            "end_col": 35
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.user:models.py:22-22->model_field:Customer.user:models.py:22-22",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.user:models.py:22-22",
+        "type": "model_field",
+        "name": "Customer.user"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 22,
+            "start_col": 0,
+            "end_line": 22,
+            "end_col": 0
+          },
+          "note": "meta contains 'user'"
+        }
+      ],
+      "meta": {
+        "matched_token": "user",
+        "field": "Customer.user"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_customer_id:models.py:27-27->model_field:Customer.stripe_customer_id:models.py:27-27",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_customer_id:models.py:27-27",
+        "type": "model_field",
+        "name": "Customer.stripe_customer_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 27,
+            "start_col": 0,
+            "end_line": 27,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_customer_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_customer_id",
+        "field": "Customer.stripe_customer_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.stripe_subscription_id:models.py:33-33->model_field:Customer.stripe_subscription_id:models.py:33-33",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.stripe_subscription_id:models.py:33-33",
+        "type": "model_field",
+        "name": "Customer.stripe_subscription_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 33,
+            "start_col": 0,
+            "end_line": 33,
+            "end_col": 0
+          },
+          "note": "meta contains 'stripe_subscription_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "stripe_subscription_id",
+        "field": "Customer.stripe_subscription_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.subscription_item_id:models.py:39-39->model_field:Customer.subscription_item_id:models.py:39-39",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.subscription_item_id:models.py:39-39",
+        "type": "model_field",
+        "name": "Customer.subscription_item_id"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 39,
+            "start_col": 0,
+            "end_line": 39,
+            "end_col": 0
+          },
+          "note": "meta contains 'subscription_item_id'"
+        }
+      ],
+      "meta": {
+        "matched_token": "subscription_item_id",
+        "field": "Customer.subscription_item_id"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.email_address:models.py:45-45->model_field:Customer.email_address:models.py:45-45",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.email_address:models.py:45-45",
+        "type": "model_field",
+        "name": "Customer.email_address"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 45,
+            "start_col": 0,
+            "end_line": 45,
+            "end_col": 0
+          },
+          "note": "meta contains 'email_address'"
+        }
+      ],
+      "meta": {
+        "matched_token": "email_address",
+        "field": "Customer.email_address"
+      }
+    },
+    {
+      "rel_id": "rel:mentions_field_string:model_field:Customer.name:models.py:46-46->model_field:Customer.name:models.py:46-46",
+      "type": "mentions_field_string",
+      "from": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "to": {
+        "artifact_id": "model_field:Customer.name:models.py:46-46",
+        "type": "model_field",
+        "name": "Customer.name"
+      },
+      "confidence": "heuristic",
+      "evidence": [
+        {
+          "file_path": "models.py",
+          "anchor": {
+            "file_path": "models.py",
+            "start_line": 46,
+            "start_col": 0,
+            "end_line": 46,
+            "end_col": 0
+          },
+          "note": "meta contains 'name'"
+        }
+      ],
+      "meta": {
+        "matched_token": "name",
+        "field": "Customer.name"
+      }
+    }
+  ],
+  "source_artifacts": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\state\\artifacts.json"
+}

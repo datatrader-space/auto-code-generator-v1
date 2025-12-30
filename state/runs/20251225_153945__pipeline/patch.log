@@ -1,0 +1,14 @@
+{
+  "patch_id": "patch_001",
+  "note": "Rename function and update call sites",
+  "applied": 0,
+  "errors": [
+    {
+      "index": 0,
+      "op": "replace_text",
+      "path": "src/myapp/foo.py",
+      "error": "FileNotFoundError: replace_text target missing: D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\src\\myapp\\foo.py"
+    }
+  ],
+  "patch_record_path": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\state\\patches\\patch_001.json"
+}

@@ -1,0 +1,16 @@
+{
+  "version": "crs-spec-store-v1",
+  "generated_at": "2025-12-29T17:20:42Z",
+  "specs_dir": "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs",
+  "created": [
+    "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/index.json",
+    "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/artifact_types.json",
+    "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/relationship_types.json",
+    "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/attributes.json",
+    "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/pipeline_steps.json",
+    "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/invariants.json",
+    "D:/darrxscale/central-v1/strategy/crs_workspace/crs_workspace/state/specs/playbooks.json"
+  ],
+  "updated": [],
+  "existing": []
+}

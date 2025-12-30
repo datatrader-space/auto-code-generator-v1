@@ -1,0 +1,56 @@
+{
+  "version": "crs-attribute-spec-v1",
+  "generated_at": "2025-12-29T17:20:42Z",
+  "attributes": [
+    {
+      "attr_id": "artifact.anchor",
+      "owner_kind": "artifact",
+      "type": "object",
+      "meaning": "Source range anchor for artifact in file.",
+      "examples": [
+        {
+          "start_line": 10,
+          "end_line": 42
+        }
+      ],
+      "constraints": [
+        {
+          "id": "inv:anchor_has_lines",
+          "statement": "anchor.start_line/end_line should be ints >= 1",
+          "severity": "medium"
+        }
+      ]
+    },
+    {
+      "attr_id": "artifact.meta.serializer_class",
+      "owner_kind": "artifact",
+      "artifact_type": "drf_viewset",
+      "type": "string|null",
+      "meaning": "Serializer class referenced by view/viewset.",
+      "used_by": [
+        {
+          "engine": "relationship_builder",
+          "relationship": "view_uses_serializer",
+          "rule": "resolve serializer by normalized name"
+        }
+      ],
+      "fallbacks": [
+        "unresolved_ref if serializer not found"
+      ]
+    },
+    {
+      "attr_id": "artifact.meta.meta_model",
+      "owner_kind": "artifact",
+      "artifact_type": "drf_serializer",
+      "type": "string|null",
+      "meaning": "Model referenced by Serializer.Meta.model.",
+      "used_by": [
+        {
+          "engine": "relationship_builder",
+          "relationship": "serializes_model",
+          "rule": "resolve model by normalized name"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "version": "crs-patch-v1",
+  "patch_id": "patch_001",
+  "note": "Rename function and update call sites",
+  "applied_at_utc": "2025-12-25T15:39:47Z",
+  "summary": {
+    "total_changes": 1,
+    "applied": 0,
+    "errors": 1
+  },
+  "applied": [],
+  "errors": [
+    {
+      "index": 0,
+      "op": "replace_text",
+      "path": "src/myapp/foo.py",
+      "error": "FileNotFoundError: replace_text target missing: D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\src\\myapp\\foo.py"
+    }
+  ],
+  "input": {
+    "patch_id": "patch_001",
+    "note": "Rename function and update call sites",
+    "changes": [
+      {
+        "op": "replace_text",
+        "path": "src/myapp/foo.py",
+        "find": "old_name(",
+        "replace": "new_name(",
+        "count": 0
+      }
+    ]
+  }
+}
