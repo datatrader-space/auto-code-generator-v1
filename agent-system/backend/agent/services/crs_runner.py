@@ -47,6 +47,25 @@ def _workspace_base_dirs() -> Dict[str, Path]:
 
 
 def _build_crs_workspace(repository: Repository) -> CRSWorkspacePaths:
+    # Validate clone_path exists
+    if not repository.clone_path:
+        raise RuntimeError(
+            f"Repository '{repository.name}' has no clone_path set. "
+            f"Clone the repository first using POST /clone/ endpoint."
+        )
+
+    clone_path = Path(repository.clone_path)
+    if not clone_path.exists():
+        raise RuntimeError(
+            f"Repository clone path does not exist: {clone_path}. "
+            f"The repository may have been deleted or moved."
+        )
+
+    if not clone_path.is_dir():
+        raise RuntimeError(
+            f"Repository clone path is not a directory: {clone_path}"
+        )
+
     base_dirs = _workspace_base_dirs()
     crs_workspace_root = (
         base_dirs["crs_root"]
@@ -69,7 +88,7 @@ def _build_crs_workspace(repository: Repository) -> CRSWorkspacePaths:
     config = {
         "version": "crs-workspace-config-v1",
         "paths": {
-            "src_dir": repository.clone_path,
+            "src_dir": str(clone_path.absolute()),  # Use absolute path
             "state_dir": str(state_dir),
             "inputs_dir": str(inputs_dir),
             "tools_dir": str(base_dirs["tools_dir"]),
@@ -200,7 +219,10 @@ def run_crs_step(
         Step execution result
     """
     if not repository.clone_path or not Path(repository.clone_path).is_dir():
-        raise RuntimeError("Repository clone not found")
+        raise RuntimeError(
+            f"Repository not cloned. Clone path: '{repository.clone_path}'. "
+            f"Please clone the repository first using POST /clone/ endpoint."
+        )
 
     paths = _build_crs_workspace(repository)
 

@@ -405,6 +405,93 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
         return Response(status_info)
 
+    @decorators.action(detail=True, methods=['post'], url_path='ingest')
+    def ingest_repository(self, request, pk=None, system_pk=None):
+        """
+        Complete repository ingestion: Clone + CRS setup
+
+        This endpoint combines cloning and initial CRS workspace setup in one call.
+        Use this when adding a new repository to ensure it's ready for CRS analysis.
+
+        POST /api/systems/{system_id}/repositories/{repo_id}/ingest/
+        Body: {"force_reclone": false}
+        """
+        repository = self.get_object()
+
+        try:
+            force_reclone = request.data.get('force_reclone', False)
+
+            # Step 1: Ensure repository is cloned
+            if not request.user.github_token:
+                return Response({
+                    'error': 'GitHub token not configured',
+                    'message': 'Please connect your GitHub account first'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            clone_exists = repository.clone_path and os.path.isdir(repository.clone_path)
+
+            if force_reclone or not clone_exists:
+                repository.status = 'cloning'
+                repository.save(update_fields=["status"])
+
+                clone_path = self._ensure_repo_clone(repository, request.user)
+
+                # Count Python files
+                py_files = []
+                for dirpath, _, filenames in os.walk(clone_path):
+                    for fn in filenames:
+                        if fn.endswith(".py"):
+                            py_files.append(os.path.join(dirpath, fn))
+
+                if len(py_files) == 0:
+                    return Response({
+                        'error': 'No Python files found in repository',
+                        'message': 'CRS requires Python files to analyze',
+                        'clone_path': clone_path
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                ingestion_result = {
+                    'cloned': True,
+                    'clone_path': clone_path,
+                    'python_files_count': len(py_files),
+                    'commit_sha': repository.last_commit_sha
+                }
+            else:
+                clone_path = repository.clone_path
+                ingestion_result = {
+                    'cloned': False,
+                    'clone_path': clone_path,
+                    'message': 'Repository already cloned'
+                }
+
+            # Step 2: Build CRS workspace (creates config.json, validates paths)
+            from agent.services.crs_runner import _build_crs_workspace
+            crs_workspace = _build_crs_workspace(repository)
+
+            repository.status = 'ready'
+            repository.crs_status = 'pending'
+            repository.save(update_fields=["status", "crs_status"])
+
+            return Response({
+                'message': 'Repository ingested successfully',
+                'status': repository.status,
+                'crs_status': repository.crs_status,
+                'ingestion': ingestion_result,
+                'crs_workspace_path': str(crs_workspace.workspace_root),
+                'config_path': str(crs_workspace.config_path),
+                'ready_for_pipeline': True
+            })
+
+        except Exception as e:
+            logger.error(f"Ingestion failed: {e}", exc_info=True)
+            repository.status = 'error'
+            repository.error_message = str(e)
+            repository.save(update_fields=["status", "error_message"])
+            return Response(
+                {'error': str(e), 'details': 'Failed to ingest repository'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @decorators.action(detail=True, methods=['post'], url_path='crs/run')
     def run_crs(self, request, pk=None, system_pk=None):
         """
