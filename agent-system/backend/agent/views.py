@@ -30,7 +30,11 @@ from agent.services.repo_analyzer import RepositoryAnalyzer
 from agent.services.question_generator import QuestionGenerator
 from agent.services.knowledge_builder import KnowledgeBuilder
 from agent.services.github_client import GitHubClient
-from agent.services.crs_runner import run_crs_pipeline, load_crs_payload, get_crs_summary
+from agent.services.crs_runner import (
+    run_crs_pipeline, load_crs_payload, get_crs_summary,
+    run_crs_step, get_crs_step_status
+)
+from core.events import get_broadcaster
 from llm.router import get_llm_router
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -525,8 +529,127 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         repository = self.get_object()
         payload = load_crs_payload(repository, "relationships")
         if not payload:
-            return Response({'error': 'Relationships not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Artifacts not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(payload)
+
+    @decorators.action(detail=True, methods=['post'], url_path='crs/steps/(?P<step_name>[^/.]+)/run')
+    def run_crs_step_endpoint(self, request, pk=None, system_pk=None, step_name=None):
+        """
+        Run individual CRS pipeline step with real-time events
+
+        POST /api/systems/{system_id}/repositories/{repo_id}/crs/steps/{step_name}/run/
+        Body: {"force": false}
+
+        Steps: blueprints, artifacts, relationships, impact, verification_{suite_id}
+        """
+        repository = self.get_object()
+
+        try:
+            force = request.data.get('force', False)
+
+            # Validate repository is ready
+            if not repository.clone_path or not os.path.isdir(repository.clone_path):
+                return Response({
+                    'error': 'Repository not cloned',
+                    'message': 'Please clone the repository first'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Run the step
+            result = run_crs_step(repository, step_name, force=force)
+
+            return Response({
+                'message': f'Step {step_name} completed',
+                'result': result
+            })
+
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f"Step {step_name} failed: {e}", exc_info=True)
+            return Response(
+                {'error': str(e), 'type': type(e).__name__},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @decorators.action(detail=True, methods=['get'], url_path='crs/steps/status')
+    def crs_steps_status(self, request, pk=None, system_pk=None):
+        """
+        Get status of all CRS pipeline steps
+
+        GET /api/systems/{system_id}/repositories/{repo_id}/crs/steps/status/
+
+        Returns which steps need to run and current state
+        """
+        repository = self.get_object()
+
+        try:
+            status_info = get_crs_step_status(repository)
+            return Response(status_info)
+        except Exception as e:
+            logger.error(f"Failed to get step status: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @decorators.action(detail=True, methods=['get'], url_path='crs/events')
+    def crs_events_stream(self, request, pk=None, system_pk=None):
+        """
+        Server-Sent Events stream for CRS pipeline events
+
+        GET /api/systems/{system_id}/repositories/{repo_id}/crs/events/
+        Query params: ?since=<timestamp>
+
+        Streams real-time events during CRS execution
+        """
+        from django.http import StreamingHttpResponse
+        import time
+
+        repository = self.get_object()
+        broadcaster = get_broadcaster()
+
+        # Get since parameter for resuming stream
+        since = request.GET.get('since')
+        if since:
+            try:
+                since = float(since)
+            except (ValueError, TypeError):
+                since = None
+
+        def event_stream():
+            """Generate SSE event stream"""
+            # Send initial events if resuming
+            if since is not None:
+                past_events = broadcaster.get_events(repository.id, since=since)
+                for event in past_events:
+                    yield event.to_sse()
+
+            # Stream new events
+            last_check = time.time()
+            while True:
+                # Get new events since last check
+                new_events = broadcaster.get_events(repository.id, since=last_check)
+                for event in new_events:
+                    yield event.to_sse()
+
+                last_check = time.time()
+
+                # Send keepalive comment every 30 seconds
+                yield f": keepalive\n\n"
+
+                # Small delay to avoid busy loop
+                time.sleep(0.5)
+
+        response = StreamingHttpResponse(
+            event_stream(),
+            content_type='text/event-stream'
+        )
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
 
 
 class SystemKnowledgeViewSet(viewsets.ReadOnlyModelViewSet):
