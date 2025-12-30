@@ -1,4 +1,11 @@
 # cli.py
+import sys
+from pathlib import Path
+
+CRS_ROOT = Path(__file__).resolve().parent / "agent-system" / "crs"
+if str(CRS_ROOT) not in sys.path:
+    sys.path.insert(0, str(CRS_ROOT))
+
 import argparse
 import json
 import os
@@ -8,6 +15,7 @@ from core.tester import CRSTester
 from core.query_runner import CRSQueryRunner
 
 # Import your crs_main.run_pipeline without refactor:
+
 import crs_main
 
 

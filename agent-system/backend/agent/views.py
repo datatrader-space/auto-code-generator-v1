@@ -9,8 +9,11 @@ Django REST Framework Views for Agent API
 from rest_framework import viewsets, status, decorators
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.conf import settings
+from pathlib import Path
 
 from agent.models import (
     System, Repository, RepositoryQuestion,
@@ -22,12 +25,16 @@ from agent.serializers import (
     RepositoryQuestionSerializer, AnswerQuestionsSerializer,
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
-    AnalyzeRepositorySerializer, LLMHealthSerializer
+    AnalyzeRepositorySerializer, LLMHealthSerializer,
+    RepositoryReasoningTraceSerializer, SystemDocumentationSerializer
 )
 from agent.services.repo_analyzer import RepositoryAnalyzer
 from agent.services.question_generator import QuestionGenerator
 from agent.services.knowledge_builder import KnowledgeBuilder
 from agent.services.github_client import GitHubClient
+from agent.services.documentation_builder import DocumentationBuilder
+from agent.services.crs_runner import run_crs_pipeline, load_crs_payload, get_crs_summary
+from agent.services.log_buffer import get_logs
 from llm.router import get_llm_router
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -35,6 +42,15 @@ import logging
 import os
 
 logger = logging.getLogger(__name__)
+
+
+def _get_ai_orchestrator():
+    try:
+        from agent.services.ai_orchestrator import AIOrchestrator
+        return AIOrchestrator()
+    except Exception as exc:
+        logger.warning("AIOrchestrator unavailable: %s", exc)
+        return None
 
 @method_decorator(csrf_exempt, name='dispatch')
 class SystemViewSet(viewsets.ModelViewSet):
@@ -61,6 +77,15 @@ class SystemViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
        
         serializer.save(user=self.request.user)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def system_logs(request):
+    limit = int(request.query_params.get('limit', 200))
+    return Response({
+        "logs": get_logs(limit=limit)
+    })
 
 
 class RepositoryViewSet(viewsets.ModelViewSet):
@@ -111,6 +136,29 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         # Return full detail
         detail_serializer = RepositoryDetailSerializer(repository)
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
+
+    def _ensure_repo_clone(self, repository, user):
+        if repository.clone_path and os.path.isdir(repository.clone_path):
+            return repository.clone_path
+
+        repo_root = Path(settings.BASE_DIR).parents[1]
+        clone_root = repo_root / "workspaces" / str(user.id) / str(repository.system_id)
+        clone_path = clone_root / repository.name
+
+        client = GitHubClient(token=user.github_token)
+        clone_result = client.clone_repository(
+            github_url=repository.github_url,
+            target_path=str(clone_path),
+            branch=repository.github_branch,
+        )
+
+        if not clone_result.get("success"):
+            raise RuntimeError(clone_result.get("error") or "Failed to clone repository")
+
+        repository.clone_path = clone_result.get("path", str(clone_path))
+        repository.last_commit_sha = clone_result.get("commit_sha", "")
+        repository.save(update_fields=["clone_path", "last_commit_sha"])
+        return repository.clone_path
     
     @decorators.action(detail=True, methods=['post'])
     def analyze(self, request, pk=None, system_pk=None):
@@ -138,24 +186,9 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             # Update status
             repository.status = 'analyzing'
             repository.save()
-            
-            # Check if we have a clone path (for real repos)
-            # For prototype, we'll use a temp directory
-            if not repository.clone_path:
-                import tempfile
-                from pathlib import Path
-                
-                # Create mock structure for analysis
-                tmpdir = tempfile.mkdtemp()
-                repo_path = Path(tmpdir)
-                
-                # Create minimal structure based on what we know
-                (repo_path / 'services').mkdir(exist_ok=True)
-                (repo_path / 'services' / '__init__.py').write_text('')
-                (repo_path / 'requirements.txt').write_text('requests\ncelery\n')
-                
-                repository.clone_path = str(repo_path)
-                repository.save()
+
+            # Ensure repository clone exists
+            self._ensure_repo_clone(repository, request.user)
             
             # Analyze
             analyzer = RepositoryAnalyzer()
@@ -163,6 +196,9 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 repo_path=repository.clone_path,
                 repo_name=repository.name
             )
+            orchestrator = _get_ai_orchestrator()
+            if orchestrator:
+                orchestrator.capture_analysis(repository, analysis)
             
             # Save analysis
             repository.analysis = analysis
@@ -183,6 +219,9 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 analysis=analysis,
                 other_repos=other_repos
             )
+            orchestrator = _get_ai_orchestrator()
+            if orchestrator:
+                orchestrator.capture_questions(repository, questions)
             
             # Save questions
             repository.questions.all().delete()  # Clear old questions
@@ -258,35 +297,105 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                     if question.question_key in answers:
                         question.answer = answers[question.question_key]
                         question.save()
-                
+
                 # Build knowledge
                 builder = KnowledgeBuilder()
                 config = builder.build_repo_knowledge(repository, answers)
-                
+
                 # Build system knowledge
                 all_repos = list(repository.system.repositories.all())
                 knowledge_items = builder.build_system_knowledge(
                     repository.system,
                     all_repos
                 )
-                
+                DocumentationBuilder().upsert_overview(repository.system)
+
                 # Update system status
                 if repository.system.status == 'initializing':
                     repository.system.status = 'ready'
                     repository.system.save()
-            
+
+            repository.status = 'crs_running'
+            repository.save(update_fields=["status"])
+
+            crs_summary = run_crs_pipeline(repository)
+
             return Response({
                 'message': 'Answers submitted successfully',
                 'config': config,
-                'knowledge_items': len(knowledge_items)
+                'knowledge_items': len(knowledge_items),
+                'documentation_updated': True,
+                'crs': crs_summary
             })
-        
+
         except Exception as e:
             logger.error(f"Failed to process answers: {e}", exc_info=True)
+            repository.status = 'error'
+            repository.error_message = str(e)
+            repository.save(update_fields=["status", "error_message"])
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @decorators.action(detail=True, methods=['post'], url_path='crs/run')
+    def run_crs(self, request, pk=None, system_pk=None):
+        repository = self.get_object()
+        try:
+            repository.status = 'crs_running'
+            repository.save(update_fields=["status"])
+            self._ensure_repo_clone(repository, request.user)
+            crs_summary = run_crs_pipeline(repository)
+            return Response({
+                'message': 'CRS pipeline complete',
+                'crs': crs_summary
+            })
+        except Exception as e:
+            logger.error(f"CRS pipeline failed: {e}", exc_info=True)
+            repository.status = 'error'
+            repository.error_message = str(e)
+            repository.save(update_fields=["status", "error_message"])
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @decorators.action(detail=True, methods=['get'], url_path='crs/summary')
+    def crs_summary(self, request, pk=None, system_pk=None):
+        repository = self.get_object()
+        summary = get_crs_summary(repository)
+        return Response(summary)
+
+    @decorators.action(detail=True, methods=['get'], url_path='crs/blueprints')
+    def crs_blueprints(self, request, pk=None, system_pk=None):
+        repository = self.get_object()
+        payload = load_crs_payload(repository, "blueprints")
+        if not payload:
+            return Response({'error': 'Blueprints not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(payload)
+
+    @decorators.action(detail=True, methods=['get'], url_path='crs/artifacts')
+    def crs_artifacts(self, request, pk=None, system_pk=None):
+        repository = self.get_object()
+        payload = load_crs_payload(repository, "artifacts")
+        if not payload:
+            return Response({'error': 'Artifacts not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(payload)
+
+    @decorators.action(detail=True, methods=['get'], url_path='crs/relationships')
+    def crs_relationships(self, request, pk=None, system_pk=None):
+        repository = self.get_object()
+        payload = load_crs_payload(repository, "relationships")
+        if not payload:
+            return Response({'error': 'Relationships not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(payload)
+
+    @decorators.action(detail=True, methods=['get'], url_path='reasoning')
+    def reasoning(self, request, pk=None, system_pk=None):
+        repository = self.get_object()
+        traces = repository.reasoning_traces.all()
+        serializer = RepositoryReasoningTraceSerializer(traces, many=True)
+        return Response(serializer.data)
 
 
 class SystemKnowledgeViewSet(viewsets.ReadOnlyModelViewSet):
@@ -303,6 +412,22 @@ class SystemKnowledgeViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         system_id = self.kwargs.get('system_pk')
         return SystemKnowledge.objects.filter(
+            system_id=system_id,
+            system__user=self.request.user
+        )
+
+
+class SystemDocumentationViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing system documentation
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = SystemDocumentationSerializer
+
+    def get_queryset(self):
+        system_id = self.kwargs.get('system_pk')
+        return SystemDocumentation.objects.filter(
             system_id=system_id,
             system__user=self.request.user
         )

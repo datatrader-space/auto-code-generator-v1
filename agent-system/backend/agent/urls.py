@@ -32,6 +32,11 @@ systems_router.register(
     basename='system-knowledge'
 )
 systems_router.register(
+    r'documentation',
+    views.SystemDocumentationViewSet,
+    basename='system-documentation'
+)
+systems_router.register(
     r'tasks',
     views.TaskViewSet,
     basename='system-tasks'
@@ -48,6 +53,7 @@ urlpatterns = [
 
     # LLM health
     path('llm/health/', views.llm_health, name='llm-health'),
+    path('logs', views.system_logs, name='system-logs'),
 
     # Authentication endpoints
     path('auth/register', auth_views.register_user, name='auth-register'),
@@ -57,6 +63,7 @@ urlpatterns = [
     path('auth/check', auth_views.check_auth, name='auth-check'),
 
     # GitHub OAuth endpoints
+    path('auth/github/config', oauth_views.github_config, name='github-config'),
     path('auth/github/login', oauth_views.github_login, name='github-login'),
     path('auth/github/callback', oauth_views.github_callback, name='github-callback'),
     path('auth/github/test', oauth_views.test_token, name='github-test-token'),

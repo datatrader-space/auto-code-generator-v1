@@ -53,6 +53,14 @@
               </div>
             </div>
 
+            <button
+              v-if="currentUser"
+              @click="openLogs"
+              class="text-xs text-gray-600 hover:text-gray-900"
+            >
+              View Logs
+            </button>
+
             <!-- GitHub Status -->
             <div v-if="currentUser" class="flex items-center">
               <div
@@ -133,6 +141,43 @@
         </div>
       </div>
     </div>
+
+    <!-- System Logs Modal -->
+    <div
+      v-if="showLogs"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      @click.self="closeLogs"
+    >
+      <div class="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">System Logs</h2>
+          <button @click="closeLogs" class="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+
+        <div v-if="llmHealth" class="bg-gray-50 border rounded-lg p-3 mb-4 text-sm text-gray-700">
+          <p class="font-medium">LLM Health</p>
+          <p>
+            Local: {{ llmHealth.local?.available ? 'Available' : 'Unavailable' }}
+            <span v-if="llmHealth.local?.error" class="text-red-600">({{ llmHealth.local.error }})</span>
+          </p>
+          <p>
+            Cloud: {{ llmHealth.cloud?.available ? 'Available' : 'Unavailable' }}
+            <span v-if="llmHealth.cloud?.error" class="text-red-600">({{ llmHealth.cloud.error }})</span>
+          </p>
+        </div>
+
+        <div v-if="logsLoading" class="text-center py-6 text-gray-500">Loading logs...</div>
+        <div v-else>
+          <div v-if="systemLogs.length === 0" class="text-gray-500">No logs available.</div>
+          <ul v-else class="space-y-2 text-xs font-mono">
+            <li v-for="(entry, index) in systemLogs" :key="index" class="border-b pb-2">
+              <div class="text-gray-500">{{ entry.timestamp }} · {{ entry.level }} · {{ entry.logger }}</div>
+              <div class="text-gray-800 whitespace-pre-wrap">{{ entry.message }}</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -147,6 +192,9 @@ const llmHealth = ref(null)
 const currentUser = ref(null)
 const showUserMenu = ref(false)
 const notifications = ref([])
+const showLogs = ref(false)
+const systemLogs = ref([])
+const logsLoading = ref(false)
 
 // Load user data on mount
 onMounted(async () => {
@@ -175,6 +223,24 @@ const loadCurrentUser = async () => {
   }
 }
 
+const openLogs = async () => {
+  showLogs.value = true
+  logsLoading.value = true
+  try {
+    const response = await api.getSystemLogs()
+    systemLogs.value = response.data.logs || []
+  } catch (error) {
+    console.error('Failed to load system logs:', error)
+    systemLogs.value = []
+  } finally {
+    logsLoading.value = false
+  }
+}
+
+const closeLogs = () => {
+  showLogs.value = false
+}
+
 // Logout
 const handleLogout = async () => {
   try {
@@ -193,8 +259,32 @@ const handleLogout = async () => {
 // Connect GitHub
 const connectGitHub = () => {
   showUserMenu.value = false
-  // Open GitHub OAuth in popup or redirect
-  window.location.href = 'http://localhost:8000/api/auth/github/login'
+  const state = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+
+  api.githubConfig()
+    .then((response) => {
+      const { configured, client_id: clientId, redirect_uri: redirectUri, scope, message } = response.data
+      if (!configured) {
+        addNotification(message || 'GitHub OAuth is not configured.', 'error')
+        return
+      }
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope,
+        state
+      })
+      window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`
+    })
+    .catch((error) => {
+      console.error('Failed to load GitHub OAuth config:', error)
+      addNotification(
+        error.response?.data?.error || 'GitHub OAuth is not configured.',
+        'error'
+      )
+    })
 }
 
 // Close user menu when clicking outside

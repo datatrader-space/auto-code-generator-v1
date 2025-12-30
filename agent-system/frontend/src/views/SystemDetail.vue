@@ -178,6 +178,27 @@
                 >
                   Answer Questions
                 </button>
+                <button
+                  v-else-if="repo.status === 'questions_answered'"
+                  @click.stop="runCrs(repo)"
+                  class="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+                >
+                  Run CRS
+                </button>
+                <button
+                  v-else-if="repo.status === 'crs_running'"
+                  disabled
+                  class="px-3 py-1 bg-gray-200 text-gray-500 rounded text-sm"
+                >
+                  CRS Running
+                </button>
+                <button
+                  v-else-if="repo.status === 'crs_ready' || repo.status === 'ready' || repo.crs_status === 'ready'"
+                  @click.stop="openCrsModal(repo)"
+                  class="px-3 py-1 bg-gray-900 text-white rounded text-sm hover:bg-black"
+                >
+                  View CRS
+                </button>
               </div>
             </div>
           </div>
@@ -484,6 +505,101 @@
       </div>
     </div>
 
+    <!-- CRS Output Modal -->
+    <div
+      v-if="showCrsModal && selectedCrsRepo"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto"
+      @click.self="closeCrsModal"
+    >
+      <div class="bg-white rounded-lg max-w-4xl w-full p-6 my-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">CRS Outputs: {{ selectedCrsRepo.name }}</h2>
+          <button
+            @click="closeCrsModal"
+            class="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="flex border-b mb-4">
+          <button
+            @click="setCrsTab('summary')"
+            type="button"
+            :class="[
+              'px-4 py-2 font-medium',
+              crsTab === 'summary'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            Summary
+          </button>
+          <button
+            @click="setCrsTab('blueprints')"
+            type="button"
+            :class="[
+              'px-4 py-2 font-medium',
+              crsTab === 'blueprints'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            Blueprints
+          </button>
+          <button
+            @click="setCrsTab('artifacts')"
+            type="button"
+            :class="[
+              'px-4 py-2 font-medium',
+              crsTab === 'artifacts'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            Artifacts
+          </button>
+          <button
+            @click="setCrsTab('relationships')"
+            type="button"
+            :class="[
+              'px-4 py-2 font-medium',
+              crsTab === 'relationships'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            Relationships
+          </button>
+        </div>
+
+        <div v-if="crsLoading" class="text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p class="mt-2 text-gray-600">Loading CRS data...</p>
+        </div>
+
+        <div v-else>
+          <div v-if="crsTab === 'summary'">
+            <div v-if="crsSummary" class="space-y-3 text-sm text-gray-700">
+              <p><strong>Status:</strong> {{ crsSummary.status }}</p>
+              <p><strong>CRS Status:</strong> {{ crsSummary.crs_status }}</p>
+              <p><strong>Last CRS Run:</strong> {{ crsSummary.last_crs_run || '—' }}</p>
+              <p><strong>Blueprint Files:</strong> {{ crsSummary.blueprints_count }}</p>
+              <p><strong>Artifacts:</strong> {{ crsSummary.artifact_items }}</p>
+              <p><strong>Relationships:</strong> {{ crsSummary.relationship_items }}</p>
+            </div>
+            <div v-else class="text-gray-500">No CRS summary available.</div>
+          </div>
+
+          <div v-else>
+            <pre class="bg-gray-50 border rounded-lg p-4 text-xs overflow-x-auto">
+{{ formattedCrsPayload }}
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Intent & Constraints Modal -->
     <div
       v-if="showIntentModal"
@@ -555,10 +671,20 @@ const loading = ref(true)
 const showAddRepoModal = ref(false)
 const showQuestionsModal = ref(false)
 const showIntentModal = ref(false)
+const showCrsModal = ref(false)
 const adding = ref(false)
 const loadingQuestions = ref(false)
 const submitting = ref(false)
 const savingIntent = ref(false)
+const crsLoading = ref(false)
+const crsSummary = ref(null)
+const crsTab = ref('summary')
+const selectedCrsRepo = ref(null)
+const crsPayloads = ref({
+  blueprints: null,
+  artifacts: null,
+  relationships: null
+})
 
 const newRepo = ref({
   name: '',
@@ -599,6 +725,14 @@ const intentSummary = computed(() => {
 
 const intentConstraints = computed(() => {
   return system.value?.intent_constraints?.constraints || []
+})
+
+const formattedCrsPayload = computed(() => {
+  const payload = crsPayloads.value[crsTab.value]
+  if (!payload) return 'No data loaded.'
+  return JSON.stringify(payload, null, 2)
+})
+
 const filteredGithubRepos = computed(() => {
   if (!repoSearchQuery.value) return githubRepos.value
 
@@ -689,6 +823,77 @@ const submitAnswers = async () => {
     console.error(error)
   } finally {
     submitting.value = false
+  }
+}
+
+const runCrs = async (repo) => {
+  try {
+    notify('Running CRS pipeline...', 'info')
+    await api.runCrs(systemId, repo.id)
+    notify('CRS pipeline complete!', 'success')
+    await loadSystem()
+  } catch (error) {
+    notify('Failed to run CRS pipeline', 'error')
+    console.error(error)
+  }
+}
+
+const openCrsModal = async (repo) => {
+  selectedCrsRepo.value = repo
+  showCrsModal.value = true
+  crsTab.value = 'summary'
+  await loadCrsSummary(repo)
+}
+
+const closeCrsModal = () => {
+  showCrsModal.value = false
+  selectedCrsRepo.value = null
+  crsTab.value = 'summary'
+  crsSummary.value = null
+  crsPayloads.value = { blueprints: null, artifacts: null, relationships: null }
+}
+
+const setCrsTab = async (tab) => {
+  crsTab.value = tab
+  if (tab === 'summary') {
+    return
+  }
+  await loadCrsPayload(tab)
+}
+
+const loadCrsSummary = async (repo) => {
+  try {
+    crsLoading.value = true
+    const response = await api.getCrsSummary(systemId, repo.id)
+    crsSummary.value = response.data
+  } catch (error) {
+    console.error('Failed to load CRS summary:', error)
+    notify('Failed to load CRS summary', 'error')
+  } finally {
+    crsLoading.value = false
+  }
+}
+
+const loadCrsPayload = async (payloadType) => {
+  if (!selectedCrsRepo.value || crsPayloads.value[payloadType]) {
+    return
+  }
+  try {
+    crsLoading.value = true
+    let response
+    if (payloadType === 'blueprints') {
+      response = await api.getCrsBlueprints(systemId, selectedCrsRepo.value.id)
+    } else if (payloadType === 'artifacts') {
+      response = await api.getCrsArtifacts(systemId, selectedCrsRepo.value.id)
+    } else {
+      response = await api.getCrsRelationships(systemId, selectedCrsRepo.value.id)
+    }
+    crsPayloads.value[payloadType] = response.data
+  } catch (error) {
+    console.error(`Failed to load CRS ${payloadType}:`, error)
+    notify(`Failed to load CRS ${payloadType}`, 'error')
+  } finally {
+    crsLoading.value = false
   }
 }
 
