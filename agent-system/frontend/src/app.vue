@@ -193,8 +193,32 @@ const handleLogout = async () => {
 // Connect GitHub
 const connectGitHub = () => {
   showUserMenu.value = false
-  // Open GitHub OAuth in popup or redirect
-  window.location.href = 'http://localhost:8000/api/auth/github/login'
+  const state = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+
+  api.githubConfig()
+    .then((response) => {
+      const { configured, client_id: clientId, redirect_uri: redirectUri, scope, message } = response.data
+      if (!configured) {
+        addNotification(message || 'GitHub OAuth is not configured.', 'error')
+        return
+      }
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope,
+        state
+      })
+      window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`
+    })
+    .catch((error) => {
+      console.error('Failed to load GitHub OAuth config:', error)
+      addNotification(
+        error.response?.data?.error || 'GitHub OAuth is not configured.',
+        'error'
+      )
+    })
 }
 
 // Close user menu when clicking outside

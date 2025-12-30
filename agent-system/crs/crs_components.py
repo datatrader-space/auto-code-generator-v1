@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple
 
-from crs_workspace.crs_lib import (
+from crs_lib import (
     read_json, write_json, read_text, write_text,
     list_py_files, normalize_path,
     iter_blueprint_entries, get_entry_raw_text,
