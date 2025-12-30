@@ -8,6 +8,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_nested import routers as nested_routers
 
 from agent import views
+from agent import oauth_views
 
 # Main router
 router = DefaultRouter()
@@ -43,10 +44,15 @@ systems_router.register(
 urlpatterns = [
     # API root
     path('', views.api_root, name='api-root'),
-    
+
     # LLM health
     path('llm/health/', views.llm_health, name='llm-health'),
-    
+
+    # GitHub OAuth endpoints
+    path('auth/github/login', oauth_views.github_login, name='github-login'),
+    path('auth/github/callback', oauth_views.github_callback, name='github-callback'),
+    path('auth/github/test', oauth_views.test_token, name='github-test-token'),
+
     # Include routers
     path('', include(router.urls)),
     path('', include(systems_router.urls)),
