@@ -52,6 +52,8 @@ urlpatterns = [
     path('auth/github/login', oauth_views.github_login, name='github-login'),
     path('auth/github/callback', oauth_views.github_callback, name='github-callback'),
     path('auth/github/test', oauth_views.test_token, name='github-test-token'),
+    path('auth/github/repos', oauth_views.list_github_repos, name='github-list-repos'),
+    path('auth/github/repo-info', oauth_views.get_repo_info, name='github-repo-info'),
 
     # Include routers
     path('', include(router.urls)),

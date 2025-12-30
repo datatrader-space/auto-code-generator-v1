@@ -3,6 +3,7 @@ GitHub OAuth Views for Quick Prototyping
 Simple OAuth flow to get repository access tokens
 """
 import requests
+import os
 from django.conf import settings
 from django.shortcuts import redirect
 from django.http import JsonResponse
@@ -10,6 +11,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from .models import User
+from .services.github_client import GitHubClient
 
 
 @api_view(['GET'])
@@ -188,3 +190,85 @@ def test_token(request):
             'token_valid': False,
             'error': str(e)
         }, status=401)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_github_repos(request):
+    """
+    List all GitHub repositories for the authenticated user
+
+    Usage: GET /api/auth/github/repos
+    """
+    token = request.GET.get('token') or os.getenv('GITHUB_TOKEN')
+
+    if not token:
+        return JsonResponse({
+            'error': 'No GitHub token provided',
+            'message': 'Set GITHUB_TOKEN in .env or complete OAuth flow first'
+        }, status=401)
+
+    try:
+        client = GitHubClient(token=token)
+        repos = client.list_user_repos(per_page=100)
+
+        if isinstance(repos, dict) and 'error' in repos:
+            return JsonResponse(repos, status=401)
+
+        return JsonResponse({
+            'success': True,
+            'count': len(repos),
+            'repositories': repos
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'error': 'Failed to fetch repositories',
+            'details': str(e)
+        }, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_repo_info(request):
+    """
+    Get detailed info about a specific GitHub repository
+
+    Usage: POST /api/auth/github/repo-info
+    Body: { "github_url": "https://github.com/owner/repo" }
+    """
+    github_url = request.data.get('github_url')
+
+    if not github_url:
+        return JsonResponse({
+            'error': 'github_url is required'
+        }, status=400)
+
+    token = request.data.get('token') or os.getenv('GITHUB_TOKEN')
+
+    if not token:
+        return JsonResponse({
+            'error': 'No GitHub token provided'
+        }, status=401)
+
+    try:
+        client = GitHubClient(token=token)
+        info = client.get_repo_info(github_url)
+
+        if 'error' in info:
+            return JsonResponse(info, status=404)
+
+        # Also get branches
+        branches = client.get_repo_branches(info['owner'], info['repo'])
+
+        return JsonResponse({
+            'success': True,
+            'repository': info,
+            'branches': branches if not isinstance(branches, dict) else []
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'error': 'Failed to get repository info',
+            'details': str(e)
+        }, status=500)
