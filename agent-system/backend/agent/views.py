@@ -685,7 +685,12 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @decorators.action(detail=True, methods=['get'], url_path='crs/events')
+    @decorators.action(
+        detail=True,
+        methods=['get'],
+        url_path='crs/events',
+        renderer_classes=[]  # Bypass DRF renderers for SSE
+    )
     def crs_events_stream(self, request, pk=None, system_pk=None):
         """
         Server-Sent Events stream for CRS pipeline events
