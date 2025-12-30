@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
@@ -7,8 +8,14 @@ from typing import Any, Dict
 from django.conf import settings
 from django.utils import timezone
 
-from crs_main import run_pipeline
 from agent.models import Repository
+
+# Add CRS directory to Python path
+_crs_dir = Path(settings.BASE_DIR).parent / "crs"
+if str(_crs_dir) not in sys.path:
+    sys.path.insert(0, str(_crs_dir))
+
+from crs_main import run_pipeline
 
 
 @dataclass
@@ -32,7 +39,7 @@ def _workspace_base_dirs() -> Dict[str, Path]:
         "repo_root": root,
         "clone_root": root / "workspaces",
         "crs_root": root / "crs_workspaces",
-        "tools_dir": root / "tools",
+        "tools_dir": root / "agent-system" / "crs" / "tools",
     }
 
 
