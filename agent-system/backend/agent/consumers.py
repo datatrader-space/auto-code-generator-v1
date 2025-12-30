@@ -485,23 +485,200 @@ class GraphChatConsumer(BaseChatConsumer):
     """
     Graph exploration chat consumer
 
-    For visual queries about relationships and flows
+    For visual queries about relationships, flows, and architecture
     """
 
     async def connect(self):
         self.system_id = self.scope['url_route']['kwargs']['system_id']
+        self.system = await self.get_system()
+
+        if not self.system:
+            await self.close()
+            return
+
         await super().connect()
+
+    @database_sync_to_async
+    def get_system(self):
+        """Get system from database"""
+        try:
+            return System.objects.prefetch_related('repositories').get(id=self.system_id)
+        except System.DoesNotExist:
+            return None
+
+    @database_sync_to_async
+    def get_or_create_conversation(self, conversation_id=None):
+        """Get existing or create new graph conversation"""
+        if conversation_id:
+            try:
+                return ChatConversation.objects.get(
+                    id=conversation_id,
+                    system=self.system,
+                    conversation_type='graph'
+                )
+            except ChatConversation.DoesNotExist:
+                pass
+
+        # Create new conversation
+        return ChatConversation.objects.create(
+            user=self.scope['user'],
+            system=self.system,
+            conversation_type='graph',
+            title='Graph Exploration',
+            model_provider='local'
+        )
+
+    @database_sync_to_async
+    def save_user_message(self, conversation, content):
+        """Save user message to database"""
+        return ChatMessage.objects.create(
+            conversation=conversation,
+            role='user',
+            content=content
+        )
 
     async def handle_chat_message(self, data):
         """Handle graph chat message"""
-        await self.send_json({
-            'type': 'info',
-            'message': 'Graph chat coming soon!'
-        })
+        user_message = data.get('message', '').strip()
+        conversation_id = data.get('conversation_id')
+
+        if not user_message:
+            await self.send_json({'type': 'error', 'error': 'Empty message'})
+            return
+
+        # Get or create conversation
+        conversation = await self.get_or_create_conversation(conversation_id)
+
+        # Save user message
+        await self.save_user_message(conversation, user_message)
+
+        # Get graph context (relationships across all repos)
+        context = await self.get_graph_context(user_message)
+
+        # Stream LLM response
+        await self.stream_llm_response(user_message, context, conversation)
+
+    @database_sync_to_async
+    def get_graph_context(self, query):
+        """Get relationship graph context from all repositories"""
+        repos = list(self.system.repositories.filter(crs_status='completed'))
+
+        if not repos:
+            return {
+                'repositories': [],
+                'summary': 'No repositories with CRS analysis found.',
+                'relationships': {}
+            }
+
+        # Build relationship graph from all repositories
+        all_relationships = {}
+        repo_summaries = []
+
+        for repo in repos:
+            try:
+                crs_ctx = CRSContext(repo)
+                crs_ctx.load_all()
+
+                # Get relationships
+                relationships = crs_ctx._relationships or {}
+
+                # Add repo context to relationships
+                for artifact, rel_data in relationships.items():
+                    key = f"{repo.name}::{artifact}"
+                    all_relationships[key] = {
+                        'repository': repo.name,
+                        'artifact': artifact,
+                        **rel_data
+                    }
+
+                repo_summaries.append({
+                    'name': repo.name,
+                    'artifact_count': len(crs_ctx._artifacts or {}),
+                    'relationship_count': len(relationships)
+                })
+
+            except Exception as e:
+                logger.error(f"Error loading graph context for {repo.name}: {e}")
+
+        # Find relevant relationships based on query
+        query_lower = query.lower()
+        relevant_relationships = {
+            k: v for k, v in all_relationships.items()
+            if query_lower in k.lower() or query_lower in str(v).lower()
+        }
+
+        # Format relationship summary
+        rel_summary = ""
+        if relevant_relationships:
+            rel_summary = "\n\nRelevant Relationships:\n"
+            for key, rel_data in list(relevant_relationships.items())[:10]:
+                rel_summary += f"\n{key}:\n"
+                if rel_data.get('imports'):
+                    rel_summary += f"  Imports: {', '.join(rel_data['imports'][:5])}\n"
+                if rel_data.get('calls'):
+                    rel_summary += f"  Calls: {', '.join(rel_data['calls'][:5])}\n"
+                if rel_data.get('used_by'):
+                    rel_summary += f"  Used by: {', '.join(rel_data['used_by'][:5])}\n"
+
+        return {
+            'repositories': repo_summaries,
+            'summary': f"System has {len(repos)} repositories. Found {len(all_relationships)} total relationships.",
+            'relationships': relevant_relationships,
+            'relationship_summary': rel_summary
+        }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages for graph chat"""
-        return [
-            {'role': 'system', 'content': 'You are a graph exploration assistant.'},
-            {'role': 'user', 'content': user_message}
+        """Build messages for graph chat with relationship context"""
+        # Get conversation history
+        history = await self.get_conversation_history(conversation)
+
+        # Build repository summary
+        repo_list = '\n'.join([
+            f"- {repo['name']}: {repo['artifact_count']} artifacts, {repo['relationship_count']} relationships"
+            for repo in context.get('repositories', [])
+        ])
+
+        messages = [
+            {
+                'role': 'system',
+                'content': f"""You are a code architecture and relationship exploration assistant.
+
+System Overview:
+{context.get('summary', '')}
+
+Repositories:
+{repo_list}
+
+{context.get('relationship_summary', '')}
+
+Your role:
+- Help visualize and understand code relationships
+- Explain dependency flows and call chains
+- Identify architectural patterns
+- Suggest relationship improvements
+- Trace data flows through the system
+- Identify circular dependencies or coupling issues
+
+Be specific and reference repository names, artifacts, and relationship types."""
+            }
         ]
+
+        # Add conversation history
+        for msg in history:
+            messages.append({
+                'role': msg.role,
+                'content': msg.content
+            })
+
+        # Add current user message
+        messages.append({
+            'role': 'user',
+            'content': user_message
+        })
+
+        return messages
+
+    @database_sync_to_async
+    def get_conversation_history(self, conversation, limit=10):
+        """Get recent conversation history"""
+        return list(conversation.messages.order_by('-created_at')[:limit][::-1])
