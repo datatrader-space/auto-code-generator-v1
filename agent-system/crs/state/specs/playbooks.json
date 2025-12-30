@@ -1,0 +1,35 @@
+{
+  "version": "crs-playbooks-v1",
+  "generated_at": "2025-12-30T16:20:41Z",
+  "playbooks": [
+    {
+      "id": "pb:rename_model_field",
+      "purpose": "Safely rename a Django model field and refresh CRS state.",
+      "steps": [
+        "Apply patch that renames field in model class.",
+        "Run pipeline (blueprints/artifacts/relationships).",
+        "Run impact and confirm affected serializer fields and routes.",
+        "Query for references to old field name and fix remaining uses."
+      ],
+      "queries": [
+        {
+          "goal": "Find impacted nodes",
+          "call": "ImpactEngine.build_workspace_impact"
+        },
+        {
+          "goal": "Find mentions",
+          "call": "CRSQueryAPI.find_artifacts(contains_name='<old_field>')"
+        }
+      ]
+    },
+    {
+      "id": "pb:fix_duplicate_artifact_id",
+      "purpose": "Resolve duplicate artifact_id collisions by adjusting make_artifact_id() or anchors.",
+      "steps": [
+        "Identify duplicates in artifacts.json.",
+        "Adjust artifact_id generation to include more stable uniqueness (anchor or qualified name).",
+        "Re-run pipeline."
+      ]
+    }
+  ]
+}

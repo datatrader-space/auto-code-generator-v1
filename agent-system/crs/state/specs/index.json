@@ -1,0 +1,20 @@
+{
+  "version": "crs-spec-store-v1",
+  "generated_at": "2025-12-30T16:20:41Z",
+  "specs_dir": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs",
+  "files": {
+    "artifact_types": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs/artifact_types.json",
+    "relationship_types": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs/relationship_types.json",
+    "attributes": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs/attributes.json",
+    "pipeline_steps": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs/pipeline_steps.json",
+    "invariants": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs/invariants.json",
+    "playbooks": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs/playbooks.json",
+    "docs_dir": "/home/user/auto-code-generator-v1/agent-system/crs/state/specs/docs"
+  },
+  "notes": [
+    "These specs are AI-first internal documentation for CRS.",
+    "Treat as operational truth for agents: meaning, constraints, usage, examples, and graph connections.",
+    "Do not store prose-only docs here; store structured specs.",
+    "Use state/specs/docs/<kind>/<spec_id>.json for agent-writable spec documents."
+  ]
+}
