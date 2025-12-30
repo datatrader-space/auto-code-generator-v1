@@ -308,14 +308,117 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @decorators.action(detail=True, methods=['post'], url_path='clone')
+    def clone_repository(self, request, pk=None, system_pk=None):
+        """
+        Clone GitHub repository to local workspace
+
+        POST /api/systems/{system_id}/repositories/{repo_id}/clone/
+        """
+        repository = self.get_object()
+
+        try:
+            if not request.user.github_token:
+                return Response({
+                    'error': 'GitHub token not configured',
+                    'message': 'Please connect your GitHub account first'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            repository.status = 'cloning'
+            repository.save(update_fields=["status"])
+
+            clone_path = self._ensure_repo_clone(repository, request.user)
+
+            # Count Python files
+            import os
+            py_files = []
+            for dirpath, _, filenames in os.walk(clone_path):
+                for fn in filenames:
+                    if fn.endswith(".py"):
+                        py_files.append(os.path.join(dirpath, fn))
+
+            repository.status = 'cloned'
+            repository.save(update_fields=["status"])
+
+            return Response({
+                'message': 'Repository cloned successfully',
+                'clone_path': clone_path,
+                'python_files_count': len(py_files),
+                'commit_sha': repository.last_commit_sha,
+                'ready_for_crs': len(py_files) > 0
+            })
+
+        except Exception as e:
+            logger.error(f"Clone failed: {e}", exc_info=True)
+            repository.status = 'error'
+            repository.error_message = str(e)
+            repository.save(update_fields=["status", "error_message"])
+            return Response(
+                {'error': str(e), 'details': 'Failed to clone repository'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @decorators.action(detail=True, methods=['get'], url_path='status')
+    def repo_status(self, request, pk=None, system_pk=None):
+        """
+        Get detailed repository status
+
+        GET /api/systems/{system_id}/repositories/{repo_id}/status/
+        """
+        repository = self.get_object()
+
+        status_info = {
+            'repository_id': repository.id,
+            'name': repository.name,
+            'github_url': repository.github_url,
+            'status': repository.status,
+            'crs_status': repository.crs_status,
+            'error_message': repository.error_message,
+            'clone_path': repository.clone_path,
+            'clone_exists': bool(repository.clone_path and os.path.isdir(repository.clone_path)),
+            'crs_workspace_path': repository.crs_workspace_path,
+            'last_commit_sha': repository.last_commit_sha,
+            'artifacts_count': repository.artifacts_count,
+            'relationships_count': repository.relationships_count,
+            'last_crs_run': repository.last_crs_run,
+        }
+
+        # Check Python files if cloned
+        if status_info['clone_exists']:
+            py_files = []
+            for dirpath, _, filenames in os.walk(repository.clone_path):
+                for fn in filenames:
+                    if fn.endswith(".py"):
+                        py_files.append(fn)
+            status_info['python_files_count'] = len(py_files)
+            status_info['ready_for_crs'] = len(py_files) > 0
+        else:
+            status_info['python_files_count'] = 0
+            status_info['ready_for_crs'] = False
+
+        return Response(status_info)
+
     @decorators.action(detail=True, methods=['post'], url_path='crs/run')
     def run_crs(self, request, pk=None, system_pk=None):
+        """
+        Run CRS pipeline on repository
+
+        POST /api/systems/{system_id}/repositories/{repo_id}/crs/run/
+        """
         repository = self.get_object()
         try:
+            # Ensure clone exists first
+            if not repository.clone_path or not os.path.isdir(repository.clone_path):
+                return Response({
+                    'error': 'Repository not cloned',
+                    'message': 'Please clone the repository first using /clone/ endpoint'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             repository.status = 'crs_running'
             repository.save(update_fields=["status"])
-            self._ensure_repo_clone(repository, request.user)
+
             crs_summary = run_crs_pipeline(repository)
+
             return Response({
                 'message': 'CRS pipeline complete',
                 'crs': crs_summary
@@ -326,7 +429,72 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             repository.error_message = str(e)
             repository.save(update_fields=["status", "error_message"])
             return Response(
-                {'error': str(e)},
+                {'error': str(e), 'type': type(e).__name__},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @decorators.action(detail=True, methods=['post'], url_path='crs/ingest')
+    def ingest_repository(self, request, pk=None, system_pk=None):
+        """
+        Full ingestion: Clone repository and run CRS pipeline
+
+        POST /api/systems/{system_id}/repositories/{repo_id}/crs/ingest/
+        """
+        repository = self.get_object()
+
+        try:
+            if not request.user.github_token:
+                return Response({
+                    'error': 'GitHub token not configured',
+                    'message': 'Please connect your GitHub account first'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Step 1: Clone
+            repository.status = 'cloning'
+            repository.save(update_fields=["status"])
+
+            clone_path = self._ensure_repo_clone(repository, request.user)
+
+            # Count Python files
+            py_files = []
+            for dirpath, _, filenames in os.walk(clone_path):
+                for fn in filenames:
+                    if fn.endswith(".py"):
+                        py_files.append(os.path.join(dirpath, fn))
+
+            if not py_files:
+                repository.status = 'error'
+                repository.error_message = 'No Python files found in repository'
+                repository.save(update_fields=["status", "error_message"])
+                return Response({
+                    'error': 'No Python files found',
+                    'message': f'Repository was cloned but contains no .py files',
+                    'clone_path': clone_path
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Step 2: Run CRS
+            repository.status = 'crs_running'
+            repository.save(update_fields=["status"])
+
+            crs_summary = run_crs_pipeline(repository)
+
+            return Response({
+                'message': 'Repository ingested successfully',
+                'clone': {
+                    'path': clone_path,
+                    'python_files': len(py_files),
+                    'commit_sha': repository.last_commit_sha
+                },
+                'crs': crs_summary
+            })
+
+        except Exception as e:
+            logger.error(f"Ingestion failed: {e}", exc_info=True)
+            repository.status = 'error'
+            repository.error_message = str(e)
+            repository.save(update_fields=["status", "error_message"])
+            return Response(
+                {'error': str(e), 'type': type(e).__name__},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
