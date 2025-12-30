@@ -118,11 +118,19 @@ export default {
   checkAuth: () => api.get('/auth/check'),
 
   // GitHub OAuth
+  githubConfig: () => api.get('/auth/github/config'),
   githubLogin: () => api.get('/auth/github/login'),
   githubTestToken: (token = null) => {
     const url = token ? `/auth/github/test?token=${token}` : '/auth/github/test'
     return api.get(url)
   },
   githubListRepos: () => api.get('/auth/github/repos'),
-  githubGetRepoInfo: (githubUrl) => api.post('/auth/github/repo-info', { github_url: githubUrl })
+  githubGetRepoInfo: (githubUrl) => api.post('/auth/github/repo-info', { github_url: githubUrl }),
+
+  // CRS outputs
+  runCrs: (systemId, repoId) => api.post(`/systems/${systemId}/repositories/${repoId}/crs/run/`),
+  getCrsSummary: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/summary/`),
+  getCrsBlueprints: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/blueprints/`),
+  getCrsArtifacts: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/artifacts/`),
+  getCrsRelationships: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/relationships/`)
 }
