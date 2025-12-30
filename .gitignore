@@ -82,3 +82,9 @@ Thumbs.db
 # Workspaces (cloned repos)
 workspaces/
 crs_workspaces/
+
+# CRS Runtime State (keep specs/ directory)
+agent-system/crs/state/runs/
+agent-system/crs/state/patches/
+agent-system/crs/state/*.json
+!agent-system/crs/state/specs/

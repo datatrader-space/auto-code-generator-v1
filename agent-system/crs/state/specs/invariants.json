@@ -1,0 +1,21 @@
+{
+  "version": "crs-invariants-v1",
+  "generated_at": "2025-12-30T16:20:41Z",
+  "invariants": [
+    {
+      "id": "inv:artifact_id_unique",
+      "statement": "artifact_id should be unique within artifacts.json.",
+      "severity": "high",
+      "detection": {
+        "where": "query_api.load",
+        "how": "duplicate key collision in artifacts_by_id"
+      },
+      "repair_playbook": "pb:fix_duplicate_artifact_id"
+    },
+    {
+      "id": "inv:relationship_endpoints_have_types",
+      "statement": "Every relationship must have from.type and to.type (even unresolved).",
+      "severity": "medium"
+    }
+  ]
+}

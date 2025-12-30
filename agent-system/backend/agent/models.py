@@ -37,6 +37,28 @@ class User(AbstractUser):
         return self.username
 
 
+class GitHubOAuthConfig(models.Model):
+    """Store GitHub OAuth configuration in the database."""
+
+    client_id = models.CharField(max_length=200)
+    client_secret = models.CharField(max_length=200)
+    callback_url = models.URLField(
+        default='http://localhost:8000/api/auth/github/callback'
+    )
+    scope = models.CharField(max_length=200, default='repo,user')
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'agent_github_oauth_config'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"GitHub OAuth Config ({self.client_id})"
+
+
 class System(models.Model):
     """
     A system is a collection of related repositories
@@ -70,6 +92,13 @@ class System(models.Model):
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Intent & constraints
+    intent_constraints = models.JSONField(default=dict, blank=True)
+    # {
+    #   "summary": "What the system should do",
+    #   "constraints": ["PII never leaves EU", "Must use Redis for caching"]
+    # }
     
     class Meta:
         db_table = 'agent_systems'
