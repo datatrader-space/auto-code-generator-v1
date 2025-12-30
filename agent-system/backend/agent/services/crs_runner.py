@@ -1,12 +1,13 @@
 import json
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
 
 from django.conf import settings
 from django.utils import timezone
+
+from crs_main import run_pipeline
 from agent.models import Repository
 
 
@@ -25,19 +26,13 @@ def _repo_root() -> Path:
     return Path(settings.BASE_DIR).parents[1]
 
 
-def _crs_root() -> Path:
-    return _repo_root() / "crs"
-
-
 def _workspace_base_dirs() -> Dict[str, Path]:
     root = _repo_root()
-    crs_root = _crs_root()
     return {
         "repo_root": root,
         "clone_root": root / "workspaces",
-        "crs_root": crs_root / "crs_workspaces",
-        "tools_dir": crs_root / "tools",
-        "crs_root_dir": crs_root,
+        "crs_root": root / "crs_workspaces",
+        "tools_dir": root / "tools",
     }
 
 
@@ -97,13 +92,6 @@ def _build_crs_workspace(repository: Repository) -> CRSWorkspacePaths:
 def run_crs_pipeline(repository: Repository) -> Dict[str, Any]:
     if not repository.clone_path or not Path(repository.clone_path).is_dir():
         raise RuntimeError("Repository clone not found. Clone the repository before running CRS.")
-    base_dirs = _workspace_base_dirs()
-    crs_root_dir = base_dirs["crs_root_dir"]
-    if str(crs_root_dir) not in sys.path:
-        sys.path.insert(0, str(crs_root_dir))
-
-    from crs_main import run_pipeline
-
     paths = _build_crs_workspace(repository)
     original_config = os.environ.get("CRS_CONFIG")
     os.environ["CRS_CONFIG"] = str(paths.config_path)
