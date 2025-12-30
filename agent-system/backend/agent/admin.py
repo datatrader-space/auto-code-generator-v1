@@ -10,7 +10,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from agent.models import (
     User, System, Repository, RepositoryQuestion,
-    SystemKnowledge, Task, AgentMemory, GitHubOAuthConfig
+    SystemKnowledge, Task, AgentMemory, GitHubOAuthConfig,
+    ChatConversation, ChatMessage
 )
 
 
@@ -257,6 +258,79 @@ class GitHubOAuthConfigAdmin(admin.ModelAdmin):
     list_display = ['client_id', 'callback_url', 'scope', 'is_active', 'created_at']
     list_filter = ['is_active', 'created_at']
     search_fields = ['client_id', 'callback_url']
+
+
+class ChatMessageInline(admin.TabularInline):
+    """Inline messages in conversation admin"""
+    model = ChatMessage
+    extra = 0
+    fields = ['role', 'content_preview', 'created_at']
+    readonly_fields = ['role', 'content_preview', 'created_at']
+
+    def content_preview(self, obj):
+        return obj.content[:100] + '...' if len(obj.content) > 100 else obj.content
+    content_preview.short_description = 'Content'
+
+
+@admin.register(ChatConversation)
+class ChatConversationAdmin(admin.ModelAdmin):
+    """Chat conversation admin"""
+
+    list_display = ['title', 'conversation_type', 'user', 'system', 'repository',
+                    'message_count', 'created_at', 'updated_at']
+    list_filter = ['conversation_type', 'created_at']
+    search_fields = ['title', 'user__username', 'system__name']
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        (None, {
+            'fields': ('user', 'system', 'conversation_type', 'title')
+        }),
+        ('Context', {
+            'fields': ('repository',)
+        }),
+        ('Settings', {
+            'fields': ('model_provider',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    inlines = [ChatMessageInline]
+
+    def message_count(self, obj):
+        return obj.messages.count()
+    message_count.short_description = 'Messages'
+
+
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    """Chat message admin"""
+
+    list_display = ['id', 'conversation', 'role', 'content_preview', 'created_at']
+    list_filter = ['role', 'created_at']
+    search_fields = ['conversation__title', 'content']
+    readonly_fields = ['created_at']
+
+    fieldsets = (
+        (None, {
+            'fields': ('conversation', 'role', 'content')
+        }),
+        ('Metadata', {
+            'fields': ('context_used', 'model_info'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamp', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def content_preview(self, obj):
+        return obj.content[:100] + '...' if len(obj.content) > 100 else obj.content
+    content_preview.short_description = 'Content'
 
 
 # Customize admin site

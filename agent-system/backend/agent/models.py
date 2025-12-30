@@ -432,6 +432,108 @@ class AgentMemory(models.Model):
     class Meta:
         db_table = 'agent_memories'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"Memory: {self.memory_type} - {self.created_at}"
+
+
+class ChatConversation(models.Model):
+    """
+    Chat conversation - context for a series of messages
+
+    Types:
+    - repository: Chat about a specific repository (context locked)
+    - planner: Multi-repo planning chat (all repos available)
+    - graph: Visual graph exploration chat
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_conversations')
+    system = models.ForeignKey(System, on_delete=models.CASCADE, related_name='chat_conversations')
+
+    # Conversation type
+    CONVERSATION_TYPES = [
+        ('repository', 'Repository Chat'),
+        ('planner', 'Planner Chat'),
+        ('graph', 'Graph Exploration'),
+    ]
+    conversation_type = models.CharField(max_length=20, choices=CONVERSATION_TYPES)
+
+    # Context
+    repository = models.ForeignKey(
+        Repository,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='chat_conversations',
+        help_text='For repository-specific chats'
+    )
+
+    # Metadata
+    title = models.CharField(max_length=200, blank=True)  # Auto-generated from first message
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Settings
+    model_provider = models.CharField(max_length=50, default='local')  # 'local', 'cloud'
+
+    class Meta:
+        db_table = 'chat_conversations'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'system', 'conversation_type']),
+            models.Index(fields=['repository']),
+        ]
+
+    def __str__(self):
+        return f"{self.conversation_type}: {self.title or 'Untitled'}"
+
+
+class ChatMessage(models.Model):
+    """
+    Individual chat message
+    """
+
+    conversation = models.ForeignKey(
+        ChatConversation,
+        on_delete=models.CASCADE,
+        related_name='messages'
+    )
+
+    # Message role
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('assistant', 'Assistant'),
+        ('system', 'System'),
+    ]
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+
+    # Content
+    content = models.TextField()
+
+    # Context used (for assistant messages)
+    context_used = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='CRS artifacts/files used to generate response'
+    )
+
+    # Model info (for assistant messages)
+    model_info = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Model, provider, tokens used, etc.'
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'chat_messages'
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['conversation', 'created_at']),
+        ]
+
+    def __str__(self):
+        preview = self.content[:50] + '...' if len(self.content) > 50 else self.content
+        return f"{self.role}: {preview}"
