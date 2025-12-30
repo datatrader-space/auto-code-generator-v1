@@ -124,3 +124,9 @@ CSRF_TRUSTED_ORIGINS = [
 
 # And update CORS settings to include credentials
 CORS_ALLOW_CREDENTIALS = True
+
+# GitHub OAuth Configuration
+GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', '')
+GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', '')
+GITHUB_OAUTH_CALLBACK_URL = os.getenv('GITHUB_OAUTH_CALLBACK_URL', 'http://localhost:8000/api/auth/github/callback')
+GITHUB_OAUTH_SCOPE = os.getenv('GITHUB_OAUTH_SCOPE', 'repo,user')

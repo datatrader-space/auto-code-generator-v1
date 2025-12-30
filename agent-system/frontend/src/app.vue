@@ -1,17 +1,17 @@
 <template>
   <div id="app" class="min-h-screen bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-sm border-b">
+    <!-- Navigation (hide on login page) -->
+    <nav v-if="$route.path !== '/login'" class="bg-white shadow-sm border-b">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
           <div class="flex">
             <!-- Logo -->
             <div class="flex-shrink-0 flex items-center">
               <router-link to="/" class="text-2xl font-bold text-blue-600">
-                🤖 CRS Agent
+                🤖 Auto Code Generator
               </router-link>
             </div>
-            
+
             <!-- Navigation Links -->
             <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
               <router-link
@@ -21,7 +21,7 @@
               >
                 Systems
               </router-link>
-              
+
               <a
                 href="http://localhost:8000/admin"
                 target="_blank"
@@ -31,31 +31,70 @@
               </a>
             </div>
           </div>
-          
+
           <!-- Right side -->
-          <div class="flex items-center">
+          <div class="flex items-center space-x-4">
             <!-- LLM Status -->
-            <div v-if="llmHealth" class="mr-4 flex items-center space-x-2">
+            <div v-if="llmHealth" class="flex items-center space-x-2">
               <div class="flex items-center">
-                <div 
+                <div
                   class="w-2 h-2 rounded-full mr-2"
                   :class="llmHealth.local?.available ? 'bg-green-500' : 'bg-gray-300'"
                 ></div>
                 <span class="text-xs text-gray-600">Local LLM</span>
               </div>
-              
+
               <div class="flex items-center">
-                <div 
+                <div
                   class="w-2 h-2 rounded-full mr-2"
                   :class="llmHealth.cloud?.available ? 'bg-green-500' : 'bg-gray-300'"
                 ></div>
                 <span class="text-xs text-gray-600">Cloud LLM</span>
               </div>
             </div>
-            
-            <!-- User -->
-            <div class="text-sm text-gray-700">
-              👤 {{ username }}
+
+            <!-- GitHub Status -->
+            <div v-if="currentUser" class="flex items-center">
+              <div
+                class="w-2 h-2 rounded-full mr-2"
+                :class="currentUser.github_username ? 'bg-green-500' : 'bg-gray-300'"
+              ></div>
+              <span class="text-xs text-gray-600">
+                {{ currentUser.github_username ? `GitHub: ${currentUser.github_username}` : 'GitHub Not Connected' }}
+              </span>
+            </div>
+
+            <!-- User Menu -->
+            <div v-if="currentUser" class="relative">
+              <button
+                @click="showUserMenu = !showUserMenu"
+                class="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900"
+              >
+                <span>👤 {{ currentUser.username }}</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+
+              <!-- Dropdown Menu -->
+              <div
+                v-if="showUserMenu"
+                class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50"
+              >
+                <a
+                  v-if="!currentUser.github_username"
+                  @click="connectGitHub"
+                  class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+                >
+                  Connect GitHub
+                </a>
+                <a
+                  @click="handleLogout"
+                  class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 cursor-pointer"
+                >
+                  Logout
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -98,17 +137,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, provide } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import api from './services/api'
 
 const router = useRouter()
+const route = useRoute()
 const llmHealth = ref(null)
-const username = ref('admin')
+const currentUser = ref(null)
+const showUserMenu = ref(false)
 const notifications = ref([])
 
-// Check LLM health on mount
+// Load user data on mount
 onMounted(async () => {
+  // Load current user if authenticated
+  if (route.path !== '/login') {
+    await loadCurrentUser()
+  }
+
+  // Check LLM health
   try {
     const response = await api.get('/llm/health/')
     llmHealth.value = response.data
@@ -117,13 +164,55 @@ onMounted(async () => {
   }
 })
 
+// Load current user
+const loadCurrentUser = async () => {
+  try {
+    const response = await api.getCurrentUser()
+    currentUser.value = response.data.user
+  } catch (error) {
+    console.error('Failed to load user:', error)
+    currentUser.value = null
+  }
+}
+
+// Logout
+const handleLogout = async () => {
+  try {
+    await api.logout()
+    currentUser.value = null
+    localStorage.removeItem('user')
+    showUserMenu.value = false
+    router.push('/login')
+    addNotification('Logged out successfully', 'success')
+  } catch (error) {
+    console.error('Logout failed:', error)
+    addNotification('Logout failed', 'error')
+  }
+}
+
+// Connect GitHub
+const connectGitHub = () => {
+  showUserMenu.value = false
+  // Open GitHub OAuth in popup or redirect
+  window.location.href = 'http://localhost:8000/api/auth/github/login'
+}
+
+// Close user menu when clicking outside
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', (e) => {
+    if (!e.target.closest('.relative')) {
+      showUserMenu.value = false
+    }
+  })
+}
+
 // Notification system
 let notificationId = 0
 
 const addNotification = (message, type = 'info') => {
   const id = notificationId++
   notifications.value.push({ id, message, type })
-  
+
   // Auto-remove after 5 seconds
   setTimeout(() => {
     removeNotification(id)
@@ -138,7 +227,6 @@ const removeNotification = (id) => {
 }
 
 // Expose to child components via provide/inject
-import { provide } from 'vue'
 provide('notify', addNotification)
 </script>
 

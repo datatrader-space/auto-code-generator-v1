@@ -7,14 +7,12 @@ import axios from 'axios'
 
 // Create axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:80/api',
+  baseURL: 'http://localhost:8000/api',
   timeout: 30000,
-   withCredentials: true,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
-  },
-  // Send cookies for session auth
-  withCredentials: true
+  }
 })
 function getCookie(name) {
   let cookieValue = null
@@ -33,13 +31,15 @@ function getCookie(name) {
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Add auth header if needed (for Basic Auth during dev)
+    // Add CSRF token for Django
     const csrfToken = getCookie('csrftoken')
     if (csrfToken) {
-        config.headers['X-CSRFToken'] = csrfToken}
-    const auth = btoa('admin:admin123')
-    config.headers['Authorization'] = `Basic ${auth}`
-    
+      config.headers['X-CSRFToken'] = csrfToken
+    }
+
+    // Session-based auth (cookies are sent automatically with withCredentials: true)
+    // No need to add Authorization header for session auth
+
     return config
   },
   (error) => {
@@ -108,5 +108,21 @@ export default {
     api.post(`/systems/${systemId}/tasks/${taskId}/reject/`, { notes }),
   
   // LLM
-  checkLLMHealth: () => api.get('/llm/health/')
+  checkLLMHealth: () => api.get('/llm/health/'),
+
+  // Authentication
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
+  logout: () => api.post('/auth/logout'),
+  getCurrentUser: () => api.get('/auth/me'),
+  checkAuth: () => api.get('/auth/check'),
+
+  // GitHub OAuth
+  githubLogin: () => api.get('/auth/github/login'),
+  githubTestToken: (token = null) => {
+    const url = token ? `/auth/github/test?token=${token}` : '/auth/github/test'
+    return api.get(url)
+  },
+  githubListRepos: () => api.get('/auth/github/repos'),
+  githubGetRepoInfo: (githubUrl) => api.post('/auth/github/repo-info', { github_url: githubUrl })
 }

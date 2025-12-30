@@ -178,67 +178,175 @@
     <div
       v-if="showAddRepoModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      @click.self="showAddRepoModal = false"
+      @click.self="closeAddRepoModal"
     >
-      <div class="bg-white rounded-lg max-w-md w-full p-6">
+      <div class="bg-white rounded-lg max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
         <h2 class="text-xl font-bold mb-4">Add Repository</h2>
-        
-        <form @submit.prevent="addRepository">
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Repository Name *
-            </label>
-            <input
-              v-model="newRepo.name"
-              type="text"
-              required
-              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., worker"
-            />
+
+        <!-- Tabs -->
+        <div class="flex border-b mb-4">
+          <button
+            @click="addRepoTab = 'browse'"
+            type="button"
+            :class="[
+              'px-4 py-2 font-medium',
+              addRepoTab === 'browse'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            Browse GitHub
+          </button>
+          <button
+            @click="addRepoTab = 'manual'"
+            type="button"
+            :class="[
+              'px-4 py-2 font-medium',
+              addRepoTab === 'manual'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            Manual Entry
+          </button>
+        </div>
+
+        <!-- Browse GitHub Tab -->
+        <div v-if="addRepoTab === 'browse'">
+          <!-- Loading -->
+          <div v-if="loadingGithubRepos" class="text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p class="mt-2 text-gray-600">Loading your GitHub repositories...</p>
           </div>
-          
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              GitHub URL *
-            </label>
-            <input
-              v-model="newRepo.github_url"
-              type="url"
-              required
-              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="https://github.com/org/repo"
-            />
-          </div>
-          
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Branch
-            </label>
-            <input
-              v-model="newRepo.github_branch"
-              type="text"
-              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="main"
-            />
-          </div>
-          
-          <div class="flex justify-end space-x-3">
+
+          <!-- Error -->
+          <div v-else-if="githubReposError" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p class="text-red-800 font-medium">{{ githubReposError }}</p>
+            <p class="text-red-600 text-sm mt-1">Make sure GITHUB_TOKEN is set in .env</p>
             <button
+              @click="loadGithubRepos"
               type="button"
-              @click="showAddRepoModal = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              class="mt-2 text-sm text-red-600 hover:text-red-800 underline"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="adding"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {{ adding ? 'Adding...' : 'Add Repository' }}
+              Try again
             </button>
           </div>
-        </form>
+
+          <!-- Repositories List -->
+          <div v-else-if="githubRepos.length > 0">
+            <!-- Search -->
+            <input
+              v-model="repoSearchQuery"
+              type="text"
+              placeholder="Search repositories..."
+              class="w-full px-3 py-2 border rounded-lg mb-4 focus:ring-2 focus:ring-blue-500"
+            />
+
+            <!-- Repo Grid -->
+            <div class="space-y-2 max-h-96 overflow-y-auto">
+              <div
+                v-for="repo in filteredGithubRepos"
+                :key="repo.full_name"
+                @click="selectGithubRepo(repo)"
+                class="border rounded-lg p-4 hover:bg-blue-50 hover:border-blue-500 cursor-pointer transition"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <h3 class="font-medium text-gray-900">{{ repo.name }}</h3>
+                    <p class="text-sm text-gray-500 mt-1">{{ repo.full_name }}</p>
+                    <p v-if="repo.description" class="text-sm text-gray-600 mt-2">
+                      {{ repo.description }}
+                    </p>
+                    <div class="flex items-center gap-4 mt-2">
+                      <span v-if="repo.language" class="text-xs text-gray-500">
+                        {{ repo.language }}
+                      </span>
+                      <span class="text-xs text-gray-500">
+                        ⭐ {{ repo.stars }}
+                      </span>
+                      <span
+                        v-if="repo.private"
+                        class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded"
+                      >
+                        Private
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="ml-4 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                  >
+                    Select
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-sm text-gray-500 mt-4">
+              Showing {{ filteredGithubRepos.length }} of {{ githubRepos.length }} repositories
+            </p>
+          </div>
+        </div>
+
+        <!-- Manual Entry Tab -->
+        <div v-if="addRepoTab === 'manual'">
+          <form @submit.prevent="addRepository">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Repository Name *
+              </label>
+              <input
+                v-model="newRepo.name"
+                type="text"
+                required
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., worker"
+              />
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                GitHub URL *
+              </label>
+              <input
+                v-model="newRepo.github_url"
+                type="url"
+                required
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="https://github.com/org/repo"
+              />
+            </div>
+
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Branch
+              </label>
+              <input
+                v-model="newRepo.github_branch"
+                type="text"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="main"
+              />
+            </div>
+
+            <div class="flex justify-end space-x-3">
+              <button
+                type="button"
+                @click="closeAddRepoModal"
+                class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="adding"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {{ adding ? 'Adding...' : 'Add Repository' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
     
@@ -342,7 +450,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../services/api'
 
@@ -369,11 +477,29 @@ const selectedRepo = ref(null)
 const questions = ref([])
 const answers = ref({})
 
+// GitHub browsing
+const addRepoTab = ref('browse')
+const githubRepos = ref([])
+const loadingGithubRepos = ref(false)
+const githubReposError = ref(null)
+const repoSearchQuery = ref('')
+
 // Computed
 const readyRepos = computed(() => {
-  return repositories.value.filter(r => 
+  return repositories.value.filter(r =>
     r.status === 'ready' || r.status === 'questions_answered'
   ).length
+})
+
+const filteredGithubRepos = computed(() => {
+  if (!repoSearchQuery.value) return githubRepos.value
+
+  const query = repoSearchQuery.value.toLowerCase()
+  return githubRepos.value.filter(repo =>
+    repo.name.toLowerCase().includes(query) ||
+    repo.full_name.toLowerCase().includes(query) ||
+    (repo.description && repo.description.toLowerCase().includes(query))
+  )
 })
 
 // Load system
@@ -467,6 +593,55 @@ const selectRepository = (repo) => {
 const loadKnowledge = async () => {
   notify('Knowledge viewer coming soon!', 'info')
 }
+
+// GitHub repository browsing
+const loadGithubRepos = async () => {
+  try {
+    loadingGithubRepos.value = true
+    githubReposError.value = null
+
+    const response = await api.githubListRepos()
+
+    if (response.data.success) {
+      githubRepos.value = response.data.repositories
+      notify(`Loaded ${response.data.count} repositories`, 'success')
+    } else {
+      githubReposError.value = response.data.error || 'Failed to load repositories'
+    }
+  } catch (error) {
+    console.error('Failed to load GitHub repos:', error)
+    githubReposError.value = error.response?.data?.error || 'Failed to load repositories. Check your GitHub token.'
+  } finally {
+    loadingGithubRepos.value = false
+  }
+}
+
+const selectGithubRepo = async (repo) => {
+  // Auto-fill the form with selected repo
+  newRepo.value = {
+    name: repo.name,
+    github_url: repo.clone_url,
+    github_branch: repo.default_branch || 'main'
+  }
+
+  // Switch to manual tab to show the filled form
+  addRepoTab.value = 'manual'
+  notify(`Selected: ${repo.full_name}`, 'success')
+}
+
+const closeAddRepoModal = () => {
+  showAddRepoModal.value = false
+  addRepoTab.value = 'browse'
+  repoSearchQuery.value = ''
+  githubReposError.value = null
+}
+
+// Watch for modal opening to load GitHub repos
+watch(showAddRepoModal, (newVal) => {
+  if (newVal && addRepoTab.value === 'browse' && githubRepos.value.length === 0) {
+    loadGithubRepos()
+  }
+})
 
 // Load on mount
 onMounted(() => {
