@@ -9,6 +9,7 @@ from rest_framework_nested import routers as nested_routers
 
 from agent import views
 from agent import oauth_views
+from agent import auth_views
 
 # Main router
 router = DefaultRouter()
@@ -47,6 +48,13 @@ urlpatterns = [
 
     # LLM health
     path('llm/health/', views.llm_health, name='llm-health'),
+
+    # Authentication endpoints
+    path('auth/register', auth_views.register_user, name='auth-register'),
+    path('auth/login', auth_views.login_user, name='auth-login'),
+    path('auth/logout', auth_views.logout_user, name='auth-logout'),
+    path('auth/me', auth_views.current_user, name='auth-me'),
+    path('auth/check', auth_views.check_auth, name='auth-check'),
 
     # GitHub OAuth endpoints
     path('auth/github/login', oauth_views.github_login, name='github-login'),

@@ -55,7 +55,7 @@ def github_login(request):
 def github_callback(request):
     """
     Step 2: GitHub redirects back here with authorization code
-    Exchange code for access token
+    Exchange code for access token and save to user's database record
 
     This endpoint is called automatically by GitHub after user authorizes
     """
@@ -67,6 +67,13 @@ def github_callback(request):
             'error': 'No authorization code received',
             'details': 'User may have cancelled the OAuth flow'
         }, status=400)
+
+    # Check if user is logged in
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            'error': 'You must be logged in to connect GitHub',
+            'message': 'Please login first, then try connecting GitHub again'
+        }, status=401)
 
     # Exchange code for access token
     token_url = "https://github.com/login/oauth/access_token"
@@ -102,20 +109,17 @@ def github_callback(request):
         github_username = user_data.get('login')
         github_email = user_data.get('email')
 
-        # For quick prototyping, just return the token
-        # In production, you'd create/update user and create session
+        # Save token to user's database record
+        user = request.user
+        user.github_token = access_token
+        user.github_username = github_username
+        user.save()
+
         return JsonResponse({
             'success': True,
-            'access_token': access_token,
             'github_username': github_username,
             'github_email': github_email,
-            'message': 'OAuth successful! Copy the access_token and add it to your .env file as GITHUB_TOKEN',
-            'instructions': [
-                f'1. Copy this token: {access_token}',
-                '2. Add to .env file: GITHUB_TOKEN={access_token}',
-                '3. Now you can use GitHub API with full repo access!',
-                '4. Test it by calling /api/repositories/ endpoints'
-            ],
+            'message': 'GitHub connected successfully!',
             'scopes': token_response.get('scope', '').split(',')
         })
 
@@ -200,12 +204,17 @@ def list_github_repos(request):
 
     Usage: GET /api/auth/github/repos
     """
-    token = request.GET.get('token') or os.getenv('GITHUB_TOKEN')
+    # Get token from authenticated user or fallback to .env for backwards compatibility
+    if request.user.is_authenticated and request.user.github_token:
+        token = request.user.github_token
+    else:
+        token = request.GET.get('token') or os.getenv('GITHUB_TOKEN')
 
     if not token:
         return JsonResponse({
-            'error': 'No GitHub token provided',
-            'message': 'Set GITHUB_TOKEN in .env or complete OAuth flow first'
+            'error': 'No GitHub token found',
+            'message': 'Please connect your GitHub account first',
+            'action': 'Visit /api/auth/github/login to connect'
         }, status=401)
 
     try:
@@ -244,11 +253,16 @@ def get_repo_info(request):
             'error': 'github_url is required'
         }, status=400)
 
-    token = request.data.get('token') or os.getenv('GITHUB_TOKEN')
+    # Get token from authenticated user or fallback
+    if request.user.is_authenticated and request.user.github_token:
+        token = request.user.github_token
+    else:
+        token = request.data.get('token') or os.getenv('GITHUB_TOKEN')
 
     if not token:
         return JsonResponse({
-            'error': 'No GitHub token provided'
+            'error': 'No GitHub token found',
+            'message': 'Please connect your GitHub account first'
         }, status=401)
 
     try:

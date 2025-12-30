@@ -31,13 +31,15 @@ function getCookie(name) {
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Add auth header if needed (for Basic Auth during dev)
+    // Add CSRF token for Django
     const csrfToken = getCookie('csrftoken')
     if (csrfToken) {
-        config.headers['X-CSRFToken'] = csrfToken}
-    const auth = btoa('admin:admin123')
-    config.headers['Authorization'] = `Basic ${auth}`
-    
+      config.headers['X-CSRFToken'] = csrfToken
+    }
+
+    // Session-based auth (cookies are sent automatically with withCredentials: true)
+    // No need to add Authorization header for session auth
+
     return config
   },
   (error) => {
@@ -107,6 +109,13 @@ export default {
   
   // LLM
   checkLLMHealth: () => api.get('/llm/health/'),
+
+  // Authentication
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
+  logout: () => api.post('/auth/logout'),
+  getCurrentUser: () => api.get('/auth/me'),
+  checkAuth: () => api.get('/auth/check'),
 
   // GitHub OAuth
   githubLogin: () => api.get('/auth/github/login'),
