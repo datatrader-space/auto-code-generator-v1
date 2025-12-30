@@ -199,11 +199,7 @@ const connectGitHub = () => {
 
   api.githubConfig()
     .then((response) => {
-      const { configured, client_id: clientId, redirect_uri: redirectUri, scope, message } = response.data
-      if (!configured) {
-        addNotification(message || 'GitHub OAuth is not configured.', 'error')
-        return
-      }
+      const { client_id: clientId, redirect_uri: redirectUri, scope } = response.data
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
