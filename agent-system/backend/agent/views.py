@@ -682,12 +682,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @decorators.action(
-        detail=True,
-        methods=['get'],
-        url_path='crs/events',
-        renderer_classes=[]  # Bypass DRF renderers for SSE
-    )
+    @decorators.action(detail=True, methods=['get'], url_path='crs/events')
     def crs_events_stream(self, request, pk=None, system_pk=None):
         """
         Server-Sent Events stream for CRS pipeline events
@@ -717,7 +712,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             if since is not None:
                 past_events = broadcaster.get_events(repository.id, since=since)
                 for event in past_events:
-                    yield event.to_sse()
+                    yield event.to_sse().encode('utf-8')
 
             # Stream new events
             last_check = time.time()
@@ -725,12 +720,12 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 # Get new events since last check
                 new_events = broadcaster.get_events(repository.id, since=last_check)
                 for event in new_events:
-                    yield event.to_sse()
+                    yield event.to_sse().encode('utf-8')
 
                 last_check = time.time()
 
                 # Send keepalive comment every 30 seconds
-                yield f": keepalive\n\n"
+                yield b": keepalive\n\n"
 
                 # Small delay to avoid busy loop
                 time.sleep(0.5)
@@ -741,6 +736,10 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         )
         response['Cache-Control'] = 'no-cache'
         response['X-Accel-Buffering'] = 'no'
+        response['Access-Control-Allow-Origin'] = '*'
+        response.accepted_renderer = None
+        response.accepted_media_type = 'text/event-stream'
+        response.renderer_context = {}
         return response
 
 
