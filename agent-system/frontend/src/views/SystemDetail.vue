@@ -81,6 +81,43 @@
           </div>
         </div>
       </div>
+
+      <!-- Intent & Constraints -->
+      <div class="bg-white rounded-lg shadow mb-8">
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Intent & Constraints</h2>
+            <p class="text-sm text-gray-500">
+              Capture your system goals and non-negotiables before analysis.
+            </p>
+          </div>
+          <button
+            @click="openIntentModal"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
+            {{ hasIntentConstraints ? 'Edit' : 'Add' }} Intent
+          </button>
+        </div>
+        <div class="px-6 py-4">
+          <div v-if="hasIntentConstraints" class="space-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-gray-400">Intent summary</p>
+              <p class="text-gray-800 mt-1">{{ intentSummary }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wide text-gray-400">Constraints</p>
+              <ul class="list-disc list-inside text-gray-800 mt-1 space-y-1">
+                <li v-for="constraint in intentConstraints" :key="constraint">
+                  {{ constraint }}
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div v-else class="text-gray-500">
+            No intent or constraints yet. Add them to guide repository analysis.
+          </div>
+        </div>
+      </div>
       
       <!-- Repositories Section -->
       <div class="bg-white rounded-lg shadow mb-8">
@@ -446,6 +483,60 @@
         </form>
       </div>
     </div>
+
+    <!-- Intent & Constraints Modal -->
+    <div
+      v-if="showIntentModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      @click.self="showIntentModal = false"
+    >
+      <div class="bg-white rounded-lg max-w-lg w-full p-6">
+        <h2 class="text-xl font-bold mb-4">Intent & Constraints</h2>
+
+        <form @submit.prevent="saveIntentConstraints">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Intent summary
+            </label>
+            <textarea
+              v-model="intentForm.summary"
+              rows="3"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="Describe the primary goal for this system..."
+            ></textarea>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Constraints (one per line)
+            </label>
+            <textarea
+              v-model="intentForm.constraints"
+              rows="4"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g.\nMust remain HIPAA compliant\nOnly use existing Kafka topics"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              @click="showIntentModal = false"
+              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="savingIntent"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {{ savingIntent ? 'Saving...' : 'Save Intent' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -463,9 +554,11 @@ const repositories = ref([])
 const loading = ref(true)
 const showAddRepoModal = ref(false)
 const showQuestionsModal = ref(false)
+const showIntentModal = ref(false)
 const adding = ref(false)
 const loadingQuestions = ref(false)
 const submitting = ref(false)
+const savingIntent = ref(false)
 
 const newRepo = ref({
   name: '',
@@ -476,6 +569,10 @@ const newRepo = ref({
 const selectedRepo = ref(null)
 const questions = ref([])
 const answers = ref({})
+const intentForm = ref({
+  summary: '',
+  constraints: ''
+})
 
 // GitHub browsing
 const addRepoTab = ref('browse')
@@ -491,6 +588,17 @@ const readyRepos = computed(() => {
   ).length
 })
 
+const hasIntentConstraints = computed(() => {
+  const intent = system.value?.intent_constraints
+  return Boolean(intent?.summary || (intent?.constraints || []).length)
+})
+
+const intentSummary = computed(() => {
+  return system.value?.intent_constraints?.summary || '—'
+})
+
+const intentConstraints = computed(() => {
+  return system.value?.intent_constraints?.constraints || []
 const filteredGithubRepos = computed(() => {
   if (!repoSearchQuery.value) return githubRepos.value
 
@@ -581,6 +689,43 @@ const submitAnswers = async () => {
     console.error(error)
   } finally {
     submitting.value = false
+  }
+}
+
+const openIntentModal = () => {
+  const intent = system.value?.intent_constraints || {}
+  intentForm.value = {
+    summary: intent.summary || '',
+    constraints: (intent.constraints || []).join('\n')
+  }
+  showIntentModal.value = true
+}
+
+const saveIntentConstraints = async () => {
+  try {
+    savingIntent.value = true
+    const constraintsList = intentForm.value.constraints
+      .split('\n')
+      .map(item => item.trim())
+      .filter(Boolean)
+    const payload = {
+      name: system.value.name,
+      description: system.value.description,
+      status: system.value.status,
+      intent_constraints: {
+        summary: intentForm.value.summary.trim(),
+        constraints: constraintsList
+      }
+    }
+    const response = await api.updateSystem(systemId, payload)
+    system.value = response.data
+    showIntentModal.value = false
+    notify('Intent & constraints saved!', 'success')
+  } catch (error) {
+    notify('Failed to save intent & constraints', 'error')
+    console.error(error)
+  } finally {
+    savingIntent.value = false
   }
 }
 

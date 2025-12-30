@@ -70,6 +70,13 @@ class System(models.Model):
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Intent & constraints
+    intent_constraints = models.JSONField(default=dict, blank=True)
+    # {
+    #   "summary": "What the system should do",
+    #   "constraints": ["PII never leaves EU", "Must use Redis for caching"]
+    # }
     
     class Meta:
         db_table = 'agent_systems'

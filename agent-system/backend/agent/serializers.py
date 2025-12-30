@@ -124,6 +124,7 @@ class SystemDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'slug', 'description', 'status',
             'workspace_path', 'system_spec_path',
+            'intent_constraints',
             'repositories', 'knowledge_count',
             'created_at', 'updated_at'
         ]
