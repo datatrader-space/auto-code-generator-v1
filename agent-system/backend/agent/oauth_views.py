@@ -26,19 +26,11 @@ def github_config(request):
     config = get_active_github_oauth_config()
     if not config:
         return JsonResponse({
-            'configured': False,
             'error': 'GitHub OAuth not configured',
-            'message': 'Create an active GitHub OAuth configuration in the admin.',
-            'instructions': [
-                'Create a GitHub OAuth App at https://github.com/settings/developers',
-                'Set the Authorization callback URL to your backend callback endpoint',
-                'Add the Client ID and Client Secret in the admin panel',
-                'Mark the configuration as active'
-            ]
-        })
+            'message': 'Create an active GitHub OAuth configuration in the admin.'
+        }, status=400)
 
     return JsonResponse({
-        'configured': True,
         'client_id': config.client_id,
         'redirect_uri': config.callback_url,
         'scope': config.scope
