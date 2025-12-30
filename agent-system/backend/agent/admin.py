@@ -10,7 +10,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from agent.models import (
     User, System, Repository, RepositoryQuestion,
-    SystemKnowledge, Task, AgentMemory
+    SystemKnowledge, Task, AgentMemory, GitHubOAuthConfig
 )
 
 
@@ -249,7 +249,14 @@ class AgentMemoryAdmin(admin.ModelAdmin):
         ('Context', {
             'fields': ('learned_from_task', 'created_at')
         }),
-    )
+    ) 
+
+
+@admin.register(GitHubOAuthConfig)
+class GitHubOAuthConfigAdmin(admin.ModelAdmin):
+    list_display = ['client_id', 'callback_url', 'scope', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['client_id', 'callback_url']
 
 
 # Customize admin site

@@ -4,14 +4,37 @@ Simple OAuth flow to get repository access tokens
 """
 import requests
 import os
-from django.conf import settings
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from .models import User
+from .models import User, GitHubOAuthConfig
 from .services.github_client import GitHubClient
+
+
+def get_active_github_oauth_config():
+    return GitHubOAuthConfig.objects.filter(is_active=True).order_by('-created_at').first()
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def github_config(request):
+    """
+    Return public GitHub OAuth configuration for the frontend.
+    """
+    config = get_active_github_oauth_config()
+    if not config:
+        return JsonResponse({
+            'error': 'GitHub OAuth not configured',
+            'message': 'Create an active GitHub OAuth configuration in the admin.'
+        }, status=400)
+
+    return JsonResponse({
+        'client_id': config.client_id,
+        'redirect_uri': config.callback_url,
+        'scope': config.scope
+    })
 
 
 @api_view(['GET'])
@@ -22,28 +45,25 @@ def github_login(request):
 
     Usage: Navigate to http://localhost:8000/api/auth/github/login
     """
-    client_id = settings.GITHUB_CLIENT_ID
-    redirect_uri = settings.GITHUB_OAUTH_CALLBACK_URL
-    scope = settings.GITHUB_OAUTH_SCOPE
+    config = get_active_github_oauth_config()
 
-    if not client_id or client_id == 'your_github_client_id_here':
+    if not config:
         return JsonResponse({
             'error': 'GitHub OAuth not configured',
             'instructions': [
-                '1. Go to https://github.com/settings/developers',
-                '2. Click "New OAuth App"',
-                '3. Set Authorization callback URL to: http://localhost:8000/api/auth/github/callback',
-                '4. Copy Client ID and Client Secret to .env file',
-                '5. Update GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env'
+                '1. Create a GitHub OAuth App at https://github.com/settings/developers',
+                '2. Set Authorization callback URL to: http://localhost:8000/api/auth/github/callback',
+                '3. Add the Client ID and Client Secret in the admin panel',
+                '4. Mark the configuration as active'
             ]
         }, status=400)
 
     # Build GitHub OAuth URL
     github_auth_url = (
         f"https://github.com/login/oauth/authorize"
-        f"?client_id={client_id}"
-        f"&redirect_uri={redirect_uri}"
-        f"&scope={scope}"
+        f"?client_id={config.client_id}"
+        f"&redirect_uri={config.callback_url}"
+        f"&scope={config.scope}"
         f"&state=random_state_string"  # In production, use secure random state
     )
 
@@ -76,12 +96,19 @@ def github_callback(request):
         }, status=401)
 
     # Exchange code for access token
+    config = get_active_github_oauth_config()
+    if not config:
+        return JsonResponse({
+            'error': 'GitHub OAuth not configured',
+            'message': 'Create an active GitHub OAuth configuration in the admin.'
+        }, status=400)
+
     token_url = "https://github.com/login/oauth/access_token"
     token_data = {
-        'client_id': settings.GITHUB_CLIENT_ID,
-        'client_secret': settings.GITHUB_CLIENT_SECRET,
+        'client_id': config.client_id,
+        'client_secret': config.client_secret,
         'code': code,
-        'redirect_uri': settings.GITHUB_OAUTH_CALLBACK_URL,
+        'redirect_uri': config.callback_url,
     }
 
     headers = {'Accept': 'application/json'}
@@ -138,7 +165,7 @@ def test_token(request):
 
     Usage: GET /api/auth/github/test?token=YOUR_TOKEN
     """
-    token = request.GET.get('token') or settings.GITHUB_TOKEN
+    token = request.GET.get('token') or os.getenv('GITHUB_TOKEN')
 
     if not token:
         return JsonResponse({
