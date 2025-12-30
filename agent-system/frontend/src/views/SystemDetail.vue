@@ -670,11 +670,9 @@
             <div v-else class="text-gray-500">No CRS summary available.</div>
           </div>
 
-          <!-- Blueprints Tab -->
+          <!-- Blueprints Tab with Interactive Viewer -->
           <div v-else-if="crsTab === 'blueprints'">
-            <pre class="bg-gray-50 border rounded-lg p-4 text-xs overflow-x-auto">
-{{ formattedCrsPayload }}
-            </pre>
+            <BlueprintViewer :blueprints="crsPayloads.blueprints || {}" />
           </div>
 
           <!-- Artifacts Tab with Card Viewer -->
@@ -682,11 +680,9 @@
             <ArtifactViewer :artifacts="artifactsList" />
           </div>
 
-          <!-- Relationships Tab -->
+          <!-- Relationships Tab with Interactive Viewer -->
           <div v-else-if="crsTab === 'relationships'">
-            <pre class="bg-gray-50 border rounded-lg p-4 text-xs overflow-x-auto">
-{{ formattedCrsPayload }}
-            </pre>
+            <RelationshipViewer :relationships="crsPayloads.relationships || {}" />
           </div>
         </div>
       </div>
@@ -756,6 +752,8 @@ import CRSPipelineDashboard from '../components/CRSPipelineDashboard.vue'
 import RepositoryChat from '../components/RepositoryChat.vue'
 import PlannerChat from '../components/PlannerChat.vue'
 import ArtifactViewer from '../components/ArtifactViewer.vue'
+import BlueprintViewer from '../components/BlueprintViewer.vue'
+import RelationshipViewer from '../components/RelationshipViewer.vue'
 
 const route = useRoute()
 const notify = inject('notify')
