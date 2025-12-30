@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+CRS_ROOT = Path(__file__).resolve().parent / "agent-system" / "crs"
+if str(CRS_ROOT) not in sys.path:
+    sys.path.insert(0, str(CRS_ROOT))
+
 from core.fs import WorkspaceFS
 from core.query_api import CRSQueryAPI
 

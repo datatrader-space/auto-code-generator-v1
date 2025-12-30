@@ -37,6 +37,10 @@ def _ensure_python_path(fs: WorkspaceFS) -> None:
     if root not in sys.path:
         sys.path.insert(0, root)
 
+    crs_root = os.path.dirname(os.path.abspath(__file__))
+    if crs_root not in sys.path:
+        sys.path.insert(0, crs_root)
+
 
 def _capture_call(fn, *args, **kwargs) -> Tuple[Any, str, str, float]:
     """
