@@ -670,7 +670,20 @@
             <div v-else class="text-gray-500">No CRS summary available.</div>
           </div>
 
-          <div v-else>
+          <!-- Blueprints Tab -->
+          <div v-else-if="crsTab === 'blueprints'">
+            <pre class="bg-gray-50 border rounded-lg p-4 text-xs overflow-x-auto">
+{{ formattedCrsPayload }}
+            </pre>
+          </div>
+
+          <!-- Artifacts Tab with Card Viewer -->
+          <div v-else-if="crsTab === 'artifacts'">
+            <ArtifactViewer :artifacts="artifactsList" />
+          </div>
+
+          <!-- Relationships Tab -->
+          <div v-else-if="crsTab === 'relationships'">
             <pre class="bg-gray-50 border rounded-lg p-4 text-xs overflow-x-auto">
 {{ formattedCrsPayload }}
             </pre>
@@ -742,6 +755,7 @@ import api from '../services/api'
 import CRSPipelineDashboard from '../components/CRSPipelineDashboard.vue'
 import RepositoryChat from '../components/RepositoryChat.vue'
 import PlannerChat from '../components/PlannerChat.vue'
+import ArtifactViewer from '../components/ArtifactViewer.vue'
 
 const route = useRoute()
 const notify = inject('notify')
@@ -814,6 +828,26 @@ const formattedCrsPayload = computed(() => {
   const payload = crsPayloads.value[crsTab.value]
   if (!payload) return 'No data loaded.'
   return JSON.stringify(payload, null, 2)
+})
+
+const artifactsList = computed(() => {
+  const artifactsData = crsPayloads.value.artifacts
+  if (!artifactsData) return []
+
+  // Convert artifacts object to array
+  if (Array.isArray(artifactsData)) {
+    return artifactsData
+  }
+
+  // If it's an object with artifact entries
+  if (typeof artifactsData === 'object') {
+    return Object.entries(artifactsData).map(([name, data]) => ({
+      name,
+      ...data
+    }))
+  }
+
+  return []
 })
 
 const filteredGithubRepos = computed(() => {
