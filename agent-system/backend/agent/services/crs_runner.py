@@ -3,11 +3,22 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.utils import timezone
+
 from agent.models import Repository
+
+# Add CRS directory to Python path
+_crs_dir = Path(settings.BASE_DIR).parent / "crs"
+if str(_crs_dir) not in sys.path:
+    sys.path.insert(0, str(_crs_dir))
+
+from crs_main import run_pipeline
+from core.fs import WorkspaceFS
+from core.step_runner import CRSStepRunner
+from core.events import CRSEventEmitter, get_broadcaster
 
 
 @dataclass
@@ -25,19 +36,13 @@ def _repo_root() -> Path:
     return Path(settings.BASE_DIR).parents[1]
 
 
-def _crs_root() -> Path:
-    return _repo_root() / "crs"
-
-
 def _workspace_base_dirs() -> Dict[str, Path]:
     root = _repo_root()
-    crs_root = _crs_root()
     return {
         "repo_root": root,
         "clone_root": root / "workspaces",
-        "crs_root": crs_root / "crs_workspaces",
-        "tools_dir": crs_root / "tools",
-        "crs_root_dir": crs_root,
+        "crs_root": root / "crs_workspaces",
+        "tools_dir": root / "agent-system" / "crs" / "tools",
     }
 
 
@@ -97,13 +102,6 @@ def _build_crs_workspace(repository: Repository) -> CRSWorkspacePaths:
 def run_crs_pipeline(repository: Repository) -> Dict[str, Any]:
     if not repository.clone_path or not Path(repository.clone_path).is_dir():
         raise RuntimeError("Repository clone not found. Clone the repository before running CRS.")
-    base_dirs = _workspace_base_dirs()
-    crs_root_dir = base_dirs["crs_root_dir"]
-    if str(crs_root_dir) not in sys.path:
-        sys.path.insert(0, str(crs_root_dir))
-
-    from crs_main import run_pipeline
-
     paths = _build_crs_workspace(repository)
     original_config = os.environ.get("CRS_CONFIG")
     os.environ["CRS_CONFIG"] = str(paths.config_path)
@@ -181,3 +179,114 @@ def get_crs_summary(repository: Repository) -> Dict[str, Any]:
         "artifact_items": len(artifacts_payload.get("artifacts", [])) if artifacts_payload else 0,
         "relationship_items": len(relationships_payload.get("relationships", [])) if relationships_payload else 0,
     }
+
+
+def run_crs_step(
+    repository: Repository,
+    step_name: str,
+    force: bool = False,
+    run_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Run a single CRS pipeline step with event emission
+
+    Args:
+        repository: Repository model instance
+        step_name: Step to run (blueprints, artifacts, relationships, verification, impact)
+        force: Force rerun even if up-to-date
+        run_id: Optional run ID (generated if not provided)
+
+    Returns:
+        Step execution result
+    """
+    if not repository.clone_path or not Path(repository.clone_path).is_dir():
+        raise RuntimeError("Repository clone not found")
+
+    paths = _build_crs_workspace(repository)
+
+    # Set up environment
+    original_config = os.environ.get("CRS_CONFIG")
+    os.environ["CRS_CONFIG"] = str(paths.config_path)
+
+    try:
+        # Create event emitter
+        if run_id is None:
+            import time
+            run_id = f"step_{int(time.time())}"
+
+        emitter = CRSEventEmitter(run_id=run_id, repository_id=repository.id)
+
+        # Set up broadcaster callback
+        broadcaster = get_broadcaster()
+
+        def broadcast_callback(event):
+            broadcaster.broadcast(repository.id, event)
+
+        emitter.register_callback(broadcast_callback)
+
+        # Create step runner
+        fs = WorkspaceFS(config_path=str(paths.config_path))
+        runner = CRSStepRunner(fs, emitter)
+
+        # Run the requested step
+        if step_name == "blueprints":
+            result = runner.run_blueprints(force=force)
+        elif step_name == "artifacts":
+            result = runner.run_artifacts(force=force)
+        elif step_name == "relationships":
+            result = runner.run_relationships(force=force)
+        elif step_name == "impact":
+            result = runner.run_impact()
+        elif step_name.startswith("verification_"):
+            suite_id = step_name.replace("verification_", "")
+            result = runner.run_verification(suite_id)
+        else:
+            raise ValueError(f"Unknown step: {step_name}")
+
+        # Update repository stats if not skipped
+        if not result.get("skipped"):
+            repository.last_crs_run = timezone.now()
+            repository.save(update_fields=["last_crs_run"])
+
+        return {
+            "run_id": run_id,
+            "step": step_name,
+            "result": result,
+            "events_count": len(emitter.get_events())
+        }
+
+    finally:
+        # Restore environment
+        if original_config is None:
+            os.environ.pop("CRS_CONFIG", None)
+        else:
+            os.environ["CRS_CONFIG"] = original_config
+
+
+def get_crs_step_status(repository: Repository) -> Dict[str, Any]:
+    """
+    Get status of all CRS pipeline steps
+
+    Returns step-by-step status showing what needs to run
+    """
+    if not repository.clone_path or not Path(repository.clone_path).is_dir():
+        return {
+            "error": "Repository not cloned",
+            "steps": {}
+        }
+
+    paths = _build_crs_workspace(repository)
+    original_config = os.environ.get("CRS_CONFIG")
+    os.environ["CRS_CONFIG"] = str(paths.config_path)
+
+    try:
+        fs = WorkspaceFS(config_path=str(paths.config_path))
+        runner = CRSStepRunner(fs, emitter=None)
+        status = runner.get_step_status()
+        return status
+
+    finally:
+        if original_config is None:
+            os.environ.pop("CRS_CONFIG", None)
+        else:
+            os.environ["CRS_CONFIG"] = original_config
