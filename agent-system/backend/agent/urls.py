@@ -32,6 +32,11 @@ systems_router.register(
     basename='system-knowledge'
 )
 systems_router.register(
+    r'documentation',
+    views.SystemDocumentationViewSet,
+    basename='system-documentation'
+)
+systems_router.register(
     r'tasks',
     views.TaskViewSet,
     basename='system-tasks'
