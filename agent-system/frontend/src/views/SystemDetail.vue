@@ -82,6 +82,44 @@
         </div>
       </div>
 
+      <!-- System Planner Chat -->
+      <div class="bg-white rounded-lg shadow mb-8">
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 flex items-center">
+              <svg class="w-5 h-5 mr-2 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
+              </svg>
+              System Planner
+            </h2>
+            <p class="text-sm text-gray-500 mt-1">
+              Plan changes across all repositories with AI assistance
+            </p>
+          </div>
+          <button
+            @click="showPlannerChat = !showPlannerChat"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            :class="showPlannerChat ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-purple-600 text-white hover:bg-purple-700'"
+          >
+            {{ showPlannerChat ? 'Hide Chat' : 'Open Planner' }}
+          </button>
+        </div>
+
+        <div v-if="showPlannerChat" class="p-4">
+          <PlannerChat :system-id="parseInt(systemId)" :repository-count="repositories.length" />
+        </div>
+
+        <div v-else class="px-6 py-4 bg-purple-50 border-t">
+          <div class="flex items-center text-sm text-gray-600">
+            <svg class="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span>Chat with an AI planner that has access to all {{ repositories.length }} repositories in this system</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Intent & Constraints -->
       <div class="bg-white rounded-lg shadow mb-8">
         <div class="px-6 py-4 border-b flex items-center justify-between">
@@ -524,6 +562,18 @@
 
         <div class="flex border-b mb-4">
           <button
+            @click="setCrsTab('chat')"
+            type="button"
+            :class="[
+              'px-4 py-2 font-medium',
+              crsTab === 'chat'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            💬 Chat
+          </button>
+          <button
             @click="setCrsTab('pipeline')"
             type="button"
             :class="[
@@ -585,8 +635,16 @@
           </button>
         </div>
 
+        <!-- Chat Tab -->
+        <div v-if="crsTab === 'chat'">
+          <RepositoryChat
+            :repository="selectedCrsRepo"
+            :system-id="systemId"
+          />
+        </div>
+
         <!-- Pipeline Dashboard -->
-        <div v-if="crsTab === 'pipeline'">
+        <div v-else-if="crsTab === 'pipeline'">
           <CRSPipelineDashboard
             :repository-id="selectedCrsRepo.id"
             :system-id="systemId"
@@ -682,6 +740,8 @@ import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../services/api'
 import CRSPipelineDashboard from '../components/CRSPipelineDashboard.vue'
+import RepositoryChat from '../components/RepositoryChat.vue'
+import PlannerChat from '../components/PlannerChat.vue'
 
 const route = useRoute()
 const notify = inject('notify')
@@ -694,6 +754,7 @@ const showAddRepoModal = ref(false)
 const showQuestionsModal = ref(false)
 const showIntentModal = ref(false)
 const showCrsModal = ref(false)
+const showPlannerChat = ref(false)
 const adding = ref(false)
 const loadingQuestions = ref(false)
 const submitting = ref(false)
@@ -863,7 +924,7 @@ const runCrs = async (repo) => {
 const openCrsModal = async (repo) => {
   selectedCrsRepo.value = repo
   showCrsModal.value = true
-  crsTab.value = 'summary'
+  crsTab.value = 'chat'  // Default to chat tab
   await loadCrsSummary(repo)
 }
 

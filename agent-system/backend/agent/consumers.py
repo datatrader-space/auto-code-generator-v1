@@ -303,6 +303,7 @@ class PlannerChatConsumer(BaseChatConsumer):
     Planner chat consumer
 
     Context includes all repositories in the system
+    Allows planning across multiple repositories
     """
 
     async def connect(self):
@@ -319,24 +320,165 @@ class PlannerChatConsumer(BaseChatConsumer):
     def get_system(self):
         """Get system from database"""
         try:
-            return System.objects.get(id=self.system_id)
+            return System.objects.prefetch_related('repositories').get(id=self.system_id)
         except System.DoesNotExist:
             return None
 
+    @database_sync_to_async
+    def get_or_create_conversation(self, conversation_id=None):
+        """Get existing or create new planner conversation"""
+        if conversation_id:
+            try:
+                return ChatConversation.objects.get(
+                    id=conversation_id,
+                    system=self.system,
+                    conversation_type='planner'
+                )
+            except ChatConversation.DoesNotExist:
+                pass
+
+        # Create new conversation
+        return ChatConversation.objects.create(
+            user=self.scope['user'],
+            system=self.system,
+            conversation_type='planner',
+            title='Planner Chat',
+            model_provider='local'
+        )
+
+    @database_sync_to_async
+    def save_user_message(self, conversation, content):
+        """Save user message to database"""
+        return ChatMessage.objects.create(
+            conversation=conversation,
+            role='user',
+            content=content
+        )
+
     async def handle_chat_message(self, data):
         """Handle planner chat message"""
-        # Similar to RepositoryChatConsumer but with multi-repo context
-        await self.send_json({
-            'type': 'info',
-            'message': 'Planner chat coming soon!'
-        })
+        user_message = data.get('message', '').strip()
+        conversation_id = data.get('conversation_id')
+
+        if not user_message:
+            await self.send_json({'type': 'error', 'error': 'Empty message'})
+            return
+
+        # Get or create conversation
+        conversation = await self.get_or_create_conversation(conversation_id)
+
+        # Save user message
+        await self.save_user_message(conversation, user_message)
+
+        # Get multi-repo context
+        context = await self.get_multi_repo_context(user_message)
+
+        # Stream LLM response
+        await self.stream_llm_response(user_message, context, conversation)
+
+    @database_sync_to_async
+    def get_multi_repo_context(self, query):
+        """Get context from all repositories in the system"""
+        repos = list(self.system.repositories.filter(crs_status='completed'))
+
+        if not repos:
+            return {
+                'repositories': [],
+                'summary': 'No repositories with CRS analysis found in this system.',
+                'search_results': ''
+            }
+
+        # Build context from all repositories
+        repo_contexts = []
+        all_search_results = []
+
+        for repo in repos:
+            try:
+                crs_ctx = CRSContext(repo)
+                crs_ctx.load_all()
+
+                # Search within this repo
+                search_results = crs_ctx.search_context(query, limit=3)
+
+                repo_contexts.append({
+                    'name': repo.name,
+                    'summary': crs_ctx.build_context_summary(),
+                    'search_results': search_results
+                })
+
+                if search_results.strip():
+                    all_search_results.append(f"\n### Repository: {repo.name}\n{search_results}")
+
+            except Exception as e:
+                logger.error(f"Error loading CRS context for {repo.name}: {e}")
+                repo_contexts.append({
+                    'name': repo.name,
+                    'error': str(e)
+                })
+
+        # Combine all search results
+        combined_search = '\n'.join(all_search_results) if all_search_results else 'No relevant code found.'
+
+        return {
+            'repositories': repo_contexts,
+            'summary': f"System has {len(repos)} repositories with CRS analysis.",
+            'search_results': combined_search
+        }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages for planner chat"""
-        return [
-            {'role': 'system', 'content': 'You are a system planner assistant.'},
-            {'role': 'user', 'content': user_message}
+        """Build messages for planner chat with multi-repo context"""
+        # Get conversation history
+        history = await self.get_conversation_history(conversation)
+
+        # Build system prompt
+        repo_list = '\n'.join([
+            f"- {repo['name']}: {repo.get('summary', 'N/A')}"
+            for repo in context.get('repositories', [])
+        ])
+
+        messages = [
+            {
+                'role': 'system',
+                'content': f"""You are a system planning assistant with access to multiple repositories.
+
+Available Repositories:
+{repo_list}
+
+{context.get('summary', '')}
+
+Relevant code context:
+{context.get('search_results', '')}
+
+Your role:
+- Help plan changes across multiple repositories
+- Identify dependencies and relationships between repos
+- Suggest implementation strategies
+- Provide architectural guidance
+- Consider impact across the entire system
+
+Be specific and reference repository names, file paths, and functions when relevant."""
+            }
         ]
+
+        # Add conversation history
+        for msg in history:
+            messages.append({
+                'role': msg.role,
+                'content': msg.content
+            })
+
+        # Add current user message
+        messages.append({
+            'role': 'user',
+            'content': user_message
+        })
+
+        return messages
+
+    @database_sync_to_async
+    def get_conversation_history(self, conversation, limit=10):
+        """Get recent conversation history"""
+        return list(conversation.messages.order_by('-created_at')[:limit][::-1])
 
 
 class GraphChatConsumer(BaseChatConsumer):
