@@ -350,53 +350,132 @@ class RepositoryChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages with CRS context - teach the model about CRS format"""
+        """
+        Build messages with tool-first approach
+
+        Forces LLM to plan tool usage before answering
+        """
+        from agent.crs_tools import CRSTools
+
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        search_results = context.get('search_results', '')
         status_message = context.get('status_message')
 
-        # Build comprehensive system prompt that teaches CRS format
-        system_prompt = f"""You are analyzing a code repository using CRS (Contextual Retrieval System).
+        # Get tool definitions
+        crs_tools = CRSTools(repository=self.repository)
+        tool_definitions = crs_tools.get_tool_definitions()
 
-# What is CRS?
-CRS organizes code knowledge into 3 layers:
+        # Build tool-first system prompt with router
+        system_prompt = f"""You are a code repository assistant with access to CRS (Contextual Retrieval System) tools.
 
-1. **BLUEPRINTS** = Files/modules with their purpose and main components
-2. **ARTIFACTS** = Specific code elements (classes, functions, endpoints)
-3. **RELATIONSHIPS** = How components connect (calls, imports, uses)
+# YOUR JOB
 
-# How to Answer Questions
+1. **PLAN** which tools to use
+2. **REQUEST** tools using the exact format shown below
+3. **WAIT** for tool results
+4. **ANSWER** the user's question with the data
 
-ALWAYS follow this pattern:
+---
 
-**Step 1**: Look at the code context below
-**Step 2**: Find relevant blueprints (files), artifacts (classes/functions), or relationships
-**Step 3**: Answer using SPECIFIC references like:
-- "In file `agent/models.py`..."
-- "The class `User` has methods..."
-- "Function `connect()` calls `accept()`..."
+{tool_definitions}
 
-**Step 4**: If no relevant code found, say "I don't see that in the provided context"
+---
 
-# Code Context for This Query
+# CRITICAL RULES
 
-{search_results}
+## For Inventory Questions ("list all X", "what models exist", "show serializers")
+→ You MUST use LIST_ARTIFACTS
+→ NEVER try to answer from memory or search results
+→ Example questions: "what models exist?", "list all viewsets", "show me serializers"
+→ Correct: `[LIST_ARTIFACTS: kind="django_model"]`
+→ Wrong: Answering without using LIST_ARTIFACTS
 
-Instructions:
-- Answer using the code context above
-- Reference specific files and classes
-- Be concrete and specific
-- If context is insufficient, say so"""
+## For Location Questions ("where is X", "find X", "how does X work")
+→ Use SEARCH_CRS first
+→ Then use GET_ARTIFACT or READ_FILE for details
+→ Example: `[SEARCH_CRS: query="authentication", limit="10"]`
+
+## For Flow Analysis ("what calls X", "how are X and Y connected")
+→ Use CRS_RELATIONSHIPS
+→ Example: `[CRS_RELATIONSHIPS: artifact_id="..."]`
+
+---
+
+# RESPONSE FORMAT
+
+When you need to use tools, respond like this:
+
+```
+Let me search for that information.
+
+[TOOL_NAME: param="value"]
+```
+
+After receiving tool results, provide your answer with citations:
+- Always reference file:line locations
+- Quote artifact_ids for traceability
+- Be specific and concrete
+
+---
+
+# EXAMPLES
+
+**User:** "What models exist in this repository?"
+
+**You (CORRECT):**
+```
+Let me list all Django models in the repository.
+
+[LIST_ARTIFACTS: kind="django_model"]
+```
+
+**You (WRONG):**
+```
+Based on my knowledge, there are models like User, System... [WRONG - this is guessing]
+```
+
+---
+
+**User:** "Where is the WebSocket consumer defined?"
+
+**You (CORRECT):**
+```
+Let me search for WebSocket consumers.
+
+[SEARCH_CRS: query="websocket consumer", limit="10"]
+```
+
+---
+
+**User:** "What does RepositoryViewSet do?"
+
+**You (CORRECT):**
+```
+Let me search for that class first.
+
+[SEARCH_CRS: query="RepositoryViewSet", limit="5"]
+```
+Then after getting artifact_id:
+```
+[GET_ARTIFACT: artifact_id="drf_viewset:RepositoryViewSet:agent/views.py:45-120"]
+```
+
+---
+
+Now answer the user's question by requesting the appropriate tools."""
+
         if status_message:
             system_prompt = f"""You are analyzing a code repository.
 
 CRS Status: {status_message}
 
-Instructions:
-- If CRS is not ready, explain that CRS analysis must be run before answering.
-- Ask the user to try again after CRS completes."""
+The CRS system is not ready yet. Please explain to the user that:
+1. CRS analysis must be run on this repository first
+2. They should wait for CRS to complete, then try again
+3. CRS provides structured code knowledge (blueprints, artifacts, relationships)
+
+Keep your response brief and helpful."""
 
         messages = [
             {
@@ -405,8 +484,8 @@ Instructions:
             }
         ]
 
-        # Add conversation history (last 3 messages for context)
-        for msg in history[-3:]:
+        # Add conversation history (last 5 messages for context)
+        for msg in history[-5:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -418,7 +497,7 @@ Instructions:
             'content': user_message
         })
 
-        logger.info(f"Built CRS-aware prompt with {len(system_prompt)} chars, {len(search_results)} chars of code context")
+        logger.info(f"Built tool-first prompt with {len(system_prompt)} chars")
         return messages
 
     @database_sync_to_async
@@ -573,56 +652,49 @@ class PlannerChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages for planner chat - teach CRS for multi-repo planning"""
+        """Build messages for planner chat - multi-repo tool-based planning"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        search_results = context.get('search_results', '')
         repo_list = '\n'.join([f"- {repo['name']}" for repo in context.get('repositories', [])])
 
-        # CRS-aware system prompt for multi-repo planning
-        system_prompt = f"""You are a multi-repository planner using CRS (Contextual Retrieval System).
-
-# What is CRS?
-CRS organizes code knowledge into 3 layers:
-
-1. **BLUEPRINTS** = Files/modules with their purpose
-2. **ARTIFACTS** = Classes, functions, API endpoints
-3. **RELATIONSHIPS** = How components connect across repos
+        # Tool-first system prompt for multi-repo planning
+        # Note: For now, planner uses simpler context-based approach
+        # TODO: Implement multi-repo CRS tools in future
+        system_prompt = f"""You are a multi-repository planner with access to code from multiple repositories.
 
 # System Repositories
 {repo_list}
 
-# How to Plan Changes
+# Your Planning Process
 
-**Step 1**: Look at code from all repositories below
-**Step 2**: Identify affected files and components
-**Step 3**: Consider cross-repo dependencies
-**Step 4**: Provide implementation steps
+1. **ANALYZE** code structure across all repositories
+2. **IDENTIFY** files and components that need changes
+3. **CONSIDER** cross-repository dependencies
+4. **PROVIDE** step-by-step implementation plan
 
-# Code Context from All Repositories
+# Planning Guidelines
 
-{search_results}
+- Be specific about file paths and component names
+- Consider API contracts between repositories
+- Think about data flow and dependencies
+- Provide actionable implementation steps
 
-# Example Planning Answer
+# Example Planning Format
 
-Q: "Add user authentication across all repos"
-A: "Based on the artifacts, here's the plan:
+**Repository: backend**
+- Modify `agent/models.py:45` - add User.email field
+- Update `agent/serializers.py:120` - add email to UserSerializer
 
-**Repository 1: backend**
-- Modify `agent/models.py` - add auth fields to User class
-- Update `agent/views.py` - add authentication endpoints
-
-**Repository 2: frontend**
-- Update `src/services/api.js` - add auth token handling
-- Modify `src/components/Login.vue` - create login form
+**Repository: frontend**
+- Update `src/components/UserForm.vue:30` - add email input field
+- Modify `src/services/api.js:15` - include email in API calls
 
 **Dependencies:**
-- Frontend calls backend `/api/auth/login` endpoint
-- Backend returns JWT token
-- Frontend stores token and includes in requests"
+- Frontend calls `POST /api/users/` with email field
+- Backend validates email format before saving
 
-Now plan the user's requested changes using code from the repositories above."""
+Now create a plan for the user's request with specific file:line references."""
 
         messages = [
             {
@@ -631,8 +703,8 @@ Now plan the user's requested changes using code from the repositories above."""
             }
         ]
 
-        # Add conversation history (last 3 messages)
-        for msg in history[-3:]:
+        # Add conversation history (last 5 messages)
+        for msg in history[-5:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -644,7 +716,7 @@ Now plan the user's requested changes using code from the repositories above."""
             'content': user_message
         })
 
-        logger.info(f"Built planner prompt with {len(system_prompt)} chars, {len(search_results)} chars of context")
+        logger.info(f"Built planner prompt with {len(system_prompt)} chars")
         return messages
 
     @database_sync_to_async
