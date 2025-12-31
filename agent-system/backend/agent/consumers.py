@@ -211,9 +211,20 @@ class RepositoryChatConsumer(BaseChatConsumer):
             except ChatConversation.DoesNotExist:
                 pass
 
+        # Get actual user instance (resolve lazy object)
+        from django.contrib.auth.models import User
+        user = self.scope['user']
+        if user.is_authenticated:
+            user = User.objects.get(pk=user.pk)
+        else:
+            # Use admin user for anonymous sessions (for development)
+            user = User.objects.filter(is_superuser=True).first()
+            if not user:
+                user = User.objects.first()
+
         # Create new conversation
         return ChatConversation.objects.create(
-            user=self.scope['user'],
+            user=user,
             system=self.repository.system,
             repository=self.repository,
             conversation_type='repository',
@@ -340,9 +351,20 @@ class PlannerChatConsumer(BaseChatConsumer):
             except ChatConversation.DoesNotExist:
                 pass
 
+        # Get actual user instance (resolve lazy object)
+        from django.contrib.auth.models import User
+        user = self.scope['user']
+        if user.is_authenticated:
+            user = User.objects.get(pk=user.pk)
+        else:
+            # Use admin user for anonymous sessions (for development)
+            user = User.objects.filter(is_superuser=True).first()
+            if not user:
+                user = User.objects.first()
+
         # Create new conversation
         return ChatConversation.objects.create(
-            user=self.scope['user'],
+            user=user,
             system=self.system,
             conversation_type='planner',
             title='Planner Chat',
@@ -522,9 +544,20 @@ class GraphChatConsumer(BaseChatConsumer):
             except ChatConversation.DoesNotExist:
                 pass
 
+        # Get actual user instance (resolve lazy object)
+        from django.contrib.auth.models import User
+        user = self.scope['user']
+        if user.is_authenticated:
+            user = User.objects.get(pk=user.pk)
+        else:
+            # Use admin user for anonymous sessions (for development)
+            user = User.objects.filter(is_superuser=True).first()
+            if not user:
+                user = User.objects.first()
+
         # Create new conversation
         return ChatConversation.objects.create(
-            user=self.scope['user'],
+            user=user,
             system=self.system,
             conversation_type='graph',
             title='Graph Exploration',
