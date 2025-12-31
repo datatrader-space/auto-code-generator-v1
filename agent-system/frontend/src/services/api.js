@@ -109,6 +109,7 @@ export default {
   
   // LLM
   checkLLMHealth: () => api.get('/llm/health/'),
+  getLlmStats: () => api.get('/llm/stats/'),
   getLlmProviders: () => api.get('/llm/providers/'),
   createLlmProvider: (data) => api.post('/llm/providers/', data),
   updateLlmProvider: (id, data) => api.put(`/llm/providers/${id}/`, data),

@@ -88,14 +88,15 @@ class AnthropicClient:
             )
             
             content = response.content[0].text
+            self.last_usage = {
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+                "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+            }
             
             return {
                 "content": content,
-                "usage": {
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
-                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens
-                }
+                "usage": self.last_usage
             }
         
         except Exception as e:
