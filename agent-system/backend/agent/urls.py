@@ -56,6 +56,7 @@ urlpatterns = [
 
     # LLM health
     path('llm/health/', views.llm_health, name='llm-health'),
+    path('llm/stats/', views.llm_stats, name='llm-stats'),
 
     # Authentication endpoints
     path('auth/register', auth_views.register_user, name='auth-register'),

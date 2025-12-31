@@ -112,6 +112,50 @@ class LLMModel(models.Model):
         return f"{self.provider.name}/{self.model_id}"
 
 
+class LLMRequestLog(models.Model):
+    """Log entries for LLM request/response usage."""
+
+    REQUEST_TYPE_CHOICES = [
+        ('chat', 'Chat'),
+        ('stream', 'Stream'),
+    ]
+    STATUS_CHOICES = [
+        ('success', 'Success'),
+        ('error', 'Error'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='llm_request_logs')
+    conversation = models.ForeignKey(
+        'ChatConversation',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='llm_request_logs'
+    )
+    provider = models.CharField(max_length=50, blank=True)
+    model = models.CharField(max_length=200, blank=True)
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    latency_ms = models.IntegerField(null=True, blank=True)
+    prompt_tokens = models.IntegerField(null=True, blank=True)
+    completion_tokens = models.IntegerField(null=True, blank=True)
+    total_tokens = models.IntegerField(null=True, blank=True)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'llm_request_logs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['provider', 'model']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f"{self.provider}/{self.model or 'default'} - {self.status}"
+
+
 class System(models.Model):
     """
     A system is a collection of related repositories

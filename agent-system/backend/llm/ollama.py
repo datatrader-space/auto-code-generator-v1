@@ -73,14 +73,15 @@ class OllamaClient:
             response.raise_for_status()
 
             data = response.json()
+            self.last_usage = {
+                "prompt_tokens": data.get("prompt_eval_count", 0),
+                "completion_tokens": data.get("eval_count", 0),
+                "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
+            }
 
             return {
                 "content": data.get("response", ""),
-                "usage": {
-                    "prompt_tokens": data.get("prompt_eval_count", 0),
-                    "completion_tokens": data.get("eval_count", 0),
-                    "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
-                }
+                "usage": self.last_usage
             }
 
         except requests.exceptions.Timeout:
@@ -128,6 +129,7 @@ class OllamaClient:
 
         if json_mode:
             payload["format"] = "json"
+        self.last_usage = None
 
         try:
             logger.info(f"Streaming from Ollama: {self.model}")

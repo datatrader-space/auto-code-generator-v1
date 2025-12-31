@@ -281,6 +281,18 @@ class LLMHealthSerializer(serializers.Serializer):
     cloud = serializers.DictField()
 
 
+class LLMStatsSerializer(serializers.Serializer):
+    """Serializer for LLM stats response"""
+
+    total_requests = serializers.IntegerField()
+    error_rate = serializers.FloatField()
+    avg_latency_ms = serializers.FloatField(allow_null=True)
+    top_provider_model = serializers.DictField(allow_null=True)
+    tokens_by_provider_model = serializers.ListField(child=serializers.DictField())
+    last_24h_trend = serializers.ListField(child=serializers.DictField())
+    recent_requests = serializers.ListField(child=serializers.DictField())
+
+
 class LLMProviderSerializer(serializers.ModelSerializer):
     """Serializer for LLM provider configuration"""
 

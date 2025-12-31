@@ -68,6 +68,7 @@ class GeminiClient:
             response.raise_for_status()
             data = response.json()
             content = data["candidates"][0]["content"]["parts"][0]["text"]
+            self.last_usage = data.get("usageMetadata", {})
             return {
                 "content": content,
                 "usage": data.get("usageMetadata", {})
