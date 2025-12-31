@@ -147,6 +147,11 @@ const loadingHistory = ref(false)
 
 let ws = null
 let currentStreamingMessage = ''
+let wsRepositoryId = null
+let isConnecting = false
+let autoReconnect = true
+let reconnectTimeout = null
+let incomingMessageCounter = 0
 
 // Load conversation history
 const loadConversationHistory = async () => {
@@ -188,37 +193,65 @@ const loadConversationHistory = async () => {
 }
 
 // WebSocket connection
-const connectWebSocket = () => {
+const connectWebSocket = (repositoryId = props.repository.id) => {
+  if (
+    ws &&
+    (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) &&
+    wsRepositoryId === repositoryId
+  ) {
+    console.log('WebSocket already connected or connecting for repository', repositoryId)
+    return
+  }
+
+  if (isConnecting) {
+    console.log('WebSocket connection already in progress')
+    return
+  }
+
+  isConnecting = true
+  autoReconnect = true
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const wsHost = import.meta.env.VITE_WS_HOST || 'localhost:8000'
-  const wsUrl = `${wsProtocol}//${wsHost}/ws/chat/repository/${props.repository.id}/`
+  const wsUrl = `${wsProtocol}//${wsHost}/ws/chat/repository/${repositoryId}/`
 
   ws = new WebSocket(wsUrl)
+  wsRepositoryId = repositoryId
 
   ws.onopen = () => {
     connected.value = true
+    isConnecting = false
     console.log('WebSocket connected')
   }
 
   ws.onclose = () => {
     connected.value = false
+    isConnecting = false
+    ws = null
     console.log('WebSocket disconnected')
 
     // Attempt reconnection after 3 seconds
-    setTimeout(() => {
-      if (!connected.value) {
-        console.log('Attempting to reconnect...')
-        connectWebSocket()
+    if (autoReconnect) {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
       }
-    }, 3000)
+      reconnectTimeout = setTimeout(() => {
+        if (!connected.value) {
+          console.log('Attempting to reconnect...')
+          connectWebSocket(repositoryId)
+        }
+      }, 3000)
+    }
   }
 
   ws.onerror = (error) => {
     console.error('WebSocket error:', error)
+    isConnecting = false
   }
 
   ws.onmessage = (event) => {
     try {
+      const messageId = `ws-${Date.now()}-${incomingMessageCounter++}`
+      console.log('WebSocket message received', { message_id: messageId, data: event.data })
       const data = JSON.parse(event.data)
       handleWebSocketMessage(data)
     } catch (error) {
@@ -226,6 +259,36 @@ const connectWebSocket = () => {
     }
   }
 }
+
+const closeWebSocket = ({ disableReconnect = false } = {}) => new Promise((resolve) => {
+  if (!ws) {
+    resolve()
+    return
+  }
+
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout)
+  }
+
+  if (disableReconnect) {
+    autoReconnect = false
+  }
+
+  const socket = ws
+  const handleClose = () => {
+    socket.removeEventListener('close', handleClose)
+    resolve()
+  }
+
+  socket.addEventListener('close', handleClose)
+
+  if (socket.readyState === WebSocket.CLOSED) {
+    handleClose()
+    return
+  }
+
+  socket.close()
+})
 
 const handleWebSocketMessage = (data) => {
   switch (data.type) {
@@ -295,6 +358,7 @@ const sendMessage = () => {
   }
 
   const messageText = currentMessage.value.trim()
+  const messageId = `client-${Date.now()}-${Math.random().toString(16).slice(2)}`
 
   // Add user message to display
   messages.value.push({
@@ -306,7 +370,8 @@ const sendMessage = () => {
   ws.send(JSON.stringify({
     type: 'chat_message',
     message: messageText,
-    conversation_id: conversationId.value
+    conversation_id: conversationId.value,
+    message_id: messageId
   }))
 
   // Clear input
@@ -349,25 +414,25 @@ onMounted(async () => {
   // Load conversation history first
   await loadConversationHistory()
   // Then connect WebSocket
-  connectWebSocket()
+  connectWebSocket(props.repository.id)
 })
 
 onUnmounted(() => {
-  if (ws) {
-    ws.close()
-  }
+  autoReconnect = false
+  closeWebSocket({ disableReconnect: true })
 })
 
 // Watch for repository changes
-watch(() => props.repository.id, async () => {
-  // Reconnect if repository changes
-  if (ws) {
-    ws.close()
+watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) => {
+  if (nextRepositoryId === previousRepositoryId) {
+    return
   }
+  // Reconnect if repository changes
+  await closeWebSocket({ disableReconnect: true })
   messages.value = []
   currentStreamingMessage = ''
   await loadConversationHistory()
-  connectWebSocket()
+  connectWebSocket(nextRepositoryId)
 })
 </script>
 
