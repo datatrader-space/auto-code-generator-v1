@@ -6,7 +6,10 @@ Context retrieval and search functions
 
 import json
 from typing import List, Dict, Any, Tuple
-from agent.models import Blueprint, Artifact, Relationship
+from agent.services.crs_runner import load_crs_payload
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CRSRetriever:
@@ -15,8 +18,32 @@ class CRSRetriever:
     def __init__(self, repository=None, system=None):
         self.repository = repository
         self.system = system
+        self._blueprints = None
+        self._artifacts = None
+        self._relationships = None
 
-    def search_blueprints(self, query: str, limit: int = 5) -> List[Blueprint]:
+    def _load_crs_data(self):
+        """Load CRS data from JSON files"""
+        if self._blueprints is None and self.repository:
+            try:
+                self._blueprints = load_crs_payload(self.repository, "blueprints")
+            except Exception as e:
+                logger.warning(f"Failed to load blueprints: {e}")
+                self._blueprints = {}
+
+            try:
+                self._artifacts = load_crs_payload(self.repository, "artifacts")
+            except Exception as e:
+                logger.warning(f"Failed to load artifacts: {e}")
+                self._artifacts = {}
+
+            try:
+                self._relationships = load_crs_payload(self.repository, "relationships")
+            except Exception as e:
+                logger.warning(f"Failed to load relationships: {e}")
+                self._relationships = {}
+
+    def search_blueprints(self, query: str, limit: int = 5) -> List[Dict]:
         """
         Search for blueprints relevant to the query
         Uses simple keyword matching (can be enhanced with embeddings later)
@@ -24,29 +51,33 @@ class CRSRetriever:
         if not self.repository:
             return []
 
+        self._load_crs_data()
         keywords = self._extract_keywords(query)
-        blueprints = Blueprint.objects.filter(repository=self.repository)
+
+        files = self._blueprints.get("files", [])
 
         # Score each blueprint
         scored = []
-        for bp in blueprints:
-            score = self._score_blueprint(bp, keywords)
+        for blueprint in files:
+            score = self._score_blueprint(blueprint, keywords)
             if score > 0:
-                scored.append((score, bp))
+                scored.append((score, blueprint))
 
         # Sort by score and return top N
         scored.sort(reverse=True, key=lambda x: x[0])
         return [bp for score, bp in scored[:limit]]
 
-    def search_artifacts(self, query: str, limit: int = 10) -> List[Artifact]:
+    def search_artifacts(self, query: str, limit: int = 10) -> List[Dict]:
         """
         Search for artifacts relevant to the query
         """
         if not self.repository:
             return []
 
+        self._load_crs_data()
         keywords = self._extract_keywords(query)
-        artifacts = Artifact.objects.filter(repository=self.repository)
+
+        artifacts = self._artifacts.get("artifacts", [])
 
         # Score each artifact
         scored = []
@@ -59,25 +90,26 @@ class CRSRetriever:
         scored.sort(reverse=True, key=lambda x: x[0])
         return [artifact for score, artifact in scored[:limit]]
 
-    def get_relationships(self, artifacts: List[Artifact] = None, limit: int = 20) -> List[Relationship]:
+    def get_relationships(self, artifacts: List[Dict] = None, limit: int = 20) -> List[Dict]:
         """
         Get relationships for given artifacts or for the repository
         """
         if not self.repository:
             return []
 
-        relationships = Relationship.objects.filter(repository=self.repository)
+        self._load_crs_data()
+        relationships = self._relationships.get("relationships", [])
 
         if artifacts:
             # Filter to relationships involving these artifacts
-            artifact_ids = [a.id for a in artifacts]
-            relationships = relationships.filter(
-                source_artifact_id__in=artifact_ids
-            ) | relationships.filter(
-                target_artifact_id__in=artifact_ids
-            )
+            artifact_names = [a.get("name") for a in artifacts]
+            filtered = []
+            for rel in relationships:
+                if rel.get("source") in artifact_names or rel.get("target") in artifact_names:
+                    filtered.append(rel)
+            return filtered[:limit]
 
-        return list(relationships[:limit])
+        return relationships[:limit]
 
     def build_context(self, query: str) -> Dict[str, Any]:
         """
@@ -112,7 +144,7 @@ class CRSRetriever:
             for bp in context['blueprints']:
                 prompt_parts.append(f"### {bp['path']}\n")
                 prompt_parts.append(f"**Purpose**: {bp['purpose']}\n")
-                if bp['key_components']:
+                if bp.get('key_components'):
                     prompt_parts.append(f"**Key Components**: {', '.join(bp['key_components'])}\n")
                 prompt_parts.append("\n")
 
@@ -121,7 +153,8 @@ class CRSRetriever:
             prompt_parts.append("## Relevant Artifacts\n")
             for artifact in context['artifacts']:
                 prompt_parts.append(f"### {artifact['name']} ({artifact['type']})\n")
-                prompt_parts.append(f"**Location**: {artifact['location']}\n")
+                if artifact.get('file'):
+                    prompt_parts.append(f"**Location**: {artifact['file']}\n")
                 if artifact.get('purpose'):
                     prompt_parts.append(f"**Purpose**: {artifact['purpose']}\n")
                 if artifact.get('signature'):
@@ -154,103 +187,115 @@ class CRSRetriever:
         keywords = [w.strip('?.,!') for w in words if w not in stop_words]
         return keywords
 
-    def _score_blueprint(self, blueprint: Blueprint, keywords: List[str]) -> float:
+    def _score_blueprint(self, blueprint: Dict, keywords: List[str]) -> float:
         """Score a blueprint based on keyword matches"""
         score = 0.0
 
         # Search in path (high weight)
-        path_lower = blueprint.path.lower()
+        path = blueprint.get("path", "").lower()
         for keyword in keywords:
-            if keyword in path_lower:
+            if keyword in path:
                 score += 2.0
 
-        # Search in content_json
-        if blueprint.content_json:
-            content_str = json.dumps(blueprint.content_json).lower()
+        # Search in purpose
+        purpose = blueprint.get("purpose", "").lower()
+        for keyword in keywords:
+            if keyword in purpose:
+                score += 1.5
+
+        # Search in key components
+        components = blueprint.get("key_components", [])
+        for comp in components:
+            comp_lower = str(comp).lower()
             for keyword in keywords:
-                if keyword in content_str:
+                if keyword in comp_lower:
                     score += 1.0
 
         return score
 
-    def _score_artifact(self, artifact: Artifact, keywords: List[str]) -> float:
+    def _score_artifact(self, artifact: Dict, keywords: List[str]) -> float:
         """Score an artifact based on keyword matches"""
         score = 0.0
 
         # Search in name (high weight)
-        name_lower = artifact.name.lower()
+        name = artifact.get("name", "").lower()
         for keyword in keywords:
-            if keyword in name_lower:
+            if keyword in name:
                 score += 2.0
 
         # Search in type
-        type_lower = artifact.artifact_type.lower()
+        artifact_type = artifact.get("type", "").lower()
         for keyword in keywords:
-            if keyword in type_lower:
+            if keyword in artifact_type:
                 score += 1.5
 
-        # Search in content_json
-        if artifact.content_json:
-            content_str = json.dumps(artifact.content_json).lower()
-            for keyword in keywords:
-                if keyword in content_str:
-                    score += 1.0
+        # Search in file path
+        file_path = artifact.get("file", "").lower()
+        for keyword in keywords:
+            if keyword in file_path:
+                score += 1.0
+
+        # Search in source code if available
+        source = artifact.get("source", "").lower()
+        for keyword in keywords:
+            if keyword in source:
+                score += 0.5
 
         return score
 
-    def _format_blueprint(self, blueprint: Blueprint) -> Dict[str, Any]:
+    def _format_blueprint(self, blueprint: Dict) -> Dict[str, Any]:
         """Format blueprint for context"""
-        content = blueprint.content_json or {}
         return {
-            'path': blueprint.path,
-            'purpose': content.get('purpose', ''),
-            'key_components': content.get('key_components', []),
-            'dependencies': content.get('dependencies', []),
-            'used_by': content.get('used_by', [])
+            'path': blueprint.get('path', ''),
+            'purpose': blueprint.get('purpose', ''),
+            'key_components': blueprint.get('key_components', []),
+            'dependencies': blueprint.get('dependencies', []),
+            'used_by': blueprint.get('used_by', [])
         }
 
-    def _format_artifact(self, artifact: Artifact) -> Dict[str, Any]:
+    def _format_artifact(self, artifact: Dict) -> Dict[str, Any]:
         """Format artifact for context"""
-        content = artifact.content_json or {}
         formatted = {
-            'name': artifact.name,
-            'type': artifact.artifact_type,
-            'location': content.get('location', artifact.name)
+            'name': artifact.get('name', ''),
+            'type': artifact.get('type', ''),
+            'file': artifact.get('file', ''),
+            'purpose': artifact.get('purpose', '')
         }
 
         # Add type-specific fields
-        if artifact.artifact_type == 'function':
-            formatted['signature'] = self._build_function_signature(content)
-            formatted['purpose'] = content.get('purpose', '')
-        elif artifact.artifact_type == 'class':
-            formatted['methods'] = content.get('methods', [])
-            formatted['purpose'] = content.get('purpose', '')
-        elif artifact.artifact_type == 'api_endpoint':
-            formatted['route'] = content.get('route', '')
-            formatted['method'] = content.get('method', '')
-            formatted['purpose'] = content.get('purpose', '')
+        artifact_type = artifact.get('type', '')
+        if artifact_type == 'function':
+            formatted['signature'] = self._build_function_signature(artifact)
+        elif artifact_type == 'class':
+            formatted['methods'] = artifact.get('methods', [])
+        elif artifact_type == 'api_endpoint':
+            formatted['route'] = artifact.get('route', '')
+            formatted['method'] = artifact.get('method', '')
 
         return formatted
 
-    def _format_relationship(self, relationship: Relationship) -> Dict[str, Any]:
+    def _format_relationship(self, relationship: Dict) -> Dict[str, Any]:
         """Format relationship for context"""
         return {
-            'source': relationship.source_artifact.name if relationship.source_artifact else 'Unknown',
-            'target': relationship.target_artifact.name if relationship.target_artifact else 'Unknown',
-            'type': relationship.relationship_type,
-            'context': relationship.context or ''
+            'source': relationship.get('source', 'Unknown'),
+            'target': relationship.get('target', 'Unknown'),
+            'type': relationship.get('type', ''),
+            'context': relationship.get('context', '')
         }
 
-    def _build_function_signature(self, content: Dict) -> str:
+    def _build_function_signature(self, artifact: Dict) -> str:
         """Build a function signature string"""
-        name = content.get('name', 'unknown')
-        params = content.get('parameters', [])
-        return_type = content.get('return_type', 'void')
+        name = artifact.get('name', 'unknown')
+        params = artifact.get('parameters', [])
+        return_type = artifact.get('return_type', 'void')
 
-        param_str = ', '.join([
-            f"{p.get('name', '')}: {p.get('type', 'Any')}"
-            for p in params
-        ]) if isinstance(params, list) else ''
+        if isinstance(params, list):
+            param_str = ', '.join([
+                f"{p.get('name', '')}: {p.get('type', 'Any')}"
+                for p in params
+            ]) if params else ''
+        else:
+            param_str = str(params)
 
         return f"{name}({param_str}) -> {return_type}"
 
