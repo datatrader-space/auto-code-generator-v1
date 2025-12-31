@@ -279,17 +279,20 @@ class RepositoryChatConsumer(BaseChatConsumer):
     @database_sync_to_async
     def get_crs_context(self, query):
         """Get relevant CRS context for the query using RAG"""
-        # Use RAG retriever to find relevant blueprints and artifacts
-        retriever = CRSRetriever(repository=self.repository)
+        crs_context = CRSContext(self.repository)
+        crs_context.load_all()
 
-        # Build context with CRS documentation + search results
-        context_prompt = retriever.build_context_prompt(query)
+        if not crs_context.has_payloads():
+            message = "CRS not ready for this repo."
+            logger.warning("CRS payloads missing for repository %s", self.repository.name)
+            return {
+                'status_message': message,
+                'search_results': message
+            }
 
-        # Also get CRS documentation for teaching the model
-        crs_docs = get_crs_documentation_context()
+        context_prompt = crs_context.search_context(query, limit=10)
 
         return {
-            'crs_documentation': crs_docs,
             'search_results': context_prompt
         }
 
@@ -300,6 +303,7 @@ class RepositoryChatConsumer(BaseChatConsumer):
 
         # Simplified system prompt for better local LLM performance
         search_results = context.get('search_results', '')
+        status_message = context.get('status_message')
 
         # Create concise system prompt
         system_prompt = f"""You are analyzing a code repository. Below is relevant code from the repository:
@@ -311,6 +315,14 @@ Instructions:
 - Reference specific files and classes
 - Be concrete and specific
 - If context is insufficient, say so"""
+        if status_message:
+            system_prompt = f"""You are analyzing a code repository.
+
+CRS Status: {status_message}
+
+Instructions:
+- If CRS is not ready, explain that CRS analysis must be run before answering.
+- Ask the user to try again after CRS completes."""
 
         messages = [
             {
