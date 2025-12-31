@@ -10,6 +10,11 @@ from asgiref.sync import sync_to_async
 
 from agent.models import Repository, System, ChatConversation, ChatMessage
 from agent.services.crs_context import CRSContext
+from agent.rag import CRSRetriever, ConversationMemory
+from agent.knowledge.crs_documentation import (
+    get_system_prompt,
+    get_crs_documentation_context
+)
 from llm.router import get_llm_router
 
 logger = logging.getLogger(__name__)
@@ -250,7 +255,15 @@ class RepositoryChatConsumer(BaseChatConsumer):
             return
 
         # Get or create conversation
+        is_new = conversation_id is None
         conversation = await self.get_or_create_conversation(conversation_id)
+
+        # If new conversation, notify frontend
+        if is_new:
+            await self.send_json({
+                'type': 'conversation_created',
+                'conversation_id': conversation.id
+            })
 
         # Save user message
         await self.save_user_message(conversation, user_message)
@@ -263,36 +276,56 @@ class RepositoryChatConsumer(BaseChatConsumer):
 
     @database_sync_to_async
     def get_crs_context(self, query):
-        """Get relevant CRS context for the query"""
-        crs_ctx = CRSContext(self.repository)
-        crs_ctx.load_all()
+        """Get relevant CRS context for the query using RAG"""
+        # Use RAG retriever to find relevant blueprints and artifacts
+        retriever = CRSRetriever(repository=self.repository)
+
+        # Build context with CRS documentation + search results
+        context_prompt = retriever.build_context_prompt(query)
+
+        # Also get CRS documentation for teaching the model
+        crs_docs = get_crs_documentation_context()
 
         return {
-            'summary': crs_ctx.build_context_summary(),
-            'search_results': crs_ctx.search_context(query, limit=5)
+            'crs_documentation': crs_docs,
+            'search_results': context_prompt
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages with CRS context"""
+        """Build messages with CRS context and documentation"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
+
+        # Build system prompt with CRS documentation
+        system_prompt = get_system_prompt('repository')
+
+        # Add CRS documentation and search results
+        full_system_prompt = f"""{system_prompt}
+
+---
+
+{context.get('crs_documentation', '')}
+
+---
+
+# Context for Current Query
+
+{context.get('search_results', '')}
+
+---
+
+Answer the user's question using the blueprints, artifacts, and relationships provided above.
+Be specific and reference exact file paths, function names, and code elements."""
 
         messages = [
             {
                 'role': 'system',
-                'content': f"""You are a helpful coding assistant with access to this repository's code.
-
-{context.get('summary', '')}
-
-Use the context below to answer questions about the code:
-{context.get('search_results', '')}
-
-Be concise and specific. Reference file names and functions when relevant."""
+                'content': full_system_prompt
             }
         ]
 
-        # Add conversation history
-        for msg in history:
+        # Add conversation history (last 10 messages for context)
+        for msg in history[-10:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -390,7 +423,15 @@ class PlannerChatConsumer(BaseChatConsumer):
             return
 
         # Get or create conversation
+        is_new = conversation_id is None
         conversation = await self.get_or_create_conversation(conversation_id)
+
+        # If new conversation, notify frontend
+        if is_new:
+            await self.send_json({
+                'type': 'conversation_created',
+                'conversation_id': conversation.id
+            })
 
         # Save user message
         await self.save_user_message(conversation, user_message)
@@ -403,36 +444,34 @@ class PlannerChatConsumer(BaseChatConsumer):
 
     @database_sync_to_async
     def get_multi_repo_context(self, query):
-        """Get context from all repositories in the system"""
+        """Get context from all repositories in the system using RAG"""
         repos = list(self.system.repositories.filter(crs_status='completed'))
 
         if not repos:
             return {
                 'repositories': [],
+                'crs_documentation': get_crs_documentation_context(),
                 'summary': 'No repositories with CRS analysis found in this system.',
                 'search_results': ''
             }
 
-        # Build context from all repositories
+        # Build context from all repositories using RAG
         repo_contexts = []
         all_search_results = []
 
         for repo in repos:
             try:
-                crs_ctx = CRSContext(repo)
-                crs_ctx.load_all()
-
-                # Search within this repo
-                search_results = crs_ctx.search_context(query, limit=3)
+                # Use RAG retriever for each repository
+                retriever = CRSRetriever(repository=repo)
+                context_prompt = retriever.build_context_prompt(query)
 
                 repo_contexts.append({
                     'name': repo.name,
-                    'summary': crs_ctx.build_context_summary(),
-                    'search_results': search_results
+                    'summary': f"Repository: {repo.name}"
                 })
 
-                if search_results.strip():
-                    all_search_results.append(f"\n### Repository: {repo.name}\n{search_results}")
+                if context_prompt.strip():
+                    all_search_results.append(f"\n### Repository: {repo.name}\n{context_prompt}")
 
             except Exception as e:
                 logger.error(f"Error loading CRS context for {repo.name}: {e}")
@@ -446,6 +485,7 @@ class PlannerChatConsumer(BaseChatConsumer):
 
         return {
             'repositories': repo_contexts,
+            'crs_documentation': get_crs_documentation_context(),
             'summary': f"System has {len(repos)} repositories with CRS analysis.",
             'search_results': combined_search
         }
@@ -455,38 +495,51 @@ class PlannerChatConsumer(BaseChatConsumer):
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Build system prompt
+        # Get planner system prompt
+        system_prompt = get_system_prompt('planner')
+
+        # Build repo list
         repo_list = '\n'.join([
-            f"- {repo['name']}: {repo.get('summary', 'N/A')}"
+            f"- {repo['name']}"
             for repo in context.get('repositories', [])
         ])
 
-        messages = [
-            {
-                'role': 'system',
-                'content': f"""You are a system planning assistant with access to multiple repositories.
+        # Build full system prompt
+        full_system_prompt = f"""{system_prompt}
+
+---
+
+{context.get('crs_documentation', '')}
+
+---
+
+# System Overview
+
+{context.get('summary', '')}
 
 Available Repositories:
 {repo_list}
 
-{context.get('summary', '')}
+---
 
-Relevant code context:
+# Context for Current Query
+
 {context.get('search_results', '')}
 
-Your role:
-- Help plan changes across multiple repositories
-- Identify dependencies and relationships between repos
-- Suggest implementation strategies
-- Provide architectural guidance
-- Consider impact across the entire system
+---
 
-Be specific and reference repository names, file paths, and functions when relevant."""
+Answer the user's question using the blueprints, artifacts, and relationships provided above.
+Consider cross-repository dependencies and plan changes accordingly."""
+
+        messages = [
+            {
+                'role': 'system',
+                'content': full_system_prompt
             }
         ]
 
-        # Add conversation history
-        for msg in history:
+        # Add conversation history (last 10 messages)
+        for msg in history[-10:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
