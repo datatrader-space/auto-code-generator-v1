@@ -48,6 +48,17 @@ class CRSContext:
             logger.warning(f"Failed to load relationships: {e}")
             self._relationships = {}
 
+    def has_payloads(self) -> bool:
+        """Check if any CRS payloads have usable data."""
+        if self._blueprints is None or self._artifacts is None or self._relationships is None:
+            self.load_all()
+
+        return any([
+            bool(self._blueprints and self._blueprints.get("files")),
+            bool(self._artifacts and self._artifacts.get("artifacts")),
+            bool(self._relationships and self._relationships.get("relationships")),
+        ])
+
     def get_file_list(self) -> List[str]:
         """Get list of all files in blueprints"""
         if not self._blueprints:
@@ -140,6 +151,31 @@ class CRSContext:
                 result["used_by"].append(source)
 
         return result
+
+    def get_artifact_type_counts(self) -> Dict[str, int]:
+        """Get counts of artifacts by type."""
+        if not self._artifacts:
+            self.load_all()
+
+        artifacts = self._artifacts.get("artifacts", []) if self._artifacts else []
+        artifact_types: Dict[str, int] = {}
+        for artifact in artifacts:
+            art_type = artifact.get("type", "unknown")
+            artifact_types[art_type] = artifact_types.get(art_type, 0) + 1
+
+        return artifact_types
+
+    def build_artifact_type_summary(self) -> str:
+        """Build a short summary of available artifact types and counts."""
+        artifact_types = self.get_artifact_type_counts()
+        if not artifact_types:
+            return "Available artifact types: none (0 artifacts)."
+
+        summary_parts = [
+            f"{art_type}: {count}"
+            for art_type, count in sorted(artifact_types.items())
+        ]
+        return "Available artifact types: " + ", ".join(summary_parts)
 
     def build_context_summary(self) -> str:
         """
@@ -238,10 +274,21 @@ class CRSContext:
         """
         # Search for matching artifacts
         matches = self.search_artifacts(query, limit=limit)
+        match_names = [m.get("name", "") for m in matches]
+        logger.info(
+            "CRS retrieval matched %d artifacts: %s",
+            len(matches),
+            ", ".join(match_names[:5]) if match_names else "none",
+        )
 
         if not matches:
-            return f"No artifacts found matching '{query}'. Available files:\n" + \
-                   "\n".join(f"  - {f}" for f in self.get_file_list()[:10])
+            summary = self.build_artifact_type_summary()
+            return (
+                f"No artifacts found matching '{query}'.\n"
+                f"{summary}\n"
+                "Available files:\n"
+                + "\n".join(f"  - {f}" for f in self.get_file_list()[:10])
+            )
 
         # Build context from matches
         artifact_names = [m["name"] for m in matches]

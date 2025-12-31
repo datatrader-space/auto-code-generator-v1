@@ -251,10 +251,17 @@ class RepositoryChatConsumer(BaseChatConsumer):
         """Handle repository chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        message_id = data.get('message_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
             return
+
+        logger.info(
+            "Repository chat message received (message_id=%s, conversation_id=%s)",
+            message_id,
+            conversation_id
+        )
 
         # Get or create conversation
         is_new = conversation_id is None
@@ -279,17 +286,20 @@ class RepositoryChatConsumer(BaseChatConsumer):
     @database_sync_to_async
     def get_crs_context(self, query):
         """Get relevant CRS context for the query using RAG"""
-        # Use RAG retriever to find relevant blueprints and artifacts
-        retriever = CRSRetriever(repository=self.repository)
+        crs_context = CRSContext(self.repository)
+        crs_context.load_all()
 
-        # Build context with CRS documentation + search results
-        context_prompt = retriever.build_context_prompt(query)
+        if not crs_context.has_payloads():
+            message = "CRS not ready for this repo."
+            logger.warning("CRS payloads missing for repository %s", self.repository.name)
+            return {
+                'status_message': message,
+                'search_results': message
+            }
 
-        # Also get CRS documentation for teaching the model
-        crs_docs = get_crs_documentation_context()
+        context_prompt = crs_context.search_context(query, limit=10)
 
         return {
-            'crs_documentation': crs_docs,
             'search_results': context_prompt
         }
 
@@ -299,6 +309,7 @@ class RepositoryChatConsumer(BaseChatConsumer):
         history = await self.get_conversation_history(conversation)
 
         search_results = context.get('search_results', '')
+        status_message = context.get('status_message')
 
         # Build comprehensive system prompt that teaches CRS format
         system_prompt = f"""You are analyzing a code repository using CRS (Contextual Retrieval System).
@@ -327,22 +338,19 @@ ALWAYS follow this pattern:
 
 {search_results}
 
-# Example Answers
+Instructions:
+- Answer using the code context above
+- Reference specific files and classes
+- Be concrete and specific
+- If context is insufficient, say so"""
+        if status_message:
+            system_prompt = f"""You are analyzing a code repository.
 
-Q: "What models exist?"
-A: "Based on the artifacts, I can see these Django models in `agent/models.py`:
-1. User (class) - extends AbstractUser
-2. System (class) - represents repository collections
-3. Repository (class) - individual repo within system
-[... list all models from artifacts above]"
+CRS Status: {status_message}
 
-Q: "How does WebSocket work?"
-A: "Looking at the blueprints and artifacts:
-- File: `agent/consumers.py` handles WebSocket connections
-- Class: `RepositoryChatConsumer` with methods: connect(), receive(), disconnect()
-- It calls stream_llm_response() to send AI responses back"
-
-Now answer the user's question using the same pattern - reference specific files, classes, and code from the context above."""
+Instructions:
+- If CRS is not ready, explain that CRS analysis must be run before answering.
+- Ask the user to try again after CRS completes."""
 
         messages = [
             {
