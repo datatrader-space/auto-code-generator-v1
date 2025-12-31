@@ -6,8 +6,9 @@ Django REST Framework Serializers for Agent API
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from agent.models import (
-    System, Repository, RepositoryQuestion, 
-    SystemKnowledge, Task, AgentMemory
+    System, Repository, RepositoryQuestion,
+    SystemKnowledge, Task, AgentMemory,
+    ChatConversation, ChatMessage
 )
 
 User = get_user_model()
@@ -259,3 +260,59 @@ class LLMHealthSerializer(serializers.Serializer):
     
     local = serializers.DictField()
     cloud = serializers.DictField()
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    """Chat message serializer"""
+    
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'role', 'content', 'context_used', 'model_info', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class ChatConversationSerializer(serializers.ModelSerializer):
+    """Chat conversation serializer with messages"""
+    
+    messages = ChatMessageSerializer(many=True, read_only=True)
+    repository_name = serializers.CharField(source='repository.name', read_only=True, allow_null=True)
+    system_name = serializers.CharField(source='system.name', read_only=True)
+    
+    class Meta:
+        model = ChatConversation
+        fields = [
+            'id', 'conversation_type', 'title', 'repository', 'repository_name',
+            'system', 'system_name', 'model_provider', 'created_at', 'updated_at', 'messages'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ChatConversationListSerializer(serializers.ModelSerializer):
+    """Chat conversation list serializer (without messages)"""
+    
+    repository_name = serializers.CharField(source='repository.name', read_only=True, allow_null=True)
+    system_name = serializers.CharField(source='system.name', read_only=True)
+    message_count = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ChatConversation
+        fields = [
+            'id', 'conversation_type', 'title', 'repository', 'repository_name',
+            'system', 'system_name', 'model_provider', 'message_count', 'last_message',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_message_count(self, obj):
+        return obj.messages.count()
+    
+    def get_last_message(self, obj):
+        last_msg = obj.messages.order_by('-created_at').first()
+        if last_msg:
+            return {
+                'role': last_msg.role,
+                'content': last_msg.content[:100] + '...' if len(last_msg.content) > 100 else last_msg.content,
+                'created_at': last_msg.created_at
+            }
+        return None
