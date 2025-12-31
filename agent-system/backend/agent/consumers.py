@@ -91,13 +91,16 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
     async def stream_llm_response(self, user_message, context, conversation):
         """
-        Stream LLM response in chunks
+        Stream LLM response in chunks with CRS tool support
 
         Args:
             user_message: User's message text
             context: CRS context or other relevant context
             conversation: ChatConversation instance
         """
+        # Import CRS tools
+        from agent.crs_tools import CRSTools
+
         # Build messages for LLM
         messages = await self.build_llm_messages(conversation, user_message, context)
 
@@ -113,6 +116,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
         full_response = ""
         model_info = {}
+        max_tool_iterations = 3  # Prevent infinite loops
 
         try:
             # Stream response chunks
@@ -129,18 +133,62 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                     'provider': conversation.model_provider,
                     'model': getattr(router.local_config if conversation.model_provider == 'local' else router.cloud_config, 'model', None)
                 }
+            client = router.local_client if provider == 'local' else router.cloud_client
 
-            # Get all chunks from the generator (sync operation converted to async)
-            chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
+            # Tool-calling loop
+            for iteration in range(max_tool_iterations):
+                # Get LLM response
+                chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
 
-            # Iterate over chunks
-            for text_chunk in chunks:
-                full_response += text_chunk
+                iteration_response = ""
+                for text_chunk in chunks:
+                    iteration_response += text_chunk
 
-                # Send chunk to frontend
+                    # Send chunk to frontend
+                    await self.send_json({
+                        'type': 'assistant_message_chunk',
+                        'chunk': text_chunk
+                    })
+
+                full_response = iteration_response
+
+                # Check for tool calls
+                crs_tools = CRSTools(repository=getattr(self, 'repository', None))
+                tool_calls = crs_tools.parse_tool_calls(iteration_response)
+
+                if not tool_calls:
+                    # No tools requested, we're done
+                    break
+
+                # Execute tools and gather results
+                logger.info(f"LLM requested {len(tool_calls)} tool(s)")
+                tool_results = []
+
+                for tool_call in tool_calls:
+                    tool_name = tool_call['name']
+                    tool_params = tool_call['parameters']
+
+                    logger.info(f"Executing tool: {tool_name} with params: {tool_params}")
+                    result = await sync_to_async(crs_tools.execute_tool)(tool_name, tool_params)
+                    tool_results.append(f"\n**Tool Result ({tool_name}):**\n{result}\n")
+
+                # Send tool results to user
+                tool_results_text = '\n'.join(tool_results)
                 await self.send_json({
                     'type': 'assistant_message_chunk',
-                    'chunk': text_chunk
+                    'chunk': tool_results_text
+                })
+
+                full_response += tool_results_text
+
+                # Add tool results to messages and continue
+                messages.append({
+                    'role': 'assistant',
+                    'content': iteration_response
+                })
+                messages.append({
+                    'role': 'system',
+                    'content': f"Tool Results:\n{tool_results_text}\n\nNow answer the user's original question using this data."
                 })
 
             # Send completion
@@ -307,10 +355,17 @@ class RepositoryChatConsumer(BaseChatConsumer):
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
         model_id = data.get('model_id')
+        message_id = data.get('message_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
             return
+
+        logger.info(
+            "Repository chat message received (message_id=%s, conversation_id=%s)",
+            message_id,
+            conversation_id
+        )
 
         # Get or create conversation
         is_new = conversation_id is None
@@ -355,16 +410,37 @@ class RepositoryChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages with CRS context - simplified for local LLM performance"""
+        """Build messages with CRS context - teach the model about CRS format"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Simplified system prompt for better local LLM performance
         search_results = context.get('search_results', '')
         status_message = context.get('status_message')
 
-        # Create concise system prompt
-        system_prompt = f"""You are analyzing a code repository. Below is relevant code from the repository:
+        # Build comprehensive system prompt that teaches CRS format
+        system_prompt = f"""You are analyzing a code repository using CRS (Contextual Retrieval System).
+
+# What is CRS?
+CRS organizes code knowledge into 3 layers:
+
+1. **BLUEPRINTS** = Files/modules with their purpose and main components
+2. **ARTIFACTS** = Specific code elements (classes, functions, endpoints)
+3. **RELATIONSHIPS** = How components connect (calls, imports, uses)
+
+# How to Answer Questions
+
+ALWAYS follow this pattern:
+
+**Step 1**: Look at the code context below
+**Step 2**: Find relevant blueprints (files), artifacts (classes/functions), or relationships
+**Step 3**: Answer using SPECIFIC references like:
+- "In file `agent/models.py`..."
+- "The class `User` has methods..."
+- "Function `connect()` calls `accept()`..."
+
+**Step 4**: If no relevant code found, say "I don't see that in the provided context"
+
+# Code Context for This Query
 
 {search_results}
 
@@ -389,8 +465,8 @@ Instructions:
             }
         ]
 
-        # Add conversation history (last 5 messages for context)
-        for msg in history[-5:]:
+        # Add conversation history (last 3 messages for context)
+        for msg in history[-3:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -402,7 +478,7 @@ Instructions:
             'content': user_message
         })
 
-        logger.info(f"Built prompt with {len(system_prompt)} chars of context")
+        logger.info(f"Built CRS-aware prompt with {len(system_prompt)} chars, {len(search_results)} chars of code context")
         return messages
 
     @database_sync_to_async
@@ -560,55 +636,66 @@ class PlannerChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages for planner chat with multi-repo context"""
+        """Build messages for planner chat - teach CRS for multi-repo planning"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Get planner system prompt
-        system_prompt = get_system_prompt('planner')
+        search_results = context.get('search_results', '')
+        repo_list = '\n'.join([f"- {repo['name']}" for repo in context.get('repositories', [])])
 
-        # Build repo list
-        repo_list = '\n'.join([
-            f"- {repo['name']}"
-            for repo in context.get('repositories', [])
-        ])
+        # CRS-aware system prompt for multi-repo planning
+        system_prompt = f"""You are a multi-repository planner using CRS (Contextual Retrieval System).
 
-        # Build full system prompt
-        full_system_prompt = f"""{system_prompt}
+# What is CRS?
+CRS organizes code knowledge into 3 layers:
 
----
+1. **BLUEPRINTS** = Files/modules with their purpose
+2. **ARTIFACTS** = Classes, functions, API endpoints
+3. **RELATIONSHIPS** = How components connect across repos
 
-{context.get('crs_documentation', '')}
-
----
-
-# System Overview
-
-{context.get('summary', '')}
-
-Available Repositories:
+# System Repositories
 {repo_list}
 
----
+# How to Plan Changes
 
-# Context for Current Query
+**Step 1**: Look at code from all repositories below
+**Step 2**: Identify affected files and components
+**Step 3**: Consider cross-repo dependencies
+**Step 4**: Provide implementation steps
 
-{context.get('search_results', '')}
+# Code Context from All Repositories
 
----
+{search_results}
 
-Answer the user's question using the blueprints, artifacts, and relationships provided above.
-Consider cross-repository dependencies and plan changes accordingly."""
+# Example Planning Answer
+
+Q: "Add user authentication across all repos"
+A: "Based on the artifacts, here's the plan:
+
+**Repository 1: backend**
+- Modify `agent/models.py` - add auth fields to User class
+- Update `agent/views.py` - add authentication endpoints
+
+**Repository 2: frontend**
+- Update `src/services/api.js` - add auth token handling
+- Modify `src/components/Login.vue` - create login form
+
+**Dependencies:**
+- Frontend calls backend `/api/auth/login` endpoint
+- Backend returns JWT token
+- Frontend stores token and includes in requests"
+
+Now plan the user's requested changes using code from the repositories above."""
 
         messages = [
             {
                 'role': 'system',
-                'content': full_system_prompt
+                'content': system_prompt
             }
         ]
 
-        # Add conversation history (last 10 messages)
-        for msg in history[-10:]:
+        # Add conversation history (last 3 messages)
+        for msg in history[-3:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -620,6 +707,7 @@ Consider cross-repository dependencies and plan changes accordingly."""
             'content': user_message
         })
 
+        logger.info(f"Built planner prompt with {len(system_prompt)} chars, {len(search_results)} chars of context")
         return messages
 
     @database_sync_to_async
