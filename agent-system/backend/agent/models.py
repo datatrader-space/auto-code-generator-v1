@@ -59,6 +59,107 @@ class GitHubOAuthConfig(models.Model):
         return f"GitHub OAuth Config ({self.client_id})"
 
 
+class LLMProvider(models.Model):
+    """Third-party or local LLM provider configuration."""
+
+    PROVIDER_CHOICES = [
+        ('ollama', 'Ollama'),
+        ('anthropic', 'Anthropic'),
+        ('openai', 'OpenAI'),
+        ('gemini', 'Google Gemini'),
+        ('custom', 'Custom'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='llm_providers')
+    name = models.CharField(max_length=200)
+    provider_type = models.CharField(max_length=50, choices=PROVIDER_CHOICES)
+    base_url = models.URLField(blank=True)
+    api_key = models.CharField(max_length=500, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'llm_providers'
+        unique_together = [['user', 'name']]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username}/{self.name}"
+
+
+class LLMModel(models.Model):
+    """Model configuration for a specific provider."""
+
+    provider = models.ForeignKey(LLMProvider, on_delete=models.CASCADE, related_name='models')
+    name = models.CharField(max_length=200)
+    model_id = models.CharField(max_length=200)
+    context_window = models.IntegerField(default=0)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'llm_models'
+        unique_together = [['provider', 'model_id']]
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.provider.name}/{self.model_id}"
+
+
+class LLMRequestLog(models.Model):
+    """Track usage of configured LLM providers/models."""
+
+    STATUS_CHOICES = [
+        ('success', 'Success'),
+        ('error', 'Error'),
+    ]
+
+    REQUEST_TYPES = [
+        ('chat', 'Chat'),
+        ('stream', 'Stream'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='llm_request_logs')
+    conversation = models.ForeignKey(
+        'ChatConversation',
+        on_delete=models.SET_NULL,
+        related_name='llm_request_logs',
+        null=True,
+        blank=True
+    )
+    llm_model = models.ForeignKey(
+        LLMModel,
+        on_delete=models.SET_NULL,
+        related_name='request_logs',
+        null=True,
+        blank=True
+    )
+    provider_type = models.CharField(max_length=50, blank=True)
+    model_id = models.CharField(max_length=200, blank=True)
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPES, default='chat')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    latency_ms = models.IntegerField(null=True, blank=True)
+    prompt_tokens = models.IntegerField(null=True, blank=True)
+    completion_tokens = models.IntegerField(null=True, blank=True)
+    total_tokens = models.IntegerField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'llm_request_logs'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username}:{self.provider_type}:{self.model_id}:{self.status}"
+
+
 class System(models.Model):
     """
     A system is a collection of related repositories
@@ -475,6 +576,13 @@ class ChatConversation(models.Model):
 
     # Settings
     model_provider = models.CharField(max_length=50, default='local')  # 'local', 'cloud'
+    llm_model = models.ForeignKey(
+        LLMModel,
+        on_delete=models.SET_NULL,
+        related_name='chat_conversations',
+        null=True,
+        blank=True
+    )
 
     class Meta:
         db_table = 'chat_conversations'

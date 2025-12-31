@@ -11,7 +11,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from agent.models import (
     User, System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory, GitHubOAuthConfig,
-    ChatConversation, ChatMessage
+    ChatConversation, ChatMessage, LLMProvider, LLMModel, LLMRequestLog
 )
 
 
@@ -290,7 +290,7 @@ class ChatConversationAdmin(admin.ModelAdmin):
             'fields': ('repository',)
         }),
         ('Settings', {
-            'fields': ('model_provider',)
+            'fields': ('model_provider', 'llm_model')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -331,6 +331,33 @@ class ChatMessageAdmin(admin.ModelAdmin):
     def content_preview(self, obj):
         return obj.content[:100] + '...' if len(obj.content) > 100 else obj.content
     content_preview.short_description = 'Content'
+
+
+@admin.register(LLMProvider)
+class LLMProviderAdmin(admin.ModelAdmin):
+    list_display = ['name', 'provider_type', 'user', 'is_active', 'created_at']
+    list_filter = ['provider_type', 'is_active', 'created_at']
+    search_fields = ['name', 'user__username']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(LLMModel)
+class LLMModelAdmin(admin.ModelAdmin):
+    list_display = ['name', 'model_id', 'provider', 'is_active', 'created_at']
+    list_filter = ['provider__provider_type', 'is_active', 'created_at']
+    search_fields = ['name', 'model_id', 'provider__name']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(LLMRequestLog)
+class LLMRequestLogAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'user', 'provider_type', 'model_id', 'status',
+        'latency_ms', 'created_at'
+    ]
+    list_filter = ['provider_type', 'status', 'created_at']
+    search_fields = ['model_id', 'user__username', 'error_message']
+    readonly_fields = ['created_at']
 
 
 # Customize admin site

@@ -89,18 +89,37 @@ class AnthropicClient:
             
             content = response.content[0].text
             
+            usage = {
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+                "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+            }
+            self.last_usage = usage
+
             return {
                 "content": content,
-                "usage": {
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
-                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens
-                }
+                "usage": usage
             }
         
         except Exception as e:
             logger.error(f"Anthropic error: {e}")
             raise RuntimeError(f"Claude API error: {e}")
+
+    def query_stream(
+        self,
+        messages: List[Dict[str, str]],
+        json_mode: bool = False,
+        max_tokens: int = None,
+        temperature: float = None
+    ):
+        self.last_usage = None
+        result = self.query(
+            messages=messages,
+            json_mode=json_mode,
+            max_tokens=max_tokens,
+            temperature=temperature
+        )
+        yield result.get("content", "")
     
     def health_check(self) -> bool:
         """Check if API key works"""

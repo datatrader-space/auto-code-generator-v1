@@ -15,6 +15,8 @@ from agent import auth_views
 router = DefaultRouter()
 router.register(r'systems', views.SystemViewSet, basename='system')
 router.register(r'conversations', views.ChatConversationViewSet, basename='conversation')
+router.register(r'llm/providers', views.LLMProviderViewSet, basename='llm-provider')
+router.register(r'llm/models', views.LLMModelViewSet, basename='llm-model')
 
 # Nested routers for system resources
 systems_router = nested_routers.NestedDefaultRouter(
@@ -54,6 +56,7 @@ urlpatterns = [
 
     # LLM health
     path('llm/health/', views.llm_health, name='llm-health'),
+    path('llm/stats/', views.llm_stats, name='llm-stats'),
 
     # Authentication endpoints
     path('auth/register', auth_views.register_user, name='auth-register'),

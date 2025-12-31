@@ -74,13 +74,16 @@ class OllamaClient:
 
             data = response.json()
 
+            usage = {
+                "prompt_tokens": data.get("prompt_eval_count", 0),
+                "completion_tokens": data.get("eval_count", 0),
+                "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
+            }
+            self.last_usage = usage
+
             return {
                 "content": data.get("response", ""),
-                "usage": {
-                    "prompt_tokens": data.get("prompt_eval_count", 0),
-                    "completion_tokens": data.get("eval_count", 0),
-                    "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
-                }
+                "usage": usage
             }
 
         except requests.exceptions.Timeout:
@@ -131,6 +134,7 @@ class OllamaClient:
 
         try:
             logger.info(f"Streaming from Ollama: {self.model}")
+            self.last_usage = None
 
             response = requests.post(url, json=payload, stream=True, timeout=120)
             response.raise_for_status()
@@ -204,3 +208,16 @@ class OllamaClient:
         except Exception as e:
             logger.error(f"Ollama health check failed: {e}")
             return False
+
+    def list_models(self) -> List[str]:
+        """List available models from Ollama"""
+        try:
+            url = f"{self.base_url}/api/tags"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            return [m.get('name') for m in data.get('models', []) if m.get('name')]
+        except Exception as e:
+            logger.error(f"Failed to list Ollama models: {e}")
+            raise RuntimeError(f"Ollama list models error: {e}")

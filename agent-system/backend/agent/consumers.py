@@ -4,11 +4,12 @@ WebSocket consumers for real-time chat
 
 import json
 import logging
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 
-from agent.models import Repository, System, ChatConversation, ChatMessage
+from agent.models import Repository, System, ChatConversation, ChatMessage, LLMModel, LLMRequestLog
 from agent.services.crs_context import CRSContext
 from agent.rag import CRSRetriever, ConversationMemory
 from agent.knowledge.crs_documentation import (
@@ -103,9 +104,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
         # Get LLM router
         router = await sync_to_async(get_llm_router)()
-
-        # Determine provider
-        provider = 'local' if conversation.model_provider == 'local' else 'cloud'
+        llm_config = await self.get_llm_config(conversation)
 
         # Send typing indicator
         await self.send_json({
@@ -115,13 +114,29 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
         full_response = ""
         model_info = {}
+        request_started = time.monotonic()
+        usage = None
+        error_message = None
 
         try:
             # Stream response chunks
-            client = router.local_client if provider == 'local' else router.cloud_client
+            if llm_config:
+                config = llm_config['config']
+                client = router.client_for_config(config)
+                model_info = {
+                    'provider': llm_config['provider'],
+                    'model': llm_config['model']
+                }
+            else:
+                client = router.local_client if conversation.model_provider == 'local' else router.cloud_client
+                model_info = {
+                    'provider': conversation.model_provider,
+                    'model': getattr(router.local_config if conversation.model_provider == 'local' else router.cloud_config, 'model', None)
+                }
 
             # Get all chunks from the generator (sync operation converted to async)
             chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
+            usage = getattr(client, 'last_usage', None)
 
             # Iterate over chunks
             for text_chunk in chunks:
@@ -148,6 +163,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             )
 
         except Exception as e:
+            error_message = str(e)
             logger.error(f"LLM streaming error: {e}", exc_info=True)
             await self.send_json({
                 'type': 'error',
@@ -155,6 +171,13 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             })
 
         finally:
+            await self.save_llm_request_log(
+                conversation=conversation,
+                model_info=model_info,
+                started_at=request_started,
+                usage=usage,
+                error_message=error_message
+            )
             # Stop typing indicator
             await self.send_json({
                 'type': 'assistant_typing',
@@ -170,6 +193,81 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             content=content,
             context_used=context_used,
             model_info=model_info
+        )
+
+    @database_sync_to_async
+    def set_conversation_model(self, conversation, model_id):
+        if not model_id:
+            return conversation
+
+        model = LLMModel.objects.select_related('provider').filter(
+            id=model_id,
+            provider__user=conversation.user
+        ).first()
+        if not model:
+            return conversation
+
+        conversation.llm_model = model
+        conversation.model_provider = model.provider.provider_type
+        conversation.save(update_fields=['llm_model', 'model_provider', 'updated_at'])
+        return conversation
+
+    @database_sync_to_async
+    def get_llm_config(self, conversation):
+        if not conversation.llm_model_id:
+            return None
+
+        model = LLMModel.objects.select_related('provider').filter(
+            id=conversation.llm_model_id,
+            provider__user=conversation.user
+        ).first()
+        if not model:
+            return None
+
+        from llm.router import LLMConfig
+        provider = model.provider
+        config = LLMConfig(
+            provider=provider.provider_type,
+            model=model.model_id,
+            base_url=provider.base_url or None,
+            api_key=provider.api_key or None,
+            max_tokens=model.metadata.get('max_tokens') or provider.metadata.get('max_tokens') or 4000,
+            temperature=model.metadata.get('temperature') or provider.metadata.get('temperature') or 0.7
+        )
+        return {
+            'provider': provider.provider_type,
+            'model': model.model_id,
+            'config': config
+        }
+
+    @database_sync_to_async
+    def save_llm_request_log(self, conversation, model_info, started_at, usage, error_message):
+        latency_ms = int((time.monotonic() - started_at) * 1000) if started_at else None
+        prompt_tokens = None
+        completion_tokens = None
+        total_tokens = None
+
+        if isinstance(usage, dict):
+            prompt_tokens = usage.get('prompt_tokens') or usage.get('input_tokens')
+            completion_tokens = usage.get('completion_tokens') or usage.get('output_tokens')
+            total_tokens = usage.get('total_tokens')
+            if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
+                total_tokens = prompt_tokens + completion_tokens
+
+        LLMRequestLog.objects.create(
+            user=conversation.user,
+            conversation=conversation,
+            llm_model=conversation.llm_model,
+            provider_type=model_info.get('provider', ''),
+            model_id=model_info.get('model', ''),
+            request_type='stream',
+            status='error' if error_message else 'success',
+            latency_ms=latency_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            error_message=error_message or '',
+            metadata={'usage': usage} if usage else {}
         )
 
     async def build_llm_messages(self, conversation, user_message, context):
@@ -251,6 +349,7 @@ class RepositoryChatConsumer(BaseChatConsumer):
         """Handle repository chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        model_id = data.get('model_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
@@ -266,6 +365,8 @@ class RepositoryChatConsumer(BaseChatConsumer):
                 'type': 'conversation_created',
                 'conversation_id': conversation.id
             })
+
+        conversation = await self.set_conversation_model(conversation, model_id)
 
         # Save user message
         await self.save_user_message(conversation, user_message)
@@ -425,6 +526,7 @@ class PlannerChatConsumer(BaseChatConsumer):
         """Handle planner chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        model_id = data.get('model_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
@@ -440,6 +542,8 @@ class PlannerChatConsumer(BaseChatConsumer):
                 'type': 'conversation_created',
                 'conversation_id': conversation.id
             })
+
+        conversation = await self.set_conversation_model(conversation, model_id)
 
         # Save user message
         await self.save_user_message(conversation, user_message)
@@ -638,6 +742,7 @@ class GraphChatConsumer(BaseChatConsumer):
         """Handle graph chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        model_id = data.get('model_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
@@ -645,6 +750,8 @@ class GraphChatConsumer(BaseChatConsumer):
 
         # Get or create conversation
         conversation = await self.get_or_create_conversation(conversation_id)
+
+        conversation = await self.set_conversation_model(conversation, model_id)
 
         # Save user message
         await self.save_user_message(conversation, user_message)

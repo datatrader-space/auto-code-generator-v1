@@ -109,6 +109,16 @@ export default {
   
   // LLM
   checkLLMHealth: () => api.get('/llm/health/'),
+  getLlmStats: () => api.get('/llm/stats/'),
+  getLlmProviders: () => api.get('/llm/providers/'),
+  createLlmProvider: (data) => api.post('/llm/providers/', data),
+  updateLlmProvider: (id, data) => api.put(`/llm/providers/${id}/`, data),
+  deleteLlmProvider: (id) => api.delete(`/llm/providers/${id}/`),
+  syncOllamaModels: (id) => api.post(`/llm/providers/${id}/sync_ollama_models/`),
+  getLlmModels: (params = {}) => api.get('/llm/models/', { params }),
+  createLlmModel: (data) => api.post('/llm/models/', data),
+  updateLlmModel: (id, data) => api.put(`/llm/models/${id}/`, data),
+  deleteLlmModel: (id) => api.delete(`/llm/models/${id}/`),
 
   // Authentication
   register: (data) => api.post('/auth/register', data),

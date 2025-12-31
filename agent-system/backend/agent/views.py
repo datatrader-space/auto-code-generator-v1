@@ -9,15 +9,18 @@ Django REST Framework Views for Agent API
 from rest_framework import viewsets, status, decorators
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.db.models import Avg, Count
 from django.conf import settings
+from django.utils import timezone
 from pathlib import Path
 
 from agent.models import (
     System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory,
-    ChatConversation, ChatMessage
+    ChatConversation, ChatMessage, LLMProvider, LLMModel, LLMRequestLog
 )
 from agent.serializers import (
     SystemListSerializer, SystemDetailSerializer,
@@ -25,8 +28,9 @@ from agent.serializers import (
     RepositoryQuestionSerializer, AnswerQuestionsSerializer,
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
-    AnalyzeRepositorySerializer, LLMHealthSerializer,ChatConversationListSerializer,
-    RepositoryReasoningTraceSerializer, SystemDocumentationSerializer,ChatConversationSerializer
+    AnalyzeRepositorySerializer, LLMHealthSerializer, ChatConversationListSerializer,
+    RepositoryReasoningTraceSerializer, SystemDocumentationSerializer, ChatConversationSerializer,
+    LLMProviderSerializer, LLMModelSerializer
 )
 from agent.services.repo_analyzer import RepositoryAnalyzer
 from agent.services.question_generator import QuestionGenerator
@@ -915,6 +919,60 @@ def llm_health(request):
 
 
 @decorators.api_view(['GET'])
+@decorators.permission_classes([IsAuthenticated])
+def llm_stats(request):
+    """
+    LLM usage statistics for current user
+    """
+    user = request.user
+    now = timezone.now()
+    window_start = now - timezone.timedelta(hours=24)
+
+    base_qs = LLMRequestLog.objects.filter(user=user)
+    window_qs = base_qs.filter(created_at__gte=window_start)
+
+    totals = base_qs.aggregate(
+        total_requests=Count('id'),
+        avg_latency_ms=Avg('latency_ms'),
+    )
+    window_totals = window_qs.aggregate(
+        requests_24h=Count('id'),
+        avg_latency_ms_24h=Avg('latency_ms'),
+    )
+
+    error_count = base_qs.filter(status='error').count()
+    error_rate = (error_count / totals['total_requests']) if totals['total_requests'] else 0
+
+    by_provider = list(
+        base_qs.values('provider_type')
+        .annotate(
+            requests=Count('id'),
+            avg_latency_ms=Avg('latency_ms')
+        )
+        .order_by('-requests')
+    )
+
+    by_model = list(
+        base_qs.values('provider_type', 'model_id')
+        .annotate(
+            requests=Count('id'),
+            avg_latency_ms=Avg('latency_ms')
+        )
+        .order_by('-requests')[:10]
+    )
+
+    return Response({
+        'total_requests': totals['total_requests'] or 0,
+        'avg_latency_ms': int(totals['avg_latency_ms']) if totals['avg_latency_ms'] else None,
+        'error_rate': round(error_rate, 4),
+        'requests_24h': window_totals['requests_24h'] or 0,
+        'avg_latency_ms_24h': int(window_totals['avg_latency_ms_24h']) if window_totals['avg_latency_ms_24h'] else None,
+        'by_provider': by_provider,
+        'by_model': by_model
+    })
+
+
+@decorators.api_view(['GET'])
 def api_root(request):
     """
     API root endpoint
@@ -967,4 +1025,88 @@ class ChatConversationViewSet(viewsets.ModelViewSet):
         if repository_id:
             queryset = queryset.filter(repository_id=repository_id)
         
-        return queryset.select_related('system', 'repository', 'user').prefetch_related('messages')
+        return queryset.select_related('system', 'repository', 'user', 'llm_model', 'llm_model__provider').prefetch_related('messages')
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class LLMProviderViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing LLM providers
+    """
+
+    serializer_class = LLMProviderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return LLMProvider.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @decorators.action(detail=True, methods=['post'])
+    def sync_ollama_models(self, request, pk=None):
+        provider = self.get_object()
+        if provider.provider_type != 'ollama':
+            return Response(
+                {'error': 'Model sync is only available for Ollama providers.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from llm.ollama import OllamaClient
+        from llm.router import LLMConfig
+
+        base_url = provider.base_url or os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+        config = LLMConfig(provider='ollama', model='placeholder', base_url=base_url)
+        client = OllamaClient(config)
+        models = client.list_models()
+
+        created = 0
+        updated = 0
+        for model_name in models:
+            obj, was_created = LLMModel.objects.get_or_create(
+                provider=provider,
+                model_id=model_name,
+                defaults={'name': model_name}
+            )
+            if was_created:
+                created += 1
+            else:
+                if obj.name != model_name or not obj.is_active:
+                    obj.name = model_name
+                    obj.is_active = True
+                    obj.save(update_fields=['name', 'is_active'])
+                    updated += 1
+
+        return Response({
+            'synced': len(models),
+            'created': created,
+            'updated': updated
+        })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class LLMModelViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing LLM models
+    """
+
+    serializer_class = LLMModelSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = LLMModel.objects.select_related('provider').filter(provider__user=self.request.user)
+
+        provider_id = self.request.query_params.get('provider')
+        provider_type = self.request.query_params.get('provider_type')
+        if provider_id:
+            queryset = queryset.filter(provider_id=provider_id)
+        if provider_type:
+            queryset = queryset.filter(provider__provider_type=provider_type)
+
+        return queryset.order_by('name')
+
+    def perform_create(self, serializer):
+        provider = serializer.validated_data.get('provider')
+        if provider.user_id != self.request.user.id:
+            raise PermissionDenied("Provider does not belong to current user.")
+        serializer.save()
