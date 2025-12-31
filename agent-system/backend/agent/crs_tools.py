@@ -34,90 +34,152 @@ class CRSTools:
         return """
 # Available CRS Query Tools
 
-You have access to 6 deterministic tools for exploring the codebase:
+You have access to 6 deterministic tools for exploring the codebase.
 
-## CRS Tools (Fast, Deterministic)
+## Tool Call Format (STRICT)
 
-**[CRS_STATUS]**
-- Returns: repository status, last CRS run, artifact counts
-- Use: Check if CRS data is ready before other queries
-- Example: `[CRS_STATUS]`
+You MUST output tool calls in this EXACT format:
 
-**[LIST_ARTIFACTS: kind="type", filter="optional"]**
-- Returns: Complete inventory of code elements by type
-- Kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register
-- Use: "list all models", "show all serializers", "what viewsets exist"
-- CRITICAL: This is the ONLY correct way to answer inventory questions
-- Example: `[LIST_ARTIFACTS: kind="django_model"]`
-- Example: `[LIST_ARTIFACTS: kind="drf_viewset", filter="chat"]`
+```
+===TOOL_CALLS===
+[{"name":"TOOL_NAME","parameters":{"param":"value"}}]
+===END_TOOL_CALLS===
+```
 
-**[GET_ARTIFACT: artifact_id="id"]**
-- Returns: Full artifact details (source code, location, metadata)
-- Use: Get complete info about specific class/function
-- Example: `[GET_ARTIFACT: artifact_id="django_model:User:agent/models.py:10-50"]`
+**Rules:**
+- Use the delimiters `===TOOL_CALLS===` and `===END_TOOL_CALLS===`
+- Output valid JSON array of tool call objects
+- Each object has `name` (required) and `parameters` (optional dict)
+- Tool names are case-insensitive
+- You can call multiple tools in one block
 
-**[SEARCH_CRS: query="keywords", limit="10"]**
-- Returns: Keyword/semantic search with file+line anchors
-- Use: "where is X defined", "find authentication code"
-- NOT for inventory - use LIST_ARTIFACTS instead
-- Example: `[SEARCH_CRS: query="websocket consumer", limit="5"]`
+**Example - Single Tool:**
+```
+===TOOL_CALLS===
+[{"name":"LIST_ARTIFACTS","parameters":{"kind":"django_model"}}]
+===END_TOOL_CALLS===
+```
 
-**[CRS_RELATIONSHIPS: artifact_id="id"]**
-- Returns: Import/call/usage graph for an artifact
-- Use: "what calls X", "what does X import", "flow analysis"
-- Example: `[CRS_RELATIONSHIPS: artifact_id="drf_viewset:RepositoryViewSet:..."]`
-
-## Code Tools (Exact Source)
-
-**[READ_FILE: path="file/path.py", start_line="1", end_line="50"]**
-- Returns: Raw file contents with line numbers
-- Use: Get exact code when CRS summary is insufficient
-- Example: `[READ_FILE: path="agent/models.py", start_line="10", end_line="30"]`
+**Example - Multiple Tools:**
+```
+===TOOL_CALLS===
+[
+  {"name":"CRS_STATUS","parameters":{}},
+  {"name":"LIST_ARTIFACTS","parameters":{"kind":"django_model"}}
+]
+===END_TOOL_CALLS===
+```
 
 ---
 
-# Tool Selection Rules
+## Available Tools
+
+### 1. CRS_STATUS
+- **Purpose**: Check repository and CRS analysis status
+- **Parameters**: None
+- **Returns**: Status, artifact counts, last run time
+- **Use when**: Uncertain if CRS data is ready
+
+### 2. LIST_ARTIFACTS
+- **Purpose**: Get complete inventory of code elements (DETERMINISTIC)
+- **Parameters**:
+  - `kind` (required): django_model | drf_serializer | drf_viewset | drf_apiview | url_pattern | admin_register
+  - `filter` (optional): Text filter for names/paths
+- **Returns**: All artifacts of that type with file:line locations
+- **CRITICAL**: This is the ONLY correct way to answer "list all X" questions
+
+### 3. GET_ARTIFACT
+- **Purpose**: Get full details of a specific artifact
+- **Parameters**:
+  - `artifact_id` (required): Full artifact ID from LIST_ARTIFACTS or SEARCH_CRS
+- **Returns**: Complete artifact details, metadata, evidence
+
+### 4. SEARCH_CRS
+- **Purpose**: Keyword search for code elements
+- **Parameters**:
+  - `query` (required): Keywords to search
+  - `limit` (optional): Max results (default 10)
+- **Returns**: Matching artifacts/blueprints with file:line anchors
+- **NOT for inventory** - use LIST_ARTIFACTS for "list all X"
+
+### 5. CRS_RELATIONSHIPS
+- **Purpose**: Find how an artifact connects to other code
+- **Parameters**:
+  - `artifact_id` (required): Artifact to analyze
+- **Returns**: Imports, calls, usage graph (incoming/outgoing)
+
+### 6. READ_FILE
+- **Purpose**: Get raw source code
+- **Parameters**:
+  - `path` (required): File path relative to repo root
+  - `start_line` (optional): First line to read (default 1)
+  - `end_line` (optional): Last line to read (default 100)
+- **Returns**: File contents with line numbers
+
+---
+
+## Tool Selection Rules
 
 **For "list/show all/what X exist" questions:**
-→ MUST use `LIST_ARTIFACTS` (deterministic inventory)
-→ NEVER use SEARCH_CRS for these
+→ MUST use LIST_ARTIFACTS (never guess, never use search)
 
-**For "where is X" / "how does X work":**
-→ Use SEARCH_CRS then GET_ARTIFACT or READ_FILE
+**For "where is X" / "find X":**
+→ Use SEARCH_CRS, then GET_ARTIFACT or READ_FILE for details
 
 **For "what calls X" / "flow analysis":**
 → Use CRS_RELATIONSHIPS
 
-**Always check CRS_STATUS first if uncertain about data availability**
+**Always check CRS_STATUS first if data availability is uncertain**
 """
 
     def parse_tool_calls(self, llm_response: str) -> List[Dict[str, Any]]:
         """
-        Parse tool calls from LLM response
-        Format: [TOOL_NAME: param="value", param2="value"]
+        Parse tool calls from LLM response using strict JSON protocol
+
+        Expected format:
+        ===TOOL_CALLS===
+        [{"name":"LIST_ARTIFACTS","parameters":{"kind":"django_model"}}]
+        ===END_TOOL_CALLS===
         """
-        tool_pattern = r'\[(CRS_STATUS|LIST_ARTIFACTS|GET_ARTIFACT|SEARCH_CRS|CRS_RELATIONSHIPS|READ_FILE)(?::\s*([^\]]+))?\]'
-        matches = re.findall(tool_pattern, llm_response, re.IGNORECASE)
+        # Look for delimited JSON block
+        pattern = r'===TOOL_CALLS===\s*(\[.*?\])\s*===END_TOOL_CALLS==='
+        match = re.search(pattern, llm_response, re.DOTALL)
 
-        tools = []
-        for tool_name, params_str in matches:
-            tool_name = tool_name.upper()
+        if not match:
+            logger.debug("No tool calls found in response (no ===TOOL_CALLS=== block)")
+            return []
 
-            # Parse parameters
-            params = {}
-            if params_str:
-                param_pattern = r'(\w+)="([^"]*)"'
-                param_matches = re.findall(param_pattern, params_str)
-                for param_name, param_value in param_matches:
-                    params[param_name] = param_value
+        json_str = match.group(1).strip()
 
-            tools.append({
-                'name': tool_name,
-                'parameters': params
-            })
+        try:
+            tools = json.loads(json_str)
 
-        logger.info(f"Parsed {len(tools)} tool calls: {[t['name'] for t in tools]}")
-        return tools
+            if not isinstance(tools, list):
+                logger.error(f"Tool calls must be a JSON array, got: {type(tools)}")
+                return []
+
+            # Validate structure
+            validated = []
+            for tool in tools:
+                if not isinstance(tool, dict):
+                    logger.warning(f"Skipping non-dict tool call: {tool}")
+                    continue
+
+                if 'name' not in tool:
+                    logger.warning(f"Skipping tool call without 'name': {tool}")
+                    continue
+
+                validated.append({
+                    'name': tool['name'].upper(),
+                    'parameters': tool.get('parameters', {})
+                })
+
+            logger.info(f"Parsed {len(validated)} valid tool calls: {[t['name'] for t in validated]}")
+            return validated
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse tool calls JSON: {e}\nJSON string: {json_str}")
+            return []
 
     def execute_tool(self, tool_name: str, parameters: Dict[str, str]) -> str:
         """Execute a tool and return structured results"""
