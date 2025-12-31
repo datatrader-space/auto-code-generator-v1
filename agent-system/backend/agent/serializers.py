@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from agent.models import (
     System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory,
-    ChatConversation, ChatMessage
+    RepositoryReasoningTrace, SystemDocumentation
 )
 
 User = get_user_model()
@@ -154,10 +154,28 @@ class RepositoryQuestionSerializer(serializers.ModelSerializer):
         ]
 
 
+class RepositoryReasoningTraceSerializer(serializers.ModelSerializer):
+    """Repository reasoning trace serializer"""
+
+    class Meta:
+        model = RepositoryReasoningTrace
+        fields = ['id', 'stage', 'payload', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
 class AnswerQuestionsSerializer(serializers.Serializer):
     """Serializer for submitting multiple answers"""
     
     answers = serializers.JSONField(help_text="Dictionary of question_key: answer")
+
+
+class SystemDocumentationSerializer(serializers.ModelSerializer):
+    """System documentation serializer"""
+
+    class Meta:
+        model = SystemDocumentation
+        fields = ['id', 'doc_type', 'content', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
     
     def validate_answers(self, value):
         if not isinstance(value, dict):

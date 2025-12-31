@@ -237,6 +237,28 @@ class RepositoryQuestion(models.Model):
         return f"{self.repository.name}: {self.question_key}"
 
 
+class RepositoryReasoningTrace(models.Model):
+    """
+    Stores AI reasoning traces for repository analysis and question generation.
+    """
+
+    repository = models.ForeignKey(
+        Repository,
+        on_delete=models.CASCADE,
+        related_name='reasoning_traces'
+    )
+    stage = models.CharField(max_length=100)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'agent_repository_reasoning_traces'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.repository.name}: {self.stage}"
+
+
 class SystemKnowledge(models.Model):
     """
     System-level knowledge derived from LLM analysis + user answers
@@ -286,6 +308,26 @@ class SystemKnowledge(models.Model):
     
     def __str__(self):
         return f"{self.system.name}: {self.knowledge_type}/{self.spec_id}"
+
+
+class SystemDocumentation(models.Model):
+    """
+    Auto-generated documentation derived from CRS + knowledge outputs.
+    """
+
+    system = models.ForeignKey(System, on_delete=models.CASCADE, related_name='documentation')
+    doc_type = models.CharField(max_length=100, default='overview')
+    content = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'agent_system_documentation'
+        unique_together = [['system', 'doc_type']]
+        ordering = ['doc_type']
+
+    def __str__(self):
+        return f"{self.system.name}: {self.doc_type}"
 
 
 class Task(models.Model):

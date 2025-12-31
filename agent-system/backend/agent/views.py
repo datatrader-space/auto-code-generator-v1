@@ -26,7 +26,7 @@ from agent.serializers import (
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
     AnalyzeRepositorySerializer, LLMHealthSerializer,
-    ChatConversationSerializer, ChatConversationListSerializer, ChatMessageSerializer
+    RepositoryReasoningTraceSerializer, SystemDocumentationSerializer
 )
 from agent.services.repo_analyzer import RepositoryAnalyzer
 from agent.services.question_generator import QuestionGenerator
@@ -180,6 +180,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 repo_path=repository.clone_path,
                 repo_name=repository.name
             )
+            AIOrchestrator().capture_analysis(repository, analysis)
             
             # Save analysis
             repository.analysis = analysis
@@ -200,6 +201,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 analysis=analysis,
                 other_repos=other_repos
             )
+            AIOrchestrator().capture_questions(repository, questions)
             
             # Save questions
             repository.questions.all().delete()  # Clear old questions
@@ -759,6 +761,22 @@ class SystemKnowledgeViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         system_id = self.kwargs.get('system_pk')
         return SystemKnowledge.objects.filter(
+            system_id=system_id,
+            system__user=self.request.user
+        )
+
+
+class SystemDocumentationViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing system documentation
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = SystemDocumentationSerializer
+
+    def get_queryset(self):
+        system_id = self.kwargs.get('system_pk')
+        return SystemDocumentation.objects.filter(
             system_id=system_id,
             system__user=self.request.user
         )
