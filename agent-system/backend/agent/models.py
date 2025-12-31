@@ -113,6 +113,8 @@ class LLMModel(models.Model):
 
 
 class LLMRequestLog(models.Model):
+    """Track usage of configured LLM providers/models."""
+
     """Log entries for LLM request/response usage."""
 
     REQUEST_TYPE_CHOICES = [
@@ -124,6 +126,29 @@ class LLMRequestLog(models.Model):
         ('error', 'Error'),
     ]
 
+    REQUEST_TYPES = [
+        ('chat', 'Chat'),
+        ('stream', 'Stream'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='llm_request_logs')
+    conversation = models.ForeignKey(
+        'ChatConversation',
+        on_delete=models.SET_NULL,
+        related_name='llm_request_logs',
+        null=True,
+        blank=True
+    )
+    llm_model = models.ForeignKey(
+        LLMModel,
+        on_delete=models.SET_NULL,
+        related_name='request_logs',
+        null=True,
+        blank=True
+    )
+    provider_type = models.CharField(max_length=50, blank=True)
+    model_id = models.CharField(max_length=200, blank=True)
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPES, default='chat')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='llm_request_logs')
     conversation = models.ForeignKey(
         'ChatConversation',
@@ -140,12 +165,17 @@ class LLMRequestLog(models.Model):
     prompt_tokens = models.IntegerField(null=True, blank=True)
     completion_tokens = models.IntegerField(null=True, blank=True)
     total_tokens = models.IntegerField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     error = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'llm_request_logs'
         ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username}:{self.provider_type}:{self.model_id}:{self.status}"
         indexes = [
             models.Index(fields=['user', 'created_at']),
             models.Index(fields=['provider', 'model']),

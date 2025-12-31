@@ -79,8 +79,16 @@ class OllamaClient:
                 "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
             }
 
+            usage = {
+                "prompt_tokens": data.get("prompt_eval_count", 0),
+                "completion_tokens": data.get("eval_count", 0),
+                "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
+            }
+            self.last_usage = usage
+
             return {
                 "content": data.get("response", ""),
+                "usage": usage
                 "usage": self.last_usage
             }
 
@@ -133,6 +141,7 @@ class OllamaClient:
 
         try:
             logger.info(f"Streaming from Ollama: {self.model}")
+            self.last_usage = None
 
             response = requests.post(url, json=payload, stream=True, timeout=120)
             response.raise_for_status()

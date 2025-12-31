@@ -94,8 +94,16 @@ class AnthropicClient:
                 "total_tokens": response.usage.input_tokens + response.usage.output_tokens
             }
             
+            usage = {
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+                "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+            }
+            self.last_usage = usage
+
             return {
                 "content": content,
+                "usage": usage
                 "usage": self.last_usage
             }
         
@@ -110,6 +118,7 @@ class AnthropicClient:
         max_tokens: int = None,
         temperature: float = None
     ):
+        self.last_usage = None
         result = self.query(
             messages=messages,
             json_mode=json_mode,

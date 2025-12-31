@@ -229,9 +229,10 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
         # Get LLM router and proper client
         router = await sync_to_async(get_llm_router)()
+        llm_config = await self.get_llm_config(conversation)
 
         # Get LLM config (handles model selection)
-        llm_config = await self.get_llm_config(conversation)
+      
 
         if llm_config:
             config = llm_config['config']
@@ -249,6 +250,11 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             'typing': True
         })
 
+        full_response = ""
+        model_info = {}
+        request_started = time.monotonic()
+        usage = None
+        error_message = None
         final_answer = ""  # Only the actual answer, not tool dumps
         debug_trace = []   # Tool calls + results for logging
         max_tool_iterations = 3  # Prevent infinite loops
@@ -269,6 +275,14 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                     'provider': conversation.model_provider,
                     'model': getattr(router.local_config if conversation.model_provider == 'local' else router.cloud_config, 'model', None)
                 }
+
+            # Get all chunks from the generator (sync operation converted to async)
+            chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
+            usage = getattr(client, 'last_usage', None)
+
+            # Iterate over chunks
+            for text_chunk in chunks:
+                full_response += text_chunk
         
             client = router.local_client if model_info['provider'] == 'local' else router.cloud_client
 
@@ -365,6 +379,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             logger.info(f"Tool trace: {' -> '.join(debug_trace)}")
 
         except Exception as e:
+            error_message = str(e)
             await self.create_llm_request_log(
                 conversation=conversation,
                 model_info=model_info,
@@ -381,6 +396,13 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             })
 
         finally:
+            await self.save_llm_request_log(
+                conversation=conversation,
+                model_info=model_info,
+                started_at=request_started,
+                usage=usage,
+                error_message=error_message
+            )
             # Stop typing indicator
             await self.send_json({
                 'type': 'assistant_typing',
@@ -500,6 +522,36 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             'model': model.model_id,
             'config': config
         }
+
+    @database_sync_to_async
+    def save_llm_request_log(self, conversation, model_info, started_at, usage, error_message):
+        latency_ms = int((time.monotonic() - started_at) * 1000) if started_at else None
+        prompt_tokens = None
+        completion_tokens = None
+        total_tokens = None
+
+        if isinstance(usage, dict):
+            prompt_tokens = usage.get('prompt_tokens') or usage.get('input_tokens')
+            completion_tokens = usage.get('completion_tokens') or usage.get('output_tokens')
+            total_tokens = usage.get('total_tokens')
+            if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
+                total_tokens = prompt_tokens + completion_tokens
+
+        LLMRequestLog.objects.create(
+            user=conversation.user,
+            conversation=conversation,
+            llm_model=conversation.llm_model,
+            provider_type=model_info.get('provider', ''),
+            model_id=model_info.get('model', ''),
+            request_type='stream',
+            status='error' if error_message else 'success',
+            latency_ms=latency_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            error_message=error_message or '',
+            metadata={'usage': usage} if usage else {}
+        )
 
     async def build_llm_messages(self, conversation, user_message, context):
         """

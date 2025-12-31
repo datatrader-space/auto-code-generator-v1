@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.db.models import Avg, Count
 from django.db.models import Avg, Count, Sum, Q
 from django.db.models.functions import TruncHour, Coalesce
 from django.conf import settings
@@ -30,6 +31,7 @@ from agent.serializers import (
     RepositoryQuestionSerializer, AnswerQuestionsSerializer,
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
+   
     AnalyzeRepositorySerializer, LLMHealthSerializer, LLMStatsSerializer, ChatConversationListSerializer,
     RepositoryReasoningTraceSerializer, SystemDocumentationSerializer, ChatConversationSerializer,
     LLMProviderSerializer, LLMModelSerializer
@@ -924,6 +926,54 @@ def llm_health(request):
 @decorators.permission_classes([IsAuthenticated])
 def llm_stats(request):
     """
+    LLM usage statistics for current user
+    """
+    user = request.user
+    now = timezone.now()
+    window_start = now - timezone.timedelta(hours=24)
+
+    base_qs = LLMRequestLog.objects.filter(user=user)
+    window_qs = base_qs.filter(created_at__gte=window_start)
+
+    totals = base_qs.aggregate(
+        total_requests=Count('id'),
+        avg_latency_ms=Avg('latency_ms'),
+    )
+    window_totals = window_qs.aggregate(
+        requests_24h=Count('id'),
+        avg_latency_ms_24h=Avg('latency_ms'),
+    )
+
+    error_count = base_qs.filter(status='error').count()
+    error_rate = (error_count / totals['total_requests']) if totals['total_requests'] else 0
+
+    by_provider = list(
+        base_qs.values('provider_type')
+        .annotate(
+            requests=Count('id'),
+            avg_latency_ms=Avg('latency_ms')
+        )
+        .order_by('-requests')
+    )
+
+    by_model = list(
+        base_qs.values('provider_type', 'model_id')
+        .annotate(
+            requests=Count('id'),
+            avg_latency_ms=Avg('latency_ms')
+        )
+        .order_by('-requests')[:10]
+    )
+
+    return Response({
+        'total_requests': totals['total_requests'] or 0,
+        'avg_latency_ms': int(totals['avg_latency_ms']) if totals['avg_latency_ms'] else None,
+        'error_rate': round(error_rate, 4),
+        'requests_24h': window_totals['requests_24h'] or 0,
+        'avg_latency_ms_24h': int(window_totals['avg_latency_ms_24h']) if window_totals['avg_latency_ms_24h'] else None,
+        'by_provider': by_provider,
+        'by_model': by_model
+    })
     LLM stats endpoint
 
     GET /api/llm/stats/

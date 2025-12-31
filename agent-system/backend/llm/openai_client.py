@@ -58,6 +58,11 @@ class OpenAIClient:
             response.raise_for_status()
             data = response.json()
             content = data["choices"][0]["message"]["content"]
+            usage = data.get("usage", {})
+            self.last_usage = usage
+            return {
+                "content": content,
+                "usage": usage
             self.last_usage = data.get("usage")
             return {
                 "content": content,
@@ -88,6 +93,9 @@ class OpenAIClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+
+        try:
+            self.last_usage = None
         self.last_usage = None
 
         try:

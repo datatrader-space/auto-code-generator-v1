@@ -17,6 +17,25 @@
       </button>
     </div>
 
+    <!-- LLM Usage Stats -->
+    <div v-if="llmStats" class="mb-8 bg-white rounded-lg shadow">
+      <div class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-900">AI Usage (Last 24h)</h2>
+        <p class="text-sm text-gray-500">LLM requests and latency across configured providers.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
+        <div>
+          <p class="text-2xl font-bold text-blue-600">{{ llmStats.requests_24h }}</p>
+          <p class="text-xs text-gray-500">Requests (24h)</p>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-purple-600">{{ formatLatency(llmStats.avg_latency_ms_24h) }}</p>
+          <p class="text-xs text-gray-500">Avg latency (24h)</p>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-red-600">{{ formatErrorRate(llmStats.error_rate) }}</p>
+          <p class="text-xs text-gray-500">Error rate (all time)</p>
+        </div>
     <!-- LLM Stats -->
     <div class="mb-8 bg-white rounded-lg shadow p-4">
       <div class="flex items-center justify-between">
@@ -192,6 +211,7 @@ const notify = inject('notify')
 
 const systems = ref([])
 const loading = ref(true)
+const llmStats = ref(null)
 const showCreateModal = ref(false)
 const creating = ref(false)
 const stats = ref(null)
@@ -215,6 +235,12 @@ const loadSystems = async () => {
   }
 }
 
+const loadLlmStats = async () => {
+  try {
+    const response = await api.getLlmStats()
+    llmStats.value = response.data
+  } catch (error) {
+    console.error('Failed to load LLM stats:', error)
 const loadStats = async () => {
   try {
     statsLoading.value = true
@@ -262,6 +288,20 @@ const formatDate = (dateString) => {
   })
 }
 
+const formatLatency = (value) => {
+  if (value === null || value === undefined) return '—'
+  return `${value} ms`
+}
+
+const formatErrorRate = (value) => {
+  if (value === null || value === undefined) return '—'
+  return `${(value * 100).toFixed(1)}%`
+}
+
+// Load on mount
+onMounted(() => {
+  loadSystems()
+  loadLlmStats()
 const formatPercent = (value) => {
   if (value === null || value === undefined) return '--'
   return `${(value * 100).toFixed(1)}%`
