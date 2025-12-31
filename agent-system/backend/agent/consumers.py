@@ -251,10 +251,17 @@ class RepositoryChatConsumer(BaseChatConsumer):
         """Handle repository chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        message_id = data.get('message_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
             return
+
+        logger.info(
+            "Repository chat message received (message_id=%s, conversation_id=%s)",
+            message_id,
+            conversation_id
+        )
 
         # Get or create conversation
         is_new = conversation_id is None
