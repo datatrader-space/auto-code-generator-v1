@@ -14,6 +14,7 @@ from agent import auth_views
 # Main router
 router = DefaultRouter()
 router.register(r'systems', views.SystemViewSet, basename='system')
+router.register(r'conversations', views.ChatConversationViewSet, basename='conversation')
 
 # Nested routers for system resources
 systems_router = nested_routers.NestedDefaultRouter(

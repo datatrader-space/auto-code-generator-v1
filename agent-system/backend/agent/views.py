@@ -16,7 +16,8 @@ from pathlib import Path
 
 from agent.models import (
     System, Repository, RepositoryQuestion,
-    SystemKnowledge, Task, AgentMemory
+    SystemKnowledge, Task, AgentMemory,
+    ChatConversation, ChatMessage
 )
 from agent.serializers import (
     SystemListSerializer, SystemDetailSerializer,
@@ -928,3 +929,42 @@ def api_root(request):
             'docs': '/api/docs/',
         }
     })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ChatConversationViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for chat conversations
+    
+    list: Get all conversations (filtered by type, system, or repository)
+    retrieve: Get single conversation with full message history
+    create: Create new conversation
+    destroy: Delete conversation
+    """
+    
+    queryset = ChatConversation.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ChatConversationListSerializer
+        return ChatConversationSerializer
+    
+    def get_queryset(self):
+        queryset = ChatConversation.objects.all().order_by('-updated_at')
+        
+        # Filter by conversation type
+        conv_type = self.request.query_params.get('type')
+        if conv_type:
+            queryset = queryset.filter(conversation_type=conv_type)
+        
+        # Filter by system
+        system_id = self.request.query_params.get('system')
+        if system_id:
+            queryset = queryset.filter(system_id=system_id)
+        
+        # Filter by repository
+        repository_id = self.request.query_params.get('repository')
+        if repository_id:
+            queryset = queryset.filter(repository_id=repository_id)
+        
+        return queryset.select_related('system', 'repository', 'user').prefetch_related('messages')
