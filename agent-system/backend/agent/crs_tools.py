@@ -235,19 +235,40 @@ You have access to 6 deterministic tools for exploring the codebase:
                 if kind == 'django_model':
                     fields = meta.get('fields', [])
                     if fields:
-                        result.append(f"  📝 Fields: {', '.join(fields[:5])}")
+                        # Handle both dict and string field formats
+                        field_names = []
+                        for field in fields[:5]:
+                            if isinstance(field, dict):
+                                field_names.append(field.get('name', str(field)))
+                            else:
+                                field_names.append(str(field))
+                        result.append(f"  📝 Fields: {', '.join(field_names)}")
                         if len(fields) > 5:
                             result.append(f"     ... and {len(fields) - 5} more")
 
                 elif kind in ['drf_serializer']:
                     serializer_fields = meta.get('serializer_fields', [])
                     if serializer_fields:
-                        result.append(f"  📝 Fields: {', '.join(serializer_fields[:5])}")
+                        # Handle both dict and string formats
+                        field_names = []
+                        for field in serializer_fields[:5]:
+                            if isinstance(field, dict):
+                                field_names.append(field.get('name', str(field)))
+                            else:
+                                field_names.append(str(field))
+                        result.append(f"  📝 Fields: {', '.join(field_names)}")
 
                 elif kind in ['drf_viewset', 'drf_apiview']:
                     methods = meta.get('methods', [])
                     if methods:
-                        result.append(f"  🔧 Methods: {', '.join(methods[:5])}")
+                        # Handle both dict and string formats
+                        method_names = []
+                        for method in methods[:5]:
+                            if isinstance(method, dict):
+                                method_names.append(method.get('name', str(method)))
+                            else:
+                                method_names.append(str(method))
+                        result.append(f"  🔧 Methods: {', '.join(method_names)}")
 
                 result.append("")
 
