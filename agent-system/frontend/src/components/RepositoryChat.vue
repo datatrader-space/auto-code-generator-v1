@@ -152,26 +152,34 @@ let currentStreamingMessage = ''
 const loadConversationHistory = async () => {
   try {
     loadingHistory.value = true
+    messages.value = []
     const response = await api.get(`/conversations/?repository=${props.repository.id}&type=repository`)
+    const latestConv = response.data.results && response.data.results.length > 0
+      ? response.data.results[0]
+      : null
 
-    if (response.data.results && response.data.results.length > 0) {
-      const latestConv = response.data.results[0]
-      conversationId.value = latestConv.id
-
-      // Load message history
-      if (latestConv.messages && latestConv.messages.length > 0) {
-        messages.value = latestConv.messages.map(msg => ({
-          role: msg.role,
-          content: msg.content,
-          streaming: false
-        }))
-
-        await nextTick()
-        scrollToBottom()
-      }
-
-      console.log(`Loaded conversation ${conversationId.value} with ${latestConv.messages?.length || 0} messages`)
+    if (!latestConv) {
+      conversationId.value = null
+      console.log('No conversation history found for repository')
+      return
     }
+
+    conversationId.value = latestConv.id
+    const detailResponse = await api.get(`/conversations/${conversationId.value}/`)
+    const historyMessages = detailResponse.data?.messages || []
+
+    messages.value = historyMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content,
+      streaming: false
+    }))
+
+    if (messages.value.length > 0) {
+      await nextTick()
+      scrollToBottom()
+    }
+
+    console.log(`Loaded conversation ${conversationId.value} with ${historyMessages.length} messages`)
   } catch (error) {
     console.error('Failed to load conversation history:', error)
   } finally {
@@ -351,13 +359,14 @@ onUnmounted(() => {
 })
 
 // Watch for repository changes
-watch(() => props.repository.id, () => {
+watch(() => props.repository.id, async () => {
   // Reconnect if repository changes
   if (ws) {
     ws.close()
   }
   messages.value = []
   currentStreamingMessage = ''
+  await loadConversationHistory()
   connectWebSocket()
 })
 </script>
