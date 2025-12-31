@@ -517,23 +517,34 @@ class RepositoryChatConsumer(BaseChatConsumer):
 
     @database_sync_to_async
     def get_crs_context(self, query):
-        """Get relevant CRS context for the query using RAG"""
-        crs_context = CRSContext(self.repository)
-        crs_context.load_all()
+        """
+        Get CRS context - tool-first approach
 
-        if not crs_context.has_payloads():
-            message = "CRS not ready for this repo."
-            logger.warning("CRS payloads missing for repository %s", self.repository.name)
+        No longer returns search blobs - tools handle data retrieval
+        Just checks if CRS is ready
+        """
+        from agent.services.crs_runner import get_crs_summary
+
+        try:
+            summary = get_crs_summary(self.repository)
+
+            if summary.get('status') != 'ready':
+                return {
+                    'status_message': f"CRS status: {summary.get('status', 'unknown')}. Analysis must complete first."
+                }
+
+            # CRS is ready - return minimal context
+            # Tools will handle actual data retrieval
             return {
-                'status_message': message,
-                'search_results': message
+                'crs_ready': True,
+                'artifact_count': summary.get('artifacts', 0)
             }
 
-        context_prompt = crs_context.search_context(query, limit=10)
-
-        return {
-            'search_results': context_prompt
-        }
+        except Exception as e:
+            logger.warning(f"CRS context error: {e}")
+            return {
+                'status_message': f"CRS not available: {str(e)}"
+            }
 
     async def build_llm_messages(self, conversation, user_message, context):
         """
