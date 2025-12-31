@@ -8,7 +8,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 
-from agent.models import Repository, System, ChatConversation, ChatMessage
+from agent.models import Repository, System, ChatConversation, ChatMessage, LLMModel
 from agent.services.crs_context import CRSContext
 from agent.rag import CRSRetriever, ConversationMemory
 from agent.knowledge.crs_documentation import (
@@ -216,6 +216,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
         # Get proper client for config (FIX: don't overwrite this)
         client = await sync_to_async(router.client_for_config)(config)
         model_info = {'provider': config['provider'], 'model': config.get('model_name', 'default')}
+        llm_config = await self.get_llm_config(conversation)
 
         # Send typing indicator
         await self.send_json({
@@ -229,6 +230,22 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
         try:
             crs_tools = CRSTools(repository=getattr(self, 'repository', None))
+            # Stream response chunks
+            if llm_config:
+                config = llm_config['config']
+                client = router.client_for_config(config)
+                model_info = {
+                    'provider': llm_config['provider'],
+                    'model': llm_config['model']
+                }
+            else:
+                client = router.local_client if conversation.model_provider == 'local' else router.cloud_client
+                model_info = {
+                    'provider': conversation.model_provider,
+                    'model': getattr(router.local_config if conversation.model_provider == 'local' else router.cloud_config, 'model', None)
+                }
+        
+            client = router.local_client if model_info['provider'] == 'local' else router.cloud_client
 
             # Tool-calling loop
             for iteration in range(max_tool_iterations):
@@ -338,6 +355,51 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             model_info=model_info
         )
 
+    @database_sync_to_async
+    def set_conversation_model(self, conversation, model_id):
+        if not model_id:
+            return conversation
+
+        model = LLMModel.objects.select_related('provider').filter(
+            id=model_id,
+            provider__user=conversation.user
+        ).first()
+        if not model:
+            return conversation
+
+        conversation.llm_model = model
+        conversation.model_provider = model.provider.provider_type
+        conversation.save(update_fields=['llm_model', 'model_provider', 'updated_at'])
+        return conversation
+
+    @database_sync_to_async
+    def get_llm_config(self, conversation):
+        if not conversation.llm_model_id:
+            return None
+
+        model = LLMModel.objects.select_related('provider').filter(
+            id=conversation.llm_model_id,
+            provider__user=conversation.user
+        ).first()
+        if not model:
+            return None
+
+        from llm.router import LLMConfig
+        provider = model.provider
+        config = LLMConfig(
+            provider=provider.provider_type,
+            model=model.model_id,
+            base_url=provider.base_url or None,
+            api_key=provider.api_key or None,
+            max_tokens=model.metadata.get('max_tokens') or provider.metadata.get('max_tokens') or 4000,
+            temperature=model.metadata.get('temperature') or provider.metadata.get('temperature') or 0.7
+        )
+        return {
+            'provider': provider.provider_type,
+            'model': model.model_id,
+            'config': config
+        }
+
     async def build_llm_messages(self, conversation, user_message, context):
         """
         Build message list for LLM
@@ -417,6 +479,7 @@ class RepositoryChatConsumer(BaseChatConsumer):
         """Handle repository chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        model_id = data.get('model_id')
         message_id = data.get('message_id')
 
         if not user_message:
@@ -439,6 +502,8 @@ class RepositoryChatConsumer(BaseChatConsumer):
                 'type': 'conversation_created',
                 'conversation_id': conversation.id
             })
+
+        conversation = await self.set_conversation_model(conversation, model_id)
 
         # Save user message
         await self.save_user_message(conversation, user_message)
@@ -652,6 +717,7 @@ class PlannerChatConsumer(BaseChatConsumer):
         """Handle planner chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        model_id = data.get('model_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
@@ -667,6 +733,8 @@ class PlannerChatConsumer(BaseChatConsumer):
                 'type': 'conversation_created',
                 'conversation_id': conversation.id
             })
+
+        conversation = await self.set_conversation_model(conversation, model_id)
 
         # Save user message
         await self.save_user_message(conversation, user_message)
@@ -870,6 +938,7 @@ class GraphChatConsumer(BaseChatConsumer):
         """Handle graph chat message"""
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
+        model_id = data.get('model_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
@@ -877,6 +946,8 @@ class GraphChatConsumer(BaseChatConsumer):
 
         # Get or create conversation
         conversation = await self.get_or_create_conversation(conversation_id)
+
+        conversation = await self.set_conversation_model(conversation, model_id)
 
         # Save user message
         await self.save_user_message(conversation, user_message)

@@ -106,7 +106,7 @@ def _build_crs_workspace(repository: Repository) -> CRSWorkspacePaths:
     if repository.crs_workspace_path != str(crs_workspace_root):
         repository.crs_workspace_path = str(crs_workspace_root)
         repository.save(update_fields=["crs_workspace_path"])
-
+    print(config)
     return CRSWorkspacePaths(
         workspace_root=crs_workspace_root,
         config_path=config_path,

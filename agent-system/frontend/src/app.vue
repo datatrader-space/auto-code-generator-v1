@@ -22,6 +22,14 @@
                 Systems
               </router-link>
 
+              <router-link
+                to="/ai-settings"
+                class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 border-b-2"
+                :class="$route.path === '/ai-settings' ? 'border-blue-500 text-gray-900' : 'border-transparent hover:border-gray-300'"
+              >
+                AI Providers
+              </router-link>
+
               <a
                 href="http://localhost:8000/admin"
                 target="_blank"
