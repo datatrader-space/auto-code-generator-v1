@@ -115,6 +115,12 @@ class LLMModel(models.Model):
 class LLMRequestLog(models.Model):
     """Track usage of configured LLM providers/models."""
 
+    """Log entries for LLM request/response usage."""
+
+    REQUEST_TYPE_CHOICES = [
+        ('chat', 'Chat'),
+        ('stream', 'Stream'),
+    ]
     STATUS_CHOICES = [
         ('success', 'Success'),
         ('error', 'Error'),
@@ -143,6 +149,17 @@ class LLMRequestLog(models.Model):
     provider_type = models.CharField(max_length=50, blank=True)
     model_id = models.CharField(max_length=200, blank=True)
     request_type = models.CharField(max_length=20, choices=REQUEST_TYPES, default='chat')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='llm_request_logs')
+    conversation = models.ForeignKey(
+        'ChatConversation',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='llm_request_logs'
+    )
+    provider = models.CharField(max_length=50, blank=True)
+    model = models.CharField(max_length=200, blank=True)
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     latency_ms = models.IntegerField(null=True, blank=True)
     prompt_tokens = models.IntegerField(null=True, blank=True)
@@ -150,6 +167,7 @@ class LLMRequestLog(models.Model):
     total_tokens = models.IntegerField(null=True, blank=True)
     error_message = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -158,6 +176,14 @@ class LLMRequestLog(models.Model):
 
     def __str__(self):
         return f"{self.user.username}:{self.provider_type}:{self.model_id}:{self.status}"
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['provider', 'model']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f"{self.provider}/{self.model or 'default'} - {self.status}"
 
 
 class System(models.Model):

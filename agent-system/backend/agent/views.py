@@ -13,9 +13,12 @@ from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Sum, Q
+from django.db.models.functions import TruncHour, Coalesce
 from django.conf import settings
 from django.utils import timezone
 from pathlib import Path
+from datetime import timedelta
 
 from agent.models import (
     System, Repository, RepositoryQuestion,
@@ -28,7 +31,8 @@ from agent.serializers import (
     RepositoryQuestionSerializer, AnswerQuestionsSerializer,
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
-    AnalyzeRepositorySerializer, LLMHealthSerializer, ChatConversationListSerializer,
+   
+    AnalyzeRepositorySerializer, LLMHealthSerializer, LLMStatsSerializer, ChatConversationListSerializer,
     RepositoryReasoningTraceSerializer, SystemDocumentationSerializer, ChatConversationSerializer,
     LLMProviderSerializer, LLMModelSerializer
 )
@@ -970,6 +974,82 @@ def llm_stats(request):
         'by_provider': by_provider,
         'by_model': by_model
     })
+    LLM stats endpoint
+
+    GET /api/llm/stats/
+    """
+    logs = LLMRequestLog.objects.filter(user=request.user)
+    total_requests = logs.count()
+    error_count = logs.filter(status='error').count()
+    error_rate = error_count / total_requests if total_requests else 0
+    avg_latency = logs.aggregate(avg=Avg('latency_ms')).get('avg')
+
+    provider_stats = list(
+        logs.values('provider', 'model')
+        .annotate(
+            total_requests=Count('id'),
+            prompt_tokens=Coalesce(Sum('prompt_tokens'), 0),
+            completion_tokens=Coalesce(Sum('completion_tokens'), 0),
+            total_tokens=Coalesce(Sum('total_tokens'), 0),
+            avg_latency_ms=Avg('latency_ms')
+        )
+        .order_by('-total_requests')
+    )
+
+    top_provider_model = None
+    if provider_stats:
+        top = provider_stats[0]
+        top_provider_model = {
+            'provider': top.get('provider'),
+            'model': top.get('model'),
+            'total_requests': top.get('total_requests')
+        }
+
+    since = timezone.now() - timedelta(hours=24)
+    trend_rows = (
+        logs.filter(created_at__gte=since)
+        .annotate(hour=TruncHour('created_at'))
+        .values('hour')
+        .annotate(
+            total=Count('id'),
+            errors=Count('id', filter=Q(status='error'))
+        )
+        .order_by('hour')
+    )
+    last_24h_trend = [
+        {
+            'hour': row['hour'].isoformat() if row['hour'] else None,
+            'total': row['total'],
+            'errors': row['errors']
+        }
+        for row in trend_rows
+    ]
+
+    recent_requests = [
+        {
+            'provider': log.provider,
+            'model': log.model,
+            'status': log.status,
+            'latency_ms': log.latency_ms,
+            'total_tokens': log.total_tokens,
+            'request_type': log.request_type,
+            'created_at': log.created_at.isoformat()
+        }
+        for log in logs.order_by('-created_at')[:15]
+    ]
+
+    payload = {
+        'total_requests': total_requests,
+        'error_rate': error_rate,
+        'avg_latency_ms': avg_latency,
+        'top_provider_model': top_provider_model,
+        'tokens_by_provider_model': provider_stats,
+        'last_24h_trend': last_24h_trend,
+        'recent_requests': recent_requests
+    }
+
+    serializer = LLMStatsSerializer(payload)
+    return Response(serializer.data)
 
 
 @decorators.api_view(['GET'])
@@ -984,6 +1064,7 @@ def api_root(request):
         'endpoints': {
             'systems': '/api/systems/',
             'llm_health': '/api/llm/health/',
+            'llm_stats': '/api/llm/stats/',
             'docs': '/api/docs/',
         }
     })

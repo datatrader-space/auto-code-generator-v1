@@ -36,6 +36,37 @@
           <p class="text-2xl font-bold text-red-600">{{ formatErrorRate(llmStats.error_rate) }}</p>
           <p class="text-xs text-gray-500">Error rate (all time)</p>
         </div>
+    <!-- LLM Stats -->
+    <div class="mb-8 bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">LLM Activity</h2>
+          <p class="text-sm text-gray-500">Last 24h overview</p>
+        </div>
+        <div v-if="statsLoading" class="text-xs text-gray-400">Loading...</div>
+      </div>
+      <div v-if="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div>
+          <p class="text-xl font-semibold text-gray-900">{{ stats.total_requests }}</p>
+          <p class="text-xs text-gray-500">Total Requests</p>
+        </div>
+        <div>
+          <p class="text-xl font-semibold text-gray-900">{{ formatPercent(stats.error_rate) }}</p>
+          <p class="text-xs text-gray-500">Error Rate</p>
+        </div>
+        <div>
+          <p class="text-xl font-semibold text-gray-900">{{ formatLatency(stats.avg_latency_ms) }}</p>
+          <p class="text-xs text-gray-500">Avg Latency</p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-900 truncate">
+            {{ topProviderModel }}
+          </p>
+          <p class="text-xs text-gray-500">Top Provider/Model</p>
+        </div>
+      </div>
+      <div v-else-if="!statsLoading" class="text-sm text-gray-500 mt-4">
+        No LLM activity yet.
       </div>
     </div>
     
@@ -171,7 +202,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, onMounted, inject, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
 
@@ -183,6 +214,8 @@ const loading = ref(true)
 const llmStats = ref(null)
 const showCreateModal = ref(false)
 const creating = ref(false)
+const stats = ref(null)
+const statsLoading = ref(false)
 const newSystem = ref({
   name: '',
   description: ''
@@ -208,6 +241,15 @@ const loadLlmStats = async () => {
     llmStats.value = response.data
   } catch (error) {
     console.error('Failed to load LLM stats:', error)
+const loadStats = async () => {
+  try {
+    statsLoading.value = true
+    const response = await api.getLlmStats()
+    stats.value = response.data
+  } catch (error) {
+    console.error(error)
+  } finally {
+    statsLoading.value = false
   }
 }
 
@@ -260,5 +302,25 @@ const formatErrorRate = (value) => {
 onMounted(() => {
   loadSystems()
   loadLlmStats()
+const formatPercent = (value) => {
+  if (value === null || value === undefined) return '--'
+  return `${(value * 100).toFixed(1)}%`
+}
+
+const formatLatency = (value) => {
+  if (value === null || value === undefined) return '--'
+  return `${Math.round(value)} ms`
+}
+
+const topProviderModel = computed(() => {
+  if (!stats.value || !stats.value.top_provider_model) return '—'
+  const top = stats.value.top_provider_model
+  return [top.provider, top.model].filter(Boolean).join(' / ')
+})
+
+// Load on mount
+onMounted(() => {
+  loadSystems()
+  loadStats()
 })
 </script>

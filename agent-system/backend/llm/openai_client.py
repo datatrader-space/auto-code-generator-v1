@@ -63,6 +63,10 @@ class OpenAIClient:
             return {
                 "content": content,
                 "usage": usage
+            self.last_usage = data.get("usage")
+            return {
+                "content": content,
+                "usage": data.get("usage", {})
             }
         except Exception as e:
             logger.error(f"OpenAI error: {e}")
@@ -92,6 +96,9 @@ class OpenAIClient:
 
         try:
             self.last_usage = None
+        self.last_usage = None
+
+        try:
             response = requests.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,

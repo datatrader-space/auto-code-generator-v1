@@ -168,6 +168,42 @@
         </form>
       </div>
     </div>
+
+    <div class="bg-white rounded-lg shadow">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Recent LLM Requests</h2>
+          <p class="text-sm text-gray-500">Last 15 requests grouped by provider/model.</p>
+        </div>
+        <div v-if="statsLoading" class="text-xs text-gray-400">Loading...</div>
+      </div>
+      <div class="p-6 space-y-4">
+        <div v-if="groupedRequests.length === 0" class="text-sm text-gray-500">
+          No request history yet.
+        </div>
+        <div v-else class="space-y-4">
+          <div v-for="group in groupedRequests" :key="group.label" class="border rounded-lg">
+            <div class="px-4 py-2 border-b bg-gray-50 text-sm font-medium text-gray-700">
+              {{ group.label }}
+            </div>
+            <div class="divide-y text-sm">
+              <div
+                v-for="request in group.requests"
+                :key="request.created_at"
+                class="px-4 py-2 grid grid-cols-4 gap-2 items-center"
+              >
+                <span :class="request.status === 'error' ? 'text-red-600' : 'text-green-600'">
+                  {{ request.status }}
+                </span>
+                <span class="text-gray-500">{{ formatLatency(request.latency_ms) }}</span>
+                <span class="text-gray-500">{{ request.total_tokens ?? '—' }} tokens</span>
+                <span class="text-gray-400">{{ formatDate(request.created_at) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -180,6 +216,8 @@ const notify = inject('notify', () => {})
 const providers = ref([])
 const models = ref([])
 const modelFilter = ref('')
+const stats = ref(null)
+const statsLoading = ref(false)
 
 const newProvider = ref({
   name: '',
@@ -209,6 +247,16 @@ const loadModels = async () => {
   }
   const response = await api.getLlmModels(params)
   models.value = response.data.results || response.data
+}
+
+const loadStats = async () => {
+  try {
+    statsLoading.value = true
+    const response = await api.getLlmStats()
+    stats.value = response.data
+  } finally {
+    statsLoading.value = false
+  }
 }
 
 const createProvider = async () => {
@@ -279,11 +327,35 @@ const filteredModels = computed(() => {
   return models.value.filter((model) => model.provider === parseInt(modelFilter.value, 10))
 })
 
+const groupedRequests = computed(() => {
+  const recent = stats.value?.recent_requests || []
+  const groups = {}
+  recent.forEach((request) => {
+    const label = `${request.provider || 'unknown'} / ${request.model || 'default'}`
+    if (!groups[label]) {
+      groups[label] = []
+    }
+    groups[label].push(request)
+  })
+  return Object.entries(groups).map(([label, requests]) => ({ label, requests }))
+})
+
+const formatLatency = (value) => {
+  if (value === null || value === undefined) return '—'
+  return `${Math.round(value)} ms`
+}
+
+const formatDate = (value) => {
+  if (!value) return '—'
+  return new Date(value).toLocaleString()
+}
+
 watch(modelFilter, loadModels)
 
 onMounted(async () => {
   await loadProviders()
   await loadModels()
+  await loadStats()
 })
 </script>
 

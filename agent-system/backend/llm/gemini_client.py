@@ -73,6 +73,10 @@ class GeminiClient:
             return {
                 "content": content,
                 "usage": usage
+            self.last_usage = data.get("usageMetadata", {})
+            return {
+                "content": content,
+                "usage": data.get("usageMetadata", {})
             }
         except Exception as e:
             logger.error(f"Gemini error: {e}")

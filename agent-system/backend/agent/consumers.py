@@ -90,21 +90,159 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
         """Send JSON message to WebSocket"""
         await self.send(text_data=json.dumps(data))
 
+    def _detect_inventory_intent(self, user_message: str):
+        """
+        Detect if user is asking an inventory question
+        Returns (is_inventory, artifact_kind) tuple
+        """
+        message_lower = user_message.lower()
+
+        # Inventory patterns
+        inventory_patterns = [
+            ('model', 'django_model'),
+            ('serializer', 'drf_serializer'),
+            ('viewset', 'drf_viewset'),
+            ('api view', 'drf_apiview'),
+            ('apiview', 'drf_apiview'),
+            ('url', 'url_pattern'),
+        ]
+
+        # Check for inventory keywords
+        inventory_keywords = ['list', 'show', 'what', 'all', 'exist', 'have', 'contains']
+
+        has_inventory_keyword = any(kw in message_lower for kw in inventory_keywords)
+
+        if has_inventory_keyword:
+            for pattern, kind in inventory_patterns:
+                if pattern in message_lower:
+                    logger.info(f"Detected inventory intent: {kind}")
+                    return (True, kind)
+
+        return (False, None)
+
     async def stream_llm_response(self, user_message, context, conversation):
         """
-        Stream LLM response in chunks
+        Stream LLM response in chunks with CRS tool support
 
         Args:
             user_message: User's message text
             context: CRS context or other relevant context
             conversation: ChatConversation instance
         """
+        # Import CRS tools
+        from agent.crs_tools import CRSTools
+
+        # SERVER-SIDE INVENTORY ROUTING (highest ROI fix)
+        # If user is asking for inventory, call LIST_ARTIFACTS directly
+        is_inventory, artifact_kind = self._detect_inventory_intent(user_message)
+
+        request_started = time.monotonic()
+        last_usage = None
+        model_info = {'provider': conversation.model_provider or 'local', 'model': None}
+
+        if is_inventory and artifact_kind:
+            logger.info(f"Server-side inventory routing: {artifact_kind}")
+
+            await self.send_json({'type': 'assistant_typing', 'typing': True})
+
+            try:
+                crs_tools = CRSTools(repository=getattr(self, 'repository', None))
+
+                # Execute LIST_ARTIFACTS directly
+                result = await sync_to_async(crs_tools.execute_tool)(
+                    'LIST_ARTIFACTS',
+                    {'kind': artifact_kind}
+                )
+
+                # Send tool result
+                await self.send_json({
+                    'type': 'tool_result',
+                    'tool_name': 'LIST_ARTIFACTS',
+                    'result': result
+                })
+
+                # Let LLM format the answer
+                router = await sync_to_async(get_llm_router)()
+                config = {
+                    'provider': conversation.model_provider or 'local'
+                }
+                client = await sync_to_async(router.client_for_config)(config)
+                model_info = {'provider': config['provider'], 'model': config.get('model_name')}
+
+                # Simple prompt for formatting
+                format_messages = [
+                    {'role': 'system', 'content': 'You are a helpful assistant. Format the tool results clearly for the user. Include file:line citations.'},
+                    {'role': 'user', 'content': f"User asked: {user_message}\n\nTool Results:\n{result}\n\nPlease format this as a clear answer."}
+                ]
+
+                chunks = await sync_to_async(lambda: list(client.query_stream(format_messages)))()
+                last_usage = getattr(client, 'last_usage', None)
+                formatted_answer = ''.join(chunks)
+
+                for chunk in chunks:
+                    await self.send_json({
+                        'type': 'assistant_message_chunk',
+                        'chunk': chunk
+                    })
+
+                await self.send_json({
+                    'type': 'assistant_message_complete',
+                    'full_message': formatted_answer
+                })
+
+                await self.save_assistant_message(
+                    conversation,
+                    formatted_answer,
+                    context,
+                    {'provider': config['provider']}
+                )
+                await self.create_llm_request_log(
+                    conversation=conversation,
+                    model_info=model_info,
+                    request_type='stream',
+                    status='success',
+                    latency_ms=self._calculate_latency_ms(request_started),
+                    usage=last_usage
+                )
+
+                logger.info(f"Server-side inventory routing succeeded for {artifact_kind}")
+                return
+
+            except Exception as e:
+                await self.create_llm_request_log(
+                    conversation=conversation,
+                    model_info=model_info,
+                    request_type='stream',
+                    status='error',
+                    latency_ms=self._calculate_latency_ms(request_started),
+                    usage=last_usage,
+                    error=str(e)
+                )
+                logger.error(f"Server-side inventory routing failed: {e}")
+                # Fall through to normal tool loop
+            finally:
+                await self.send_json({'type': 'assistant_typing', 'typing': False})
+
+        # Normal tool-calling loop for non-inventory or if inventory routing failed
         # Build messages for LLM
         messages = await self.build_llm_messages(conversation, user_message, context)
 
-        # Get LLM router
+        # Get LLM router and proper client
         router = await sync_to_async(get_llm_router)()
         llm_config = await self.get_llm_config(conversation)
+
+        # Get LLM config (handles model selection)
+      
+
+        if llm_config:
+            config = llm_config['config']
+            client = await sync_to_async(router.client_for_config)(config)
+            model_info = llm_config.get('model_info', {'provider': 'local'})
+        else:
+            # Fallback to basic config
+            config = {'provider': conversation.model_provider or 'local'}
+            client = await sync_to_async(router.client_for_config)(config)
+            model_info = {'provider': config['provider']}
 
         # Send typing indicator
         await self.send_json({
@@ -117,8 +255,12 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
         request_started = time.monotonic()
         usage = None
         error_message = None
+        final_answer = ""  # Only the actual answer, not tool dumps
+        debug_trace = []   # Tool calls + results for logging
+        max_tool_iterations = 3  # Prevent infinite loops
 
         try:
+            crs_tools = CRSTools(repository=getattr(self, 'repository', None))
             # Stream response chunks
             if llm_config:
                 config = llm_config['config']
@@ -141,29 +283,112 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             # Iterate over chunks
             for text_chunk in chunks:
                 full_response += text_chunk
+        
+            client = router.local_client if model_info['provider'] == 'local' else router.cloud_client
 
-                # Send chunk to frontend
-                await self.send_json({
-                    'type': 'assistant_message_chunk',
-                    'chunk': text_chunk
+            # Tool-calling loop
+            for iteration in range(max_tool_iterations):
+                logger.info(f"Tool iteration {iteration + 1}/{max_tool_iterations}")
+
+                # Get LLM response (still buffered for now, TODO: fix streaming)
+                chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
+                last_usage = getattr(client, 'last_usage', None) or last_usage
+
+                iteration_response = ""
+                for text_chunk in chunks:
+                    iteration_response += text_chunk
+
+                    # Send chunk to frontend (assistant thinking/planning)
+                    await self.send_json({
+                        'type': 'assistant_message_chunk',
+                        'chunk': text_chunk
+                    })
+
+                # Check for tool calls
+                tool_calls = crs_tools.parse_tool_calls(iteration_response)
+
+                if not tool_calls:
+                    # No tools requested - this is the final answer
+                    final_answer = iteration_response
+                    logger.info("No tool calls found - treating as final answer")
+                    break
+
+                # Tools were requested - execute them
+                logger.info(f"LLM requested {len(tool_calls)} tool(s): {[t['name'] for t in tool_calls]}")
+
+                tool_results_for_llm = []
+                for tool_call in tool_calls:
+                    tool_name = tool_call['name']
+                    tool_params = tool_call['parameters']
+
+                    logger.info(f"Executing {tool_name} with params: {tool_params}")
+                    result = await sync_to_async(crs_tools.execute_tool)(tool_name, tool_params)
+
+                    # Send tool result to frontend as separate event (not mixed with assistant)
+                    await self.send_json({
+                        'type': 'tool_result',
+                        'tool_name': tool_name,
+                        'result': result
+                    })
+
+                    tool_results_for_llm.append(f"**{tool_name}:**\n{result}")
+                    debug_trace.append(f"[{tool_name}] -> {len(result)} chars")
+
+                # Combine tool results
+                combined_results = '\n\n'.join(tool_results_for_llm)
+
+                # Add assistant's tool request as message
+                messages.append({
+                    'role': 'assistant',
+                    'content': iteration_response
                 })
 
-            # Send completion
+                # Add tool results as USER message (FIX: was 'system' before)
+                messages.append({
+                    'role': 'user',
+                    'content': f"Tool Results:\n\n{combined_results}\n\nNow answer the user's original question using this data. Provide a clear, formatted response with citations."
+                })
+
+            # If we hit max iterations without final answer, treat last response as answer
+            if not final_answer and iteration_response:
+                final_answer = iteration_response
+                logger.warning("Hit max tool iterations - using last response as final answer")
+
+            # Send completion with ONLY the final answer (no tool dumps)
             await self.send_json({
                 'type': 'assistant_message_complete',
-                'full_message': full_response
+                'full_message': final_answer
             })
 
-            # Save assistant message to database
+            # Save ONLY final answer to database (no tool results pollution)
             await self.save_assistant_message(
                 conversation,
-                full_response,
+                final_answer,
                 context,
                 model_info
             )
+            await self.create_llm_request_log(
+                conversation=conversation,
+                model_info=model_info,
+                request_type='stream',
+                status='success',
+                latency_ms=self._calculate_latency_ms(request_started),
+                usage=last_usage
+            )
+
+            logger.info(f"Tool trace: {' -> '.join(debug_trace)}")
 
         except Exception as e:
             error_message = str(e)
+            await self.create_llm_request_log(
+                conversation=conversation,
+                model_info=model_info,
+                request_type='stream',
+                status='error',
+                latency_ms=self._calculate_latency_ms(request_started),
+                usage=last_usage,
+                error=str(e)
+            )
             logger.error(f"LLM streaming error: {e}", exc_info=True)
             await self.send_json({
                 'type': 'error',
@@ -183,6 +408,64 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 'type': 'assistant_typing',
                 'typing': False
             })
+
+    def _calculate_latency_ms(self, started_at):
+        if not started_at:
+            return None
+        return int((time.monotonic() - started_at) * 1000)
+
+    def _extract_token_counts(self, usage):
+        if not usage:
+            return {}
+        prompt_tokens = usage.get('prompt_tokens')
+        completion_tokens = usage.get('completion_tokens')
+        total_tokens = usage.get('total_tokens')
+        if prompt_tokens is None and 'input_tokens' in usage:
+            prompt_tokens = usage.get('input_tokens')
+        if completion_tokens is None and 'output_tokens' in usage:
+            completion_tokens = usage.get('output_tokens')
+        if total_tokens is None and 'total_tokens' in usage:
+            total_tokens = usage.get('total_tokens')
+        if total_tokens is None:
+            total_tokens = usage.get('totalTokenCount')
+        if prompt_tokens is None:
+            prompt_tokens = usage.get('promptTokenCount')
+        if completion_tokens is None:
+            completion_tokens = usage.get('candidatesTokenCount')
+        return {
+            'prompt_tokens': prompt_tokens,
+            'completion_tokens': completion_tokens,
+            'total_tokens': total_tokens
+        }
+
+    @database_sync_to_async
+    def create_llm_request_log(
+        self,
+        *,
+        conversation,
+        model_info,
+        request_type,
+        status,
+        latency_ms,
+        usage,
+        error=None
+    ):
+        token_counts = self._extract_token_counts(usage)
+        provider = model_info.get('provider') or 'unknown'
+        model = model_info.get('model') or ''
+        return LLMRequestLog.objects.create(
+            user=conversation.user,
+            conversation=conversation,
+            provider=provider,
+            model=model,
+            request_type=request_type,
+            status=status,
+            latency_ms=latency_ms,
+            prompt_tokens=token_counts.get('prompt_tokens'),
+            completion_tokens=token_counts.get('completion_tokens'),
+            total_tokens=token_counts.get('total_tokens'),
+            error=error or ''
+        )
 
     @database_sync_to_async
     def save_assistant_message(self, conversation, content, context_used, model_info):
@@ -350,10 +633,17 @@ class RepositoryChatConsumer(BaseChatConsumer):
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
         model_id = data.get('model_id')
+        message_id = data.get('message_id')
 
         if not user_message:
             await self.send_json({'type': 'error', 'error': 'Empty message'})
             return
+
+        logger.info(
+            "Repository chat message received (message_id=%s, conversation_id=%s)",
+            message_id,
+            conversation_id
+        )
 
         # Get or create conversation
         is_new = conversation_id is None
@@ -379,51 +669,116 @@ class RepositoryChatConsumer(BaseChatConsumer):
 
     @database_sync_to_async
     def get_crs_context(self, query):
-        """Get relevant CRS context for the query using RAG"""
-        crs_context = CRSContext(self.repository)
-        crs_context.load_all()
+        """
+        Get CRS context - tool-first approach
 
-        if not crs_context.has_payloads():
-            message = "CRS not ready for this repo."
-            logger.warning("CRS payloads missing for repository %s", self.repository.name)
+        No longer returns search blobs - tools handle data retrieval
+        Just checks if CRS is ready
+        """
+        from agent.services.crs_runner import get_crs_summary
+
+        try:
+            summary = get_crs_summary(self.repository)
+
+            if summary.get('status') != 'ready':
+                return {
+                    'status_message': f"CRS status: {summary.get('status', 'unknown')}. Analysis must complete first."
+                }
+
+            # CRS is ready - return minimal context
+            # Tools will handle actual data retrieval
             return {
-                'status_message': message,
-                'search_results': message
+                'crs_ready': True,
+                'artifact_count': summary.get('artifacts', 0)
             }
 
-        context_prompt = crs_context.search_context(query, limit=10)
-
-        return {
-            'search_results': context_prompt
-        }
+        except Exception as e:
+            logger.warning(f"CRS context error: {e}")
+            return {
+                'status_message': f"CRS not available: {str(e)}"
+            }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages with CRS context - simplified for local LLM performance"""
+        """
+        Build messages with tool-first approach
+
+        Forces LLM to plan tool usage before answering
+        """
+        from agent.crs_tools import CRSTools
+        from agent.services.crs_runner import get_crs_summary
+
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Simplified system prompt for better local LLM performance
-        search_results = context.get('search_results', '')
         status_message = context.get('status_message')
 
-        # Create concise system prompt
-        system_prompt = f"""You are analyzing a code repository. Below is relevant code from the repository:
+        # Get tool definitions
+        crs_tools = CRSTools(repository=self.repository)
+        tool_definitions = crs_tools.get_tool_definitions()
 
-{search_results}
+        # Get CRS status summary for context
+        crs_status_context = ""
+        try:
+            summary = await sync_to_async(get_crs_summary)(self.repository)
+            crs_status_context = f"""
+# Repository CRS Status
 
-Instructions:
-- Answer using the code context above
-- Reference specific files and classes
-- Be concrete and specific
-- If context is insufficient, say so"""
+- Repository: {self.repository.name}
+- Status: {summary.get('status', 'unknown')}
+- Django Models: ~{summary.get('artifacts', 0) // 4} (estimated)
+- Total Artifacts: {summary.get('artifacts', 0)}
+- Blueprint Files: {summary.get('blueprint_files', 0)}
+- Relationships: {summary.get('relationships', 0)}
+
+This gives you context on what data is available.
+"""
+        except Exception as e:
+            logger.warning(f"Could not load CRS summary: {e}")
+
+        # Build tool-first system prompt with router
+        system_prompt = f"""You are a code repository assistant with access to CRS (Contextual Retrieval System) tools.
+
+{crs_status_context}
+
+# YOUR JOB
+
+1. **PLAN** which tools to use
+2. **REQUEST** tools in the JSON format below
+3. **WAIT** for tool results
+4. **ANSWER** the user's question with citations
+
+---
+
+{tool_definitions}
+
+---
+
+# CRITICAL: Inventory Questions
+
+For "list/show all/what X exist" questions, you MUST use LIST_ARTIFACTS.
+NEVER answer from memory or make assumptions.
+
+Examples of inventory questions:
+- "What models exist?"
+- "List all serializers"
+- "Show me viewsets"
+- "What are the models?"
+
+---
+
+Now answer the user's question using the appropriate tools."""
+
         if status_message:
             system_prompt = f"""You are analyzing a code repository.
 
 CRS Status: {status_message}
 
-Instructions:
-- If CRS is not ready, explain that CRS analysis must be run before answering.
-- Ask the user to try again after CRS completes."""
+The CRS system is not ready yet. Please explain to the user that:
+1. CRS analysis must be run on this repository first
+2. They should wait for CRS to complete, then try again
+3. CRS provides structured code knowledge (blueprints, artifacts, relationships)
+
+Keep your response brief and helpful."""
 
         messages = [
             {
@@ -445,7 +800,7 @@ Instructions:
             'content': user_message
         })
 
-        logger.info(f"Built prompt with {len(system_prompt)} chars of context")
+        logger.info(f"Built tool-first prompt with {len(system_prompt)} chars")
         return messages
 
     @database_sync_to_async
@@ -603,55 +958,59 @@ class PlannerChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages for planner chat with multi-repo context"""
+        """Build messages for planner chat - multi-repo tool-based planning"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Get planner system prompt
-        system_prompt = get_system_prompt('planner')
+        repo_list = '\n'.join([f"- {repo['name']}" for repo in context.get('repositories', [])])
 
-        # Build repo list
-        repo_list = '\n'.join([
-            f"- {repo['name']}"
-            for repo in context.get('repositories', [])
-        ])
+        # Tool-first system prompt for multi-repo planning
+        # Note: For now, planner uses simpler context-based approach
+        # TODO: Implement multi-repo CRS tools in future
+        system_prompt = f"""You are a multi-repository planner with access to code from multiple repositories.
 
-        # Build full system prompt
-        full_system_prompt = f"""{system_prompt}
-
----
-
-{context.get('crs_documentation', '')}
-
----
-
-# System Overview
-
-{context.get('summary', '')}
-
-Available Repositories:
+# System Repositories
 {repo_list}
 
----
+# Your Planning Process
 
-# Context for Current Query
+1. **ANALYZE** code structure across all repositories
+2. **IDENTIFY** files and components that need changes
+3. **CONSIDER** cross-repository dependencies
+4. **PROVIDE** step-by-step implementation plan
 
-{context.get('search_results', '')}
+# Planning Guidelines
 
----
+- Be specific about file paths and component names
+- Consider API contracts between repositories
+- Think about data flow and dependencies
+- Provide actionable implementation steps
 
-Answer the user's question using the blueprints, artifacts, and relationships provided above.
-Consider cross-repository dependencies and plan changes accordingly."""
+# Example Planning Format
+
+**Repository: backend**
+- Modify `agent/models.py:45` - add User.email field
+- Update `agent/serializers.py:120` - add email to UserSerializer
+
+**Repository: frontend**
+- Update `src/components/UserForm.vue:30` - add email input field
+- Modify `src/services/api.js:15` - include email in API calls
+
+**Dependencies:**
+- Frontend calls `POST /api/users/` with email field
+- Backend validates email format before saving
+
+Now create a plan for the user's request with specific file:line references."""
 
         messages = [
             {
                 'role': 'system',
-                'content': full_system_prompt
+                'content': system_prompt
             }
         ]
 
-        # Add conversation history (last 10 messages)
-        for msg in history[-10:]:
+        # Add conversation history (last 5 messages)
+        for msg in history[-5:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -663,6 +1022,7 @@ Consider cross-repository dependencies and plan changes accordingly."""
             'content': user_message
         })
 
+        logger.info(f"Built planner prompt with {len(system_prompt)} chars")
         return messages
 
     @database_sync_to_async
