@@ -294,40 +294,33 @@ class RepositoryChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages with CRS context and documentation"""
+        """Build messages with CRS context - simplified for local LLM performance"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Build system prompt with CRS documentation
-        system_prompt = get_system_prompt('repository')
+        # Simplified system prompt for better local LLM performance
+        search_results = context.get('search_results', '')
 
-        # Add CRS documentation and search results
-        full_system_prompt = f"""{system_prompt}
+        # Create concise system prompt
+        system_prompt = f"""You are analyzing a code repository. Below is relevant code from the repository:
 
----
+{search_results}
 
-{context.get('crs_documentation', '')}
-
----
-
-# Context for Current Query
-
-{context.get('search_results', '')}
-
----
-
-Answer the user's question using the blueprints, artifacts, and relationships provided above.
-Be specific and reference exact file paths, function names, and code elements."""
+Instructions:
+- Answer using the code context above
+- Reference specific files and classes
+- Be concrete and specific
+- If context is insufficient, say so"""
 
         messages = [
             {
                 'role': 'system',
-                'content': full_system_prompt
+                'content': system_prompt
             }
         ]
 
-        # Add conversation history (last 10 messages for context)
-        for msg in history[-10:]:
+        # Add conversation history (last 5 messages for context)
+        for msg in history[-5:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -339,6 +332,7 @@ Be specific and reference exact file paths, function names, and code elements.""
             'content': user_message
         })
 
+        logger.info(f"Built prompt with {len(system_prompt)} chars of context")
         return messages
 
     @database_sync_to_async

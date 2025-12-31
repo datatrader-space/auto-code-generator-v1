@@ -72,12 +72,30 @@ class CRSRetriever:
         Search for artifacts relevant to the query
         """
         if not self.repository:
+            logger.warning("No repository set for artifact search")
             return []
 
         self._load_crs_data()
         keywords = self._extract_keywords(query)
 
         artifacts = self._artifacts.get("artifacts", [])
+        logger.info(f"Searching {len(artifacts)} artifacts for keywords: {keywords}")
+
+        # Special handling for "models" query - look for Django Model classes
+        if "models" in keywords or "model" in keywords:
+            model_artifacts = []
+            for artifact in artifacts:
+                artifact_type = artifact.get("type", "").lower()
+                name = artifact.get("name", "").lower()
+                file_path = artifact.get("file", "").lower()
+
+                # Look for Model classes or models.py files
+                if (artifact_type == "class" and "model" in name) or "models.py" in file_path:
+                    model_artifacts.append(artifact)
+
+            if model_artifacts:
+                logger.info(f"Found {len(model_artifacts)} Django model artifacts")
+                return model_artifacts[:limit]
 
         # Score each artifact
         scored = []
@@ -88,7 +106,10 @@ class CRSRetriever:
 
         # Sort by score and return top N
         scored.sort(reverse=True, key=lambda x: x[0])
-        return [artifact for score, artifact in scored[:limit]]
+        results = [artifact for score, artifact in scored[:limit]]
+
+        logger.info(f"RAG search returned {len(results)} artifacts")
+        return results
 
     def get_relationships(self, artifacts: List[Dict] = None, limit: int = 20) -> List[Dict]:
         """
@@ -138,41 +159,51 @@ class CRSRetriever:
 
         prompt_parts = []
 
+        # Add a clear header
+        if context['blueprints'] or context['artifacts'] or context['relationships']:
+            prompt_parts.append("# Available Code Context\n\n")
+        else:
+            logger.warning(f"No context found for query: {query}")
+            return "No relevant code found in this repository."
+
         # Add blueprints section
         if context['blueprints']:
-            prompt_parts.append("## Relevant Blueprints\n")
+            prompt_parts.append("## Files (Blueprints)\n\n")
             for bp in context['blueprints']:
-                prompt_parts.append(f"### {bp['path']}\n")
+                prompt_parts.append(f"**File**: `{bp['path']}`\n")
                 prompt_parts.append(f"**Purpose**: {bp['purpose']}\n")
                 if bp.get('key_components'):
-                    prompt_parts.append(f"**Key Components**: {', '.join(bp['key_components'])}\n")
+                    components_str = ', '.join(str(c) for c in bp['key_components'])
+                    prompt_parts.append(f"**Components**: {components_str}\n")
                 prompt_parts.append("\n")
 
         # Add artifacts section
         if context['artifacts']:
-            prompt_parts.append("## Relevant Artifacts\n")
+            prompt_parts.append("## Code Elements (Artifacts)\n\n")
             for artifact in context['artifacts']:
-                prompt_parts.append(f"### {artifact['name']} ({artifact['type']})\n")
+                prompt_parts.append(f"**{artifact['name']}** ({artifact['type']})\n")
                 if artifact.get('file'):
-                    prompt_parts.append(f"**Location**: {artifact['file']}\n")
+                    prompt_parts.append(f"- File: `{artifact['file']}`\n")
                 if artifact.get('purpose'):
-                    prompt_parts.append(f"**Purpose**: {artifact['purpose']}\n")
+                    prompt_parts.append(f"- Purpose: {artifact['purpose']}\n")
                 if artifact.get('signature'):
-                    prompt_parts.append(f"**Signature**: `{artifact['signature']}`\n")
+                    prompt_parts.append(f"- Signature: `{artifact['signature']}`\n")
+                if artifact.get('methods'):
+                    methods_str = ', '.join(str(m) for m in artifact['methods'][:5])
+                    prompt_parts.append(f"- Methods: {methods_str}\n")
                 prompt_parts.append("\n")
 
-        # Add relationships section
-        if context['relationships']:
-            prompt_parts.append("## Relevant Relationships\n")
-            for rel in context['relationships']:
-                prompt_parts.append(
-                    f"- {rel['source']} **{rel['type']}** {rel['target']}"
-                )
-                if rel.get('context'):
-                    prompt_parts.append(f" ({rel['context']})")
-                prompt_parts.append("\n")
+        # Add relationships section (simplified)
+        if context['relationships'] and len(context['relationships']) > 0:
+            prompt_parts.append("## Relationships\n\n")
+            for rel in context['relationships'][:10]:  # Limit to 10 relationships
+                prompt_parts.append(f"- {rel['source']} → {rel['type']} → {rel['target']}\n")
+            prompt_parts.append("\n")
 
-        return ''.join(prompt_parts)
+        result = ''.join(prompt_parts)
+        logger.info(f"Built context prompt: {len(result)} chars, {len(context['blueprints'])} blueprints, {len(context['artifacts'])} artifacts")
+
+        return result
 
     # Helper methods
 
