@@ -294,23 +294,55 @@ class RepositoryChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages with CRS context - simplified for local LLM performance"""
+        """Build messages with CRS context - teach the model about CRS format"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Simplified system prompt for better local LLM performance
         search_results = context.get('search_results', '')
 
-        # Create concise system prompt
-        system_prompt = f"""You are analyzing a code repository. Below is relevant code from the repository:
+        # Build comprehensive system prompt that teaches CRS format
+        system_prompt = f"""You are analyzing a code repository using CRS (Contextual Retrieval System).
+
+# What is CRS?
+CRS organizes code knowledge into 3 layers:
+
+1. **BLUEPRINTS** = Files/modules with their purpose and main components
+2. **ARTIFACTS** = Specific code elements (classes, functions, endpoints)
+3. **RELATIONSHIPS** = How components connect (calls, imports, uses)
+
+# How to Answer Questions
+
+ALWAYS follow this pattern:
+
+**Step 1**: Look at the code context below
+**Step 2**: Find relevant blueprints (files), artifacts (classes/functions), or relationships
+**Step 3**: Answer using SPECIFIC references like:
+- "In file `agent/models.py`..."
+- "The class `User` has methods..."
+- "Function `connect()` calls `accept()`..."
+
+**Step 4**: If no relevant code found, say "I don't see that in the provided context"
+
+# Code Context for This Query
 
 {search_results}
 
-Instructions:
-- Answer using the code context above
-- Reference specific files and classes
-- Be concrete and specific
-- If context is insufficient, say so"""
+# Example Answers
+
+Q: "What models exist?"
+A: "Based on the artifacts, I can see these Django models in `agent/models.py`:
+1. User (class) - extends AbstractUser
+2. System (class) - represents repository collections
+3. Repository (class) - individual repo within system
+[... list all models from artifacts above]"
+
+Q: "How does WebSocket work?"
+A: "Looking at the blueprints and artifacts:
+- File: `agent/consumers.py` handles WebSocket connections
+- Class: `RepositoryChatConsumer` with methods: connect(), receive(), disconnect()
+- It calls stream_llm_response() to send AI responses back"
+
+Now answer the user's question using the same pattern - reference specific files, classes, and code from the context above."""
 
         messages = [
             {
@@ -319,8 +351,8 @@ Instructions:
             }
         ]
 
-        # Add conversation history (last 5 messages for context)
-        for msg in history[-5:]:
+        # Add conversation history (last 3 messages for context)
+        for msg in history[-3:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -332,7 +364,7 @@ Instructions:
             'content': user_message
         })
 
-        logger.info(f"Built prompt with {len(system_prompt)} chars of context")
+        logger.info(f"Built CRS-aware prompt with {len(system_prompt)} chars, {len(search_results)} chars of code context")
         return messages
 
     @database_sync_to_async
@@ -487,55 +519,66 @@ class PlannerChatConsumer(BaseChatConsumer):
         }
 
     async def build_llm_messages(self, conversation, user_message, context):
-        """Build messages for planner chat with multi-repo context"""
+        """Build messages for planner chat - teach CRS for multi-repo planning"""
         # Get conversation history
         history = await self.get_conversation_history(conversation)
 
-        # Get planner system prompt
-        system_prompt = get_system_prompt('planner')
+        search_results = context.get('search_results', '')
+        repo_list = '\n'.join([f"- {repo['name']}" for repo in context.get('repositories', [])])
 
-        # Build repo list
-        repo_list = '\n'.join([
-            f"- {repo['name']}"
-            for repo in context.get('repositories', [])
-        ])
+        # CRS-aware system prompt for multi-repo planning
+        system_prompt = f"""You are a multi-repository planner using CRS (Contextual Retrieval System).
 
-        # Build full system prompt
-        full_system_prompt = f"""{system_prompt}
+# What is CRS?
+CRS organizes code knowledge into 3 layers:
 
----
+1. **BLUEPRINTS** = Files/modules with their purpose
+2. **ARTIFACTS** = Classes, functions, API endpoints
+3. **RELATIONSHIPS** = How components connect across repos
 
-{context.get('crs_documentation', '')}
-
----
-
-# System Overview
-
-{context.get('summary', '')}
-
-Available Repositories:
+# System Repositories
 {repo_list}
 
----
+# How to Plan Changes
 
-# Context for Current Query
+**Step 1**: Look at code from all repositories below
+**Step 2**: Identify affected files and components
+**Step 3**: Consider cross-repo dependencies
+**Step 4**: Provide implementation steps
 
-{context.get('search_results', '')}
+# Code Context from All Repositories
 
----
+{search_results}
 
-Answer the user's question using the blueprints, artifacts, and relationships provided above.
-Consider cross-repository dependencies and plan changes accordingly."""
+# Example Planning Answer
+
+Q: "Add user authentication across all repos"
+A: "Based on the artifacts, here's the plan:
+
+**Repository 1: backend**
+- Modify `agent/models.py` - add auth fields to User class
+- Update `agent/views.py` - add authentication endpoints
+
+**Repository 2: frontend**
+- Update `src/services/api.js` - add auth token handling
+- Modify `src/components/Login.vue` - create login form
+
+**Dependencies:**
+- Frontend calls backend `/api/auth/login` endpoint
+- Backend returns JWT token
+- Frontend stores token and includes in requests"
+
+Now plan the user's requested changes using code from the repositories above."""
 
         messages = [
             {
                 'role': 'system',
-                'content': full_system_prompt
+                'content': system_prompt
             }
         ]
 
-        # Add conversation history (last 10 messages)
-        for msg in history[-10:]:
+        # Add conversation history (last 3 messages)
+        for msg in history[-3:]:
             messages.append({
                 'role': msg.role,
                 'content': msg.content
@@ -547,6 +590,7 @@ Consider cross-repository dependencies and plan changes accordingly."""
             'content': user_message
         })
 
+        logger.info(f"Built planner prompt with {len(system_prompt)} chars, {len(search_results)} chars of context")
         return messages
 
     @database_sync_to_async
