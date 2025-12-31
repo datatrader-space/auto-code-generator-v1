@@ -113,15 +113,18 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             # Stream response chunks
             client = router.local_client if provider == 'local' else router.cloud_client
 
-            async for chunk in sync_to_async(lambda: list(client.query_stream(messages)))():
-                for text_chunk in chunk:
-                    full_response += text_chunk
+            # Get all chunks from the generator (sync operation converted to async)
+            chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
 
-                    # Send chunk to frontend
-                    await self.send_json({
-                        'type': 'assistant_message_chunk',
-                        'chunk': text_chunk
-                    })
+            # Iterate over chunks
+            for text_chunk in chunks:
+                full_response += text_chunk
+
+                # Send chunk to frontend
+                await self.send_json({
+                    'type': 'assistant_message_chunk',
+                    'chunk': text_chunk
+                })
 
             # Send completion
             await self.send_json({

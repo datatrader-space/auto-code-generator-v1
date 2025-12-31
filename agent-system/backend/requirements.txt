@@ -1,11 +1,20 @@
-django==4.2
-djangorestframework==3.14
-django-cors-headers==4.3
-python-dotenv==1.0
-requests==2.31
-anthropic==0.18
-toml==0.10
-PyGithub==2.1.1
+# Core Django
+django==4.2.0
+djangorestframework==3.14.0
+django-cors-headers==4.0.0
+
+# Django Channels for WebSocket support
 channels==4.0.0
-channels-redis==4.1.0
-daphne==4.0.0 
+daphne==4.0.0
+asgiref==3.7.2
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+toml==0.10.2
+
+# AI/LLM
+anthropic==0.18.0
+
+# GitHub Integration
+PyGithub==2.1.1
