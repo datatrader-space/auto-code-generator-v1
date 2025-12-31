@@ -101,6 +101,21 @@ class AnthropicClient:
         except Exception as e:
             logger.error(f"Anthropic error: {e}")
             raise RuntimeError(f"Claude API error: {e}")
+
+    def query_stream(
+        self,
+        messages: List[Dict[str, str]],
+        json_mode: bool = False,
+        max_tokens: int = None,
+        temperature: float = None
+    ):
+        result = self.query(
+            messages=messages,
+            json_mode=json_mode,
+            max_tokens=max_tokens,
+            temperature=temperature
+        )
+        yield result.get("content", "")
     
     def health_check(self) -> bool:
         """Check if API key works"""

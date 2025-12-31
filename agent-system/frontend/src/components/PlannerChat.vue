@@ -8,6 +8,19 @@
           <p class="text-xs text-gray-500">Multi-Repository Planning & Architecture</p>
         </div>
         <div class="flex items-center gap-2">
+          <select
+            v-model="selectedModelId"
+            class="text-xs border rounded px-2 py-1 text-gray-600"
+          >
+            <option :value="null">Default Model</option>
+            <option
+              v-for="model in activeModels"
+              :key="model.id"
+              :value="model.id"
+            >
+              {{ model.provider_name }} • {{ model.name }}
+            </option>
+          </select>
           <!-- Connection Status -->
           <div v-if="connected" class="flex items-center text-xs text-green-600">
             <span class="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
@@ -170,6 +183,8 @@ const messagesContainer = ref(null)
 const messageInput = ref(null)
 const conversationId = ref(null)
 const loadingHistory = ref(false)
+const models = ref([])
+const selectedModelId = ref(null)
 
 let ws = null
 let currentStreamingMessage = ''
@@ -190,26 +205,33 @@ const loadConversationHistory = async () => {
     if (response.data.results && response.data.results.length > 0) {
       const latestConv = response.data.results[0]
       conversationId.value = latestConv.id
+      const detailResponse = await api.get(`/conversations/${conversationId.value}/`)
+      const historyMessages = detailResponse.data?.messages || []
+      selectedModelId.value = detailResponse.data?.llm_model || null
 
-      // Load message history
-      if (latestConv.messages && latestConv.messages.length > 0) {
-        messages.value = latestConv.messages.map(msg => ({
-          role: msg.role,
-          content: msg.content,
-          streaming: false
-        }))
+      messages.value = historyMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        streaming: false
+      }))
 
+      if (messages.value.length > 0) {
         await nextTick()
         scrollToBottom()
       }
 
-      console.log(`Loaded planner conversation ${conversationId.value} with ${latestConv.messages?.length || 0} messages`)
+      console.log(`Loaded planner conversation ${conversationId.value} with ${historyMessages.length} messages`)
     }
   } catch (error) {
     console.error('Failed to load planner conversation history:', error)
   } finally {
     loadingHistory.value = false
   }
+}
+
+const loadModels = async () => {
+  const response = await api.getLlmModels()
+  models.value = response.data.results || response.data
 }
 
 // WebSocket connection
@@ -339,7 +361,8 @@ const sendMessage = () => {
   ws.send(JSON.stringify({
     type: 'chat_message',
     message: messageText,
-    conversation_id: conversationId.value
+    conversation_id: conversationId.value,
+    model_id: selectedModelId.value
   }))
 
   // Clear input
@@ -382,10 +405,13 @@ const formatMessage = (content) => {
   return formatted
 }
 
+const activeModels = computed(() => models.value.filter((model) => model.is_active))
+
 // Lifecycle
 onMounted(async () => {
   // Load conversation history first
   await loadConversationHistory()
+  await loadModels()
   // Then connect WebSocket
   connectWebSocket()
 })
@@ -404,6 +430,9 @@ watch(() => props.systemId, () => {
   }
   messages.value = []
   currentStreamingMessage = ''
+  selectedModelId.value = null
+  loadConversationHistory()
+  loadModels()
   connectWebSocket()
 })
 </script>

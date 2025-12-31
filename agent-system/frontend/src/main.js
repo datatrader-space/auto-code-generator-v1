@@ -8,6 +8,7 @@ import api from './services/api'
 import SystemList from './views/SystemList.vue'
 import SystemDetail from './views/SystemDetail.vue'
 import Login from './views/Login.vue'
+import LLMSettings from './views/LLMSettings.vue'
 
 // Create router
 const router = createRouter({
@@ -29,6 +30,12 @@ const router = createRouter({
       path: '/systems/:id',
       name: 'system-detail',
       component: SystemDetail,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/ai-settings',
+      name: 'ai-settings',
+      component: LLMSettings,
       meta: { requiresAuth: true }
     }
   ]
