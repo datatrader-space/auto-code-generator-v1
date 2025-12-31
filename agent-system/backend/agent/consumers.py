@@ -91,13 +91,16 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
     async def stream_llm_response(self, user_message, context, conversation):
         """
-        Stream LLM response in chunks
+        Stream LLM response in chunks with CRS tool support
 
         Args:
             user_message: User's message text
             context: CRS context or other relevant context
             conversation: ChatConversation instance
         """
+        # Import CRS tools
+        from agent.crs_tools import CRSTools
+
         # Build messages for LLM
         messages = await self.build_llm_messages(conversation, user_message, context)
 
@@ -115,22 +118,65 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
         full_response = ""
         model_info = {}
+        max_tool_iterations = 3  # Prevent infinite loops
 
         try:
-            # Stream response chunks
             client = router.local_client if provider == 'local' else router.cloud_client
 
-            # Get all chunks from the generator (sync operation converted to async)
-            chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
+            # Tool-calling loop
+            for iteration in range(max_tool_iterations):
+                # Get LLM response
+                chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
 
-            # Iterate over chunks
-            for text_chunk in chunks:
-                full_response += text_chunk
+                iteration_response = ""
+                for text_chunk in chunks:
+                    iteration_response += text_chunk
 
-                # Send chunk to frontend
+                    # Send chunk to frontend
+                    await self.send_json({
+                        'type': 'assistant_message_chunk',
+                        'chunk': text_chunk
+                    })
+
+                full_response = iteration_response
+
+                # Check for tool calls
+                crs_tools = CRSTools(repository=getattr(self, 'repository', None))
+                tool_calls = crs_tools.parse_tool_calls(iteration_response)
+
+                if not tool_calls:
+                    # No tools requested, we're done
+                    break
+
+                # Execute tools and gather results
+                logger.info(f"LLM requested {len(tool_calls)} tool(s)")
+                tool_results = []
+
+                for tool_call in tool_calls:
+                    tool_name = tool_call['name']
+                    tool_params = tool_call['parameters']
+
+                    logger.info(f"Executing tool: {tool_name} with params: {tool_params}")
+                    result = await sync_to_async(crs_tools.execute_tool)(tool_name, tool_params)
+                    tool_results.append(f"\n**Tool Result ({tool_name}):**\n{result}\n")
+
+                # Send tool results to user
+                tool_results_text = '\n'.join(tool_results)
                 await self.send_json({
                     'type': 'assistant_message_chunk',
-                    'chunk': text_chunk
+                    'chunk': tool_results_text
+                })
+
+                full_response += tool_results_text
+
+                # Add tool results to messages and continue
+                messages.append({
+                    'role': 'assistant',
+                    'content': iteration_response
+                })
+                messages.append({
+                    'role': 'system',
+                    'content': f"Tool Results:\n{tool_results_text}\n\nNow answer the user's original question using this data."
                 })
 
             # Send completion
