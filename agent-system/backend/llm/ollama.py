@@ -204,3 +204,16 @@ class OllamaClient:
         except Exception as e:
             logger.error(f"Ollama health check failed: {e}")
             return False
+
+    def list_models(self) -> List[str]:
+        """List available models from Ollama"""
+        try:
+            url = f"{self.base_url}/api/tags"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            return [m.get('name') for m in data.get('models', []) if m.get('name')]
+        except Exception as e:
+            logger.error(f"Failed to list Ollama models: {e}")
+            raise RuntimeError(f"Ollama list models error: {e}")

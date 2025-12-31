@@ -9,7 +9,7 @@ from agent.models import (
     System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory,
     RepositoryReasoningTrace, SystemDocumentation,
-    ChatConversation, ChatMessage
+    ChatConversation, ChatMessage, LLMProvider, LLMModel
 )
 
 User = get_user_model()
@@ -281,6 +281,34 @@ class LLMHealthSerializer(serializers.Serializer):
     cloud = serializers.DictField()
 
 
+class LLMProviderSerializer(serializers.ModelSerializer):
+    """Serializer for LLM provider configuration"""
+
+    class Meta:
+        model = LLMProvider
+        fields = [
+            'id', 'name', 'provider_type', 'base_url', 'api_key',
+            'metadata', 'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class LLMModelSerializer(serializers.ModelSerializer):
+    """Serializer for LLM model configuration"""
+
+    provider_name = serializers.CharField(source='provider.name', read_only=True)
+    provider_type = serializers.CharField(source='provider.provider_type', read_only=True)
+
+    class Meta:
+        model = LLMModel
+        fields = [
+            'id', 'provider', 'provider_name', 'provider_type',
+            'name', 'model_id', 'context_window', 'metadata',
+            'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
 class ChatMessageSerializer(serializers.ModelSerializer):
     """Chat message serializer"""
     
@@ -296,12 +324,18 @@ class ChatConversationSerializer(serializers.ModelSerializer):
     messages = ChatMessageSerializer(many=True, read_only=True)
     repository_name = serializers.CharField(source='repository.name', read_only=True, allow_null=True)
     system_name = serializers.CharField(source='system.name', read_only=True)
+    llm_model_name = serializers.CharField(source='llm_model.name', read_only=True, allow_null=True)
+    llm_model_id = serializers.CharField(source='llm_model.model_id', read_only=True, allow_null=True)
+    llm_provider_name = serializers.CharField(source='llm_model.provider.name', read_only=True, allow_null=True)
+    llm_provider_type = serializers.CharField(source='llm_model.provider.provider_type', read_only=True, allow_null=True)
     
     class Meta:
         model = ChatConversation
         fields = [
             'id', 'conversation_type', 'title', 'repository', 'repository_name',
-            'system', 'system_name', 'model_provider', 'created_at', 'updated_at', 'messages'
+            'system', 'system_name', 'model_provider', 'llm_model',
+            'llm_model_name', 'llm_model_id', 'llm_provider_name', 'llm_provider_type',
+            'created_at', 'updated_at', 'messages'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -313,12 +347,18 @@ class ChatConversationListSerializer(serializers.ModelSerializer):
     system_name = serializers.CharField(source='system.name', read_only=True)
     message_count = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
+    llm_model_name = serializers.CharField(source='llm_model.name', read_only=True, allow_null=True)
+    llm_model_id = serializers.CharField(source='llm_model.model_id', read_only=True, allow_null=True)
+    llm_provider_name = serializers.CharField(source='llm_model.provider.name', read_only=True, allow_null=True)
+    llm_provider_type = serializers.CharField(source='llm_model.provider.provider_type', read_only=True, allow_null=True)
     
     class Meta:
         model = ChatConversation
         fields = [
             'id', 'conversation_type', 'title', 'repository', 'repository_name',
-            'system', 'system_name', 'model_provider', 'message_count', 'last_message',
+            'system', 'system_name', 'model_provider', 'llm_model',
+            'llm_model_name', 'llm_model_id', 'llm_provider_name', 'llm_provider_type',
+            'message_count', 'last_message',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
