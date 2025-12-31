@@ -159,8 +159,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 # Let LLM format the answer
                 router = await sync_to_async(get_llm_router)()
                 config = {
-                    'provider': conversation.model_provider or 'local',
-                    'model_name': conversation.model_name
+                    'provider': conversation.model_provider or 'local'
                 }
                 client = await sync_to_async(router.client_for_config)(config)
 
@@ -188,7 +187,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                     conversation,
                     formatted_answer,
                     context,
-                    {'provider': config['provider'], 'model': config.get('model_name')}
+                    {'provider': config['provider']}
                 )
 
                 logger.info(f"Server-side inventory routing succeeded for {artifact_kind}")
@@ -207,16 +206,18 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
         # Get LLM router and proper client
         router = await sync_to_async(get_llm_router)()
 
-        # Build model config
-        config = {
-            'provider': conversation.model_provider or 'local',
-            'model_name': conversation.model_name
-        }
-
-        # Get proper client for config (FIX: don't overwrite this)
-        client = await sync_to_async(router.client_for_config)(config)
-        model_info = {'provider': config['provider'], 'model': config.get('model_name', 'default')}
+        # Get LLM config (handles model selection)
         llm_config = await self.get_llm_config(conversation)
+
+        if llm_config:
+            config = llm_config['config']
+            client = await sync_to_async(router.client_for_config)(config)
+            model_info = llm_config.get('model_info', {'provider': 'local'})
+        else:
+            # Fallback to basic config
+            config = {'provider': conversation.model_provider or 'local'}
+            client = await sync_to_async(router.client_for_config)(config)
+            model_info = {'provider': config['provider']}
 
         # Send typing indicator
         await self.send_json({
