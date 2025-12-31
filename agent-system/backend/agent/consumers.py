@@ -16,6 +16,8 @@ from agent.knowledge.crs_documentation import (
     get_crs_documentation_context
 )
 from llm.router import get_llm_router
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +219,7 @@ class RepositoryChatConsumer(BaseChatConsumer):
                 pass
 
         # Get actual user instance (resolve lazy object)
-        from django.contrib.auth.models import User
+      
         user = self.scope['user']
         if user.is_authenticated:
             user = User.objects.get(pk=user.pk)
@@ -385,7 +387,7 @@ class PlannerChatConsumer(BaseChatConsumer):
                 pass
 
         # Get actual user instance (resolve lazy object)
-        from django.contrib.auth.models import User
+        
         user = self.scope['user']
         if user.is_authenticated:
             user = User.objects.get(pk=user.pk)
@@ -598,7 +600,7 @@ class GraphChatConsumer(BaseChatConsumer):
                 pass
 
         # Get actual user instance (resolve lazy object)
-        from django.contrib.auth.models import User
+        
         user = self.scope['user']
         if user.is_authenticated:
             user = User.objects.get(pk=user.pk)
