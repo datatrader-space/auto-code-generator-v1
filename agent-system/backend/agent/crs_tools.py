@@ -1,13 +1,15 @@
 # agent/crs_tools.py
 """
-CRS Tools - Functions the LLM can call to explore CRS data
-Implements a tool-calling interface for local LLMs
+CRS Tools - Tool-first agent system for querying code repositories
+Based on structured tool calls with citeable, grounded outputs
 """
 
 import json
 import re
 from typing import Dict, List, Any, Optional
+from pathlib import Path
 from agent.rag import CRSRetriever
+from agent.services.crs_runner import get_crs_summary, load_crs_payload
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,14 +17,12 @@ logger = logging.getLogger(__name__)
 
 class CRSTools:
     """
-    Provides queryable tools for LLM to explore CRS data
+    Provides 6 core tools for LLM to explore CRS data deterministically
 
-    Tools available:
-    - search_blueprints: Find files/modules by keyword
-    - search_artifacts: Find classes/functions by keyword
-    - get_artifact_details: Get full details of specific artifact
-    - list_all_files: Get complete file list
-    - search_relationships: Find how components connect
+    Core Philosophy:
+    - Inventory questions MUST use list_artifacts (not search)
+    - Search is for "where is X" / "what does X do"
+    - All outputs are structured and citeable (file_path:line_number)
     """
 
     def __init__(self, repository):
@@ -30,61 +30,73 @@ class CRSTools:
         self.retriever = CRSRetriever(repository=repository)
 
     def get_tool_definitions(self) -> str:
-        """Get description of available tools for system prompt"""
+        """Return tool descriptions for system prompt"""
         return """
 # Available CRS Query Tools
 
-You can query the CRS database using these tools:
+You have access to 6 deterministic tools for exploring the codebase:
 
-**[SEARCH_BLUEPRINTS: query="keyword"]**
-- Searches for files/modules matching keyword
-- Returns: file paths, purposes, key components
+## CRS Tools (Fast, Deterministic)
 
-**[SEARCH_ARTIFACTS: query="keyword", type="class|function|endpoint"]**
-- Searches for code elements
-- Returns: names, types, files, signatures
+**[CRS_STATUS]**
+- Returns: repository status, last CRS run, artifact counts
+- Use: Check if CRS data is ready before other queries
+- Example: `[CRS_STATUS]`
 
-**[GET_ARTIFACT: name="ArtifactName"]**
-- Gets full details of specific artifact
-- Returns: complete information including methods, source code
+**[LIST_ARTIFACTS: kind="type", filter="optional"]**
+- Returns: Complete inventory of code elements by type
+- Kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register
+- Use: "list all models", "show all serializers", "what viewsets exist"
+- CRITICAL: This is the ONLY correct way to answer inventory questions
+- Example: `[LIST_ARTIFACTS: kind="django_model"]`
+- Example: `[LIST_ARTIFACTS: kind="drf_viewset", filter="chat"]`
 
-**[LIST_FILES]**
-- Lists all files in repository
-- Returns: complete file structure
+**[GET_ARTIFACT: artifact_id="id"]**
+- Returns: Full artifact details (source code, location, metadata)
+- Use: Get complete info about specific class/function
+- Example: `[GET_ARTIFACT: artifact_id="django_model:User:agent/models.py:10-50"]`
 
-**[SEARCH_RELATIONSHIPS: artifact="ArtifactName"]**
-- Finds relationships for an artifact
-- Returns: what it calls, imports, uses
+**[SEARCH_CRS: query="keywords", limit="10"]**
+- Returns: Keyword/semantic search with file+line anchors
+- Use: "where is X defined", "find authentication code"
+- NOT for inventory - use LIST_ARTIFACTS instead
+- Example: `[SEARCH_CRS: query="websocket consumer", limit="5"]`
 
-# How to Use Tools
+**[CRS_RELATIONSHIPS: artifact_id="id"]**
+- Returns: Import/call/usage graph for an artifact
+- Use: "what calls X", "what does X import", "flow analysis"
+- Example: `[CRS_RELATIONSHIPS: artifact_id="drf_viewset:RepositoryViewSet:..."]`
 
-**Step 1**: Decide what information you need
-**Step 2**: Use appropriate tool(s)
-**Step 3**: Wait for results
-**Step 4**: Answer user's question with the data
+## Code Tools (Exact Source)
 
-# Example Tool Usage
+**[READ_FILE: path="file/path.py", start_line="1", end_line="50"]**
+- Returns: Raw file contents with line numbers
+- Use: Get exact code when CRS summary is insufficient
+- Example: `[READ_FILE: path="agent/models.py", start_line="10", end_line="30"]`
 
-User: "What models exist?"
+---
 
-You: Let me search for Django models.
-[SEARCH_ARTIFACTS: query="model", type="class"]
+# Tool Selection Rules
 
-System: <returns list of model classes>
+**For "list/show all/what X exist" questions:**
+→ MUST use `LIST_ARTIFACTS` (deterministic inventory)
+→ NEVER use SEARCH_CRS for these
 
-You: Based on the artifacts, I found these Django models:
-1. User (class) in agent/models.py
-2. System (class) in agent/models.py
-...
+**For "where is X" / "how does X work":**
+→ Use SEARCH_CRS then GET_ARTIFACT or READ_FILE
+
+**For "what calls X" / "flow analysis":**
+→ Use CRS_RELATIONSHIPS
+
+**Always check CRS_STATUS first if uncertain about data availability**
 """
 
     def parse_tool_calls(self, llm_response: str) -> List[Dict[str, Any]]:
         """
         Parse tool calls from LLM response
-
         Format: [TOOL_NAME: param="value", param2="value"]
         """
-        tool_pattern = r'\[(SEARCH_BLUEPRINTS|SEARCH_ARTIFACTS|GET_ARTIFACT|LIST_FILES|SEARCH_RELATIONSHIPS):\s*([^\]]+)\]'
+        tool_pattern = r'\[(CRS_STATUS|LIST_ARTIFACTS|GET_ARTIFACT|SEARCH_CRS|CRS_RELATIONSHIPS|READ_FILE)(?::\s*([^\]]+))?\]'
         matches = re.findall(tool_pattern, llm_response, re.IGNORECASE)
 
         tools = []
@@ -93,200 +105,380 @@ You: Based on the artifacts, I found these Django models:
 
             # Parse parameters
             params = {}
-            param_pattern = r'(\w+)="([^"]*)"'
-            param_matches = re.findall(param_pattern, params_str)
-            for param_name, param_value in param_matches:
-                params[param_name] = param_value
+            if params_str:
+                param_pattern = r'(\w+)="([^"]*)"'
+                param_matches = re.findall(param_pattern, params_str)
+                for param_name, param_value in param_matches:
+                    params[param_name] = param_value
 
             tools.append({
                 'name': tool_name,
                 'parameters': params
             })
 
-        logger.info(f"Parsed {len(tools)} tool calls from LLM response")
+        logger.info(f"Parsed {len(tools)} tool calls: {[t['name'] for t in tools]}")
         return tools
 
     def execute_tool(self, tool_name: str, parameters: Dict[str, str]) -> str:
-        """Execute a tool and return formatted results"""
+        """Execute a tool and return structured results"""
 
         tool_name = tool_name.upper()
 
         try:
-            if tool_name == 'SEARCH_BLUEPRINTS':
-                return self._search_blueprints(parameters.get('query', ''))
+            if tool_name == 'CRS_STATUS':
+                return self._crs_status()
 
-            elif tool_name == 'SEARCH_ARTIFACTS':
-                return self._search_artifacts(
-                    parameters.get('query', ''),
-                    parameters.get('type')
+            elif tool_name == 'LIST_ARTIFACTS':
+                return self._list_artifacts(
+                    kind=parameters.get('kind', ''),
+                    filter_text=parameters.get('filter', '')
                 )
 
             elif tool_name == 'GET_ARTIFACT':
-                return self._get_artifact(parameters.get('name', ''))
+                return self._get_artifact(parameters.get('artifact_id', ''))
 
-            elif tool_name == 'LIST_FILES':
-                return self._list_files()
+            elif tool_name == 'SEARCH_CRS':
+                return self._search_crs(
+                    query=parameters.get('query', ''),
+                    limit=int(parameters.get('limit', '10'))
+                )
 
-            elif tool_name == 'SEARCH_RELATIONSHIPS':
-                return self._search_relationships(parameters.get('artifact', ''))
+            elif tool_name == 'CRS_RELATIONSHIPS':
+                return self._crs_relationships(parameters.get('artifact_id', ''))
+
+            elif tool_name == 'READ_FILE':
+                return self._read_file(
+                    path=parameters.get('path', ''),
+                    start_line=int(parameters.get('start_line', '1')),
+                    end_line=int(parameters.get('end_line', '100'))
+                )
 
             else:
-                return f"Unknown tool: {tool_name}"
+                return f"❌ Unknown tool: {tool_name}"
 
         except Exception as e:
-            logger.error(f"Error executing tool {tool_name}: {e}")
-            return f"Error executing {tool_name}: {str(e)}"
+            logger.error(f"Error executing tool {tool_name}: {e}", exc_info=True)
+            return f"❌ Error executing {tool_name}: {str(e)}"
 
-    def _search_blueprints(self, query: str) -> str:
-        """Search for files/modules"""
-        blueprints = self.retriever.search_blueprints(query, limit=10)
+    # ==================== TOOL IMPLEMENTATIONS ====================
 
-        if not blueprints:
-            return f"No blueprints found matching '{query}'"
+    def _crs_status(self) -> str:
+        """Get CRS status and artifact counts"""
+        try:
+            summary = get_crs_summary(self.repository)
 
-        result = [f"Found {len(blueprints)} blueprints:\n"]
-        for bp in blueprints:
-            path = bp.get('path', 'unknown')
-            purpose = bp.get('purpose', 'No purpose specified')
-            components = bp.get('key_components', [])
+            result = [
+                "📊 **CRS Status**\n",
+                f"Repository: {self.repository.name}",
+                f"Status: {summary.get('status', 'unknown')}",
+                f"CRS Status: {summary.get('crs_status', 'unknown')}",
+                f"\n**Artifact Counts:**",
+                f"  - Blueprint Files: {summary.get('blueprint_files', 0)}",
+                f"  - Artifacts: {summary.get('artifacts', 0)}",
+                f"  - Relationships: {summary.get('relationships', 0)}",
+            ]
 
-            result.append(f"**{path}**")
-            result.append(f"  Purpose: {purpose}")
-            if components:
-                result.append(f"  Components: {', '.join(str(c) for c in components[:5])}")
-            result.append("")
+            if summary.get('status') != 'ready':
+                result.append("\n⚠️  CRS not ready - run analysis first")
 
-        return '\n'.join(result)
+            return '\n'.join(result)
 
-    def _search_artifacts(self, query: str, artifact_type: Optional[str] = None) -> str:
-        """Search for code elements"""
-        artifacts = self.retriever.search_artifacts(query, limit=15)
+        except Exception as e:
+            logger.error(f"CRS status error: {e}")
+            return f"❌ CRS data not available: {str(e)}\n\nPlease run CRS analysis on this repository first."
 
-        if not artifacts:
-            return f"No artifacts found matching '{query}'"
+    def _list_artifacts(self, kind: str, filter_text: str = '') -> str:
+        """
+        List all artifacts of a specific kind (deterministic inventory)
+        This is the ONLY correct way to answer "list all X" questions
+        """
+        if not kind:
+            return "❌ Missing 'kind' parameter. Valid kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register"
 
-        # Filter by type if specified
-        if artifact_type:
-            artifacts = [a for a in artifacts if a.get('type', '').lower() == artifact_type.lower()]
+        try:
+            self.retriever._load_crs_data()
+            all_artifacts = self.retriever._artifacts.get('artifacts', [])
 
-        if not artifacts:
-            return f"No {artifact_type} artifacts found matching '{query}'"
+            # Filter by type
+            filtered = [a for a in all_artifacts if a.get('type', '').lower() == kind.lower()]
 
-        result = [f"Found {len(artifacts)} artifacts:\n"]
-        for artifact in artifacts:
+            # Apply optional text filter
+            if filter_text:
+                filter_lower = filter_text.lower()
+                filtered = [
+                    a for a in filtered
+                    if filter_lower in a.get('name', '').lower()
+                    or filter_lower in a.get('file_path', '').lower()
+                ]
+
+            if not filtered:
+                return f"📋 No {kind} artifacts found" + (f" matching '{filter_text}'" if filter_text else "")
+
+            result = [f"📋 **{kind.upper()} Inventory** ({len(filtered)} items)\n"]
+
+            for artifact in filtered[:50]:  # Limit to 50 for readability
+                name = artifact.get('name', 'unknown')
+                file_path = artifact.get('file_path', 'unknown')
+                anchor = artifact.get('anchor', {})
+                start_line = anchor.get('start_line', 0)
+                artifact_id = artifact.get('artifact_id', 'unknown')
+
+                # Citation format: file_path:line
+                citation = f"{file_path}:{start_line}"
+
+                result.append(f"**{name}**")
+                result.append(f"  📍 {citation}")
+                result.append(f"  🆔 {artifact_id}")
+
+                # Add type-specific metadata
+                meta = artifact.get('meta', {})
+                if kind == 'django_model':
+                    fields = meta.get('fields', [])
+                    if fields:
+                        result.append(f"  📝 Fields: {', '.join(fields[:5])}")
+                        if len(fields) > 5:
+                            result.append(f"     ... and {len(fields) - 5} more")
+
+                elif kind in ['drf_serializer']:
+                    serializer_fields = meta.get('serializer_fields', [])
+                    if serializer_fields:
+                        result.append(f"  📝 Fields: {', '.join(serializer_fields[:5])}")
+
+                elif kind in ['drf_viewset', 'drf_apiview']:
+                    methods = meta.get('methods', [])
+                    if methods:
+                        result.append(f"  🔧 Methods: {', '.join(methods[:5])}")
+
+                result.append("")
+
+            if len(filtered) > 50:
+                result.append(f"... and {len(filtered) - 50} more (showing first 50)")
+
+            return '\n'.join(result)
+
+        except Exception as e:
+            logger.error(f"List artifacts error: {e}", exc_info=True)
+            return f"❌ Error listing {kind}: {str(e)}"
+
+    def _get_artifact(self, artifact_id: str) -> str:
+        """Get full details of a specific artifact"""
+        if not artifact_id:
+            return "❌ Missing 'artifact_id' parameter"
+
+        try:
+            self.retriever._load_crs_data()
+            all_artifacts = self.retriever._artifacts.get('artifacts', [])
+
+            # Find exact match
+            artifact = None
+            for a in all_artifacts:
+                if a.get('artifact_id') == artifact_id:
+                    artifact = a
+                    break
+
+            if not artifact:
+                return f"❌ Artifact not found: {artifact_id}"
+
+            # Format complete details with citations
             name = artifact.get('name', 'unknown')
             atype = artifact.get('type', 'unknown')
-            file = artifact.get('file', 'unknown')
+            file_path = artifact.get('file_path', 'unknown')
+            anchor = artifact.get('anchor', {})
+            start_line = anchor.get('start_line', 0)
+            end_line = anchor.get('end_line', 0)
+            confidence = artifact.get('confidence', 'unknown')
+            meta = artifact.get('meta', {})
 
-            result.append(f"**{name}** ({atype})")
-            result.append(f"  File: {file}")
+            result = [
+                f"🔍 **Artifact Details**\n",
+                f"**Name:** {name}",
+                f"**Type:** {atype}",
+                f"**Location:** {file_path}:{start_line}-{end_line}",
+                f"**Confidence:** {confidence}",
+                f"**ID:** {artifact_id}\n",
+            ]
 
-            # Add type-specific info
-            if atype == 'class':
-                methods = artifact.get('methods', [])
-                if methods:
-                    method_names = [m.get('name', m) if isinstance(m, dict) else m for m in methods[:5]]
-                    result.append(f"  Methods: {', '.join(str(m) for m in method_names)}")
-            elif atype == 'function':
-                params = artifact.get('parameters', [])
-                if params:
-                    result.append(f"  Parameters: {len(params)} params")
+            # Add metadata
+            if meta:
+                result.append("**Metadata:**")
+                for key, value in meta.items():
+                    if isinstance(value, list) and value:
+                        result.append(f"  - {key}: {', '.join(str(v) for v in value[:10])}")
+                    elif value:
+                        result.append(f"  - {key}: {value}")
 
-            result.append("")
+            # Add evidence if available
+            evidence = artifact.get('evidence', [])
+            if evidence:
+                result.append(f"\n**Evidence:** {len(evidence)} items")
 
-        return '\n'.join(result)
+            return '\n'.join(result)
 
-    def _get_artifact(self, name: str) -> str:
-        """Get full details of specific artifact"""
-        self.retriever._load_crs_data()
-        artifacts = self.retriever._artifacts.get('artifacts', [])
+        except Exception as e:
+            logger.error(f"Get artifact error: {e}", exc_info=True)
+            return f"❌ Error retrieving artifact: {str(e)}"
 
-        # Find exact match
-        artifact = None
-        for a in artifacts:
-            if a.get('name') == name:
-                artifact = a
-                break
+    def _search_crs(self, query: str, limit: int = 10) -> str:
+        """
+        Search CRS data using keyword matching
+        Returns results with file:line citations
+        NOT for inventory - use LIST_ARTIFACTS for that
+        """
+        if not query:
+            return "❌ Missing 'query' parameter"
 
-        if not artifact:
-            return f"Artifact '{name}' not found"
+        try:
+            # Search both blueprints and artifacts
+            blueprints = self.retriever.search_blueprints(query, limit=5)
+            artifacts = self.retriever.search_artifacts(query, limit=limit)
 
-        # Format complete details
-        result = [f"Artifact: **{name}**\n"]
+            if not blueprints and not artifacts:
+                return f"🔍 No results found for '{query}'"
 
-        for key, value in artifact.items():
-            if key == 'source' and value:
-                result.append(f"Source Code:\n```python\n{value}\n```\n")
-            elif key in ['methods', 'parameters'] and value:
-                result.append(f"{key.title()}: {json.dumps(value, indent=2)}\n")
-            else:
-                result.append(f"{key.title()}: {value}")
+            result = [f"🔍 **Search Results for '{query}'**\n"]
 
-        return '\n'.join(result)
+            # Show blueprint matches (files)
+            if blueprints:
+                result.append(f"**📁 Files ({len(blueprints)}):**")
+                for bp in blueprints:
+                    path = bp.get('path', 'unknown')
+                    purpose = bp.get('purpose', 'No purpose')
+                    result.append(f"  • {path}")
+                    result.append(f"    {purpose}")
+                result.append("")
 
-    def _list_files(self) -> str:
-        """List all files in repository"""
-        self.retriever._load_crs_data()
-        files = self.retriever._blueprints.get('files', [])
+            # Show artifact matches (code elements)
+            if artifacts:
+                result.append(f"**🎯 Code Elements ({len(artifacts)}):**")
+                for artifact in artifacts:
+                    name = artifact.get('name', 'unknown')
+                    atype = artifact.get('type', 'unknown')
+                    file_path = artifact.get('file_path', 'unknown')
+                    anchor = artifact.get('anchor', {})
+                    start_line = anchor.get('start_line', 0)
+                    artifact_id = artifact.get('artifact_id', 'unknown')
 
-        if not files:
-            return "No files found in blueprints"
+                    citation = f"{file_path}:{start_line}"
 
-        result = [f"Repository has {len(files)} files:\n"]
+                    result.append(f"  • **{name}** ({atype})")
+                    result.append(f"    📍 {citation}")
+                    result.append(f"    🆔 {artifact_id}")
+                result.append("")
 
-        # Group by directory
-        by_dir = {}
-        for f in files:
-            path = f.get('path', '')
-            if '/' in path:
-                dir_name = path.rsplit('/', 1)[0]
-            else:
-                dir_name = '.'
+            result.append("\n💡 Use GET_ARTIFACT with artifact_id to see full details")
 
-            if dir_name not in by_dir:
-                by_dir[dir_name] = []
-            by_dir[dir_name].append(path)
+            return '\n'.join(result)
 
-        # Format output
-        for dir_name in sorted(by_dir.keys()):
-            result.append(f"{dir_name}/")
-            for file_path in sorted(by_dir[dir_name]):
-                file_name = file_path.split('/')[-1]
-                result.append(f"  - {file_name}")
-            result.append("")
+        except Exception as e:
+            logger.error(f"Search error: {e}", exc_info=True)
+            return f"❌ Error searching: {str(e)}"
 
-        return '\n'.join(result)
+    def _crs_relationships(self, artifact_id: str) -> str:
+        """Find relationships for an artifact (imports, calls, used_by)"""
+        if not artifact_id:
+            return "❌ Missing 'artifact_id' parameter"
 
-    def _search_relationships(self, artifact_name: str) -> str:
-        """Find relationships for an artifact"""
-        self.retriever._load_crs_data()
-        relationships = self.retriever._relationships.get('relationships', [])
+        try:
+            self.retriever._load_crs_data()
+            all_relationships = self.retriever._relationships.get('relationships', [])
 
-        # Find relationships involving this artifact
-        related = []
-        for rel in relationships:
-            if rel.get('source') == artifact_name or rel.get('target') == artifact_name:
-                related.append(rel)
+            # Find relationships involving this artifact
+            incoming = []  # Things that use this artifact
+            outgoing = []  # Things this artifact uses
 
-        if not related:
-            return f"No relationships found for '{artifact_name}'"
+            for rel in all_relationships:
+                source = rel.get('source', '')
+                target = rel.get('target', '')
+                rel_type = rel.get('type', 'unknown')
 
-        result = [f"Relationships for {artifact_name}:\n"]
+                if source == artifact_id:
+                    outgoing.append((rel_type, target))
+                elif target == artifact_id:
+                    incoming.append((rel_type, source))
 
-        # Group by type
-        by_type = {}
-        for rel in related:
-            rel_type = rel.get('type', 'unknown')
-            if rel_type not in by_type:
-                by_type[rel_type] = []
-            by_type[rel_type].append(rel)
+            if not incoming and not outgoing:
+                return f"🔗 No relationships found for artifact_id: {artifact_id}"
 
-        for rel_type, rels in by_type.items():
-            result.append(f"**{rel_type}:**")
-            for rel in rels[:10]:  # Limit to 10 per type
-                source = rel.get('source', '?')
-                target = rel.get('target', '?')
-                result.append(f"  {source} → {target}")
-            result.append("")
+            result = [f"🔗 **Relationships for {artifact_id}**\n"]
 
-        return '\n'.join(result)
+            if outgoing:
+                result.append(f"**Outgoing ({len(outgoing)})** - This artifact uses:")
+                by_type = {}
+                for rel_type, target in outgoing:
+                    by_type.setdefault(rel_type, []).append(target)
+
+                for rel_type, targets in by_type.items():
+                    result.append(f"  **{rel_type}:**")
+                    for target in targets[:10]:
+                        result.append(f"    → {target}")
+                    if len(targets) > 10:
+                        result.append(f"    ... and {len(targets) - 10} more")
+                result.append("")
+
+            if incoming:
+                result.append(f"**Incoming ({len(incoming)})** - Used by:")
+                by_type = {}
+                for rel_type, source in incoming:
+                    by_type.setdefault(rel_type, []).append(source)
+
+                for rel_type, sources in by_type.items():
+                    result.append(f"  **{rel_type}:**")
+                    for source in sources[:10]:
+                        result.append(f"    ← {source}")
+                    if len(sources) > 10:
+                        result.append(f"    ... and {len(sources) - 10} more")
+
+            return '\n'.join(result)
+
+        except Exception as e:
+            logger.error(f"Relationships error: {e}", exc_info=True)
+            return f"❌ Error finding relationships: {str(e)}"
+
+    def _read_file(self, path: str, start_line: int = 1, end_line: int = 100) -> str:
+        """Read raw file contents with line numbers"""
+        if not path:
+            return "❌ Missing 'path' parameter"
+
+        try:
+            # Construct full path from repository clone
+            if not self.repository.clone_path:
+                return "❌ Repository not cloned"
+
+            full_path = Path(self.repository.clone_path) / path
+
+            if not full_path.exists():
+                return f"❌ File not found: {path}"
+
+            if not full_path.is_file():
+                return f"❌ Not a file: {path}"
+
+            # Read file with line numbers
+            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+
+            # Validate line ranges
+            total_lines = len(lines)
+            start_line = max(1, min(start_line, total_lines))
+            end_line = max(start_line, min(end_line, total_lines))
+
+            result = [
+                f"📄 **File: {path}**",
+                f"📍 Lines {start_line}-{end_line} of {total_lines}\n",
+                "```python"
+            ]
+
+            for i in range(start_line - 1, end_line):
+                line_num = i + 1
+                line_content = lines[i].rstrip()
+                result.append(f"{line_num:4d} | {line_content}")
+
+            result.append("```")
+
+            if end_line < total_lines:
+                result.append(f"\n... {total_lines - end_line} more lines")
+
+            return '\n'.join(result)
+
+        except Exception as e:
+            logger.error(f"Read file error: {e}", exc_info=True)
+            return f"❌ Error reading file: {str(e)}"
