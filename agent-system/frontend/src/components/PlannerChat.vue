@@ -148,6 +148,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import api from '../services/api'
 
 const props = defineProps({
   systemId: {
@@ -167,6 +168,8 @@ const isTyping = ref(false)
 const connected = ref(false)
 const messagesContainer = ref(null)
 const messageInput = ref(null)
+const conversationId = ref(null)
+const loadingHistory = ref(false)
 
 let ws = null
 let currentStreamingMessage = ''
@@ -177,6 +180,37 @@ const quickSuggestions = [
   'What would be the impact of changing the authentication system?',
   'Help me plan a new feature across multiple repos'
 ]
+
+// Load conversation history
+const loadConversationHistory = async () => {
+  try {
+    loadingHistory.value = true
+    const response = await api.get(`/conversations/?system=${props.systemId}&type=planner`)
+
+    if (response.data.results && response.data.results.length > 0) {
+      const latestConv = response.data.results[0]
+      conversationId.value = latestConv.id
+
+      // Load message history
+      if (latestConv.messages && latestConv.messages.length > 0) {
+        messages.value = latestConv.messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          streaming: false
+        }))
+
+        await nextTick()
+        scrollToBottom()
+      }
+
+      console.log(`Loaded planner conversation ${conversationId.value} with ${latestConv.messages?.length || 0} messages`)
+    }
+  } catch (error) {
+    console.error('Failed to load planner conversation history:', error)
+  } finally {
+    loadingHistory.value = false
+  }
+}
 
 // WebSocket connection
 const connectWebSocket = () => {
@@ -220,6 +254,12 @@ const connectWebSocket = () => {
 
 const handleWebSocketMessage = (data) => {
   switch (data.type) {
+    case 'conversation_created':
+      // Store conversation ID for future messages
+      conversationId.value = data.conversation_id
+      console.log('Planner conversation created:', conversationId.value)
+      break
+
     case 'assistant_typing':
       isTyping.value = data.typing
       if (data.typing) {
@@ -295,10 +335,11 @@ const sendMessage = () => {
     content: messageText
   })
 
-  // Send to WebSocket
+  // Send to WebSocket with conversation_id if available
   ws.send(JSON.stringify({
     type: 'chat_message',
-    message: messageText
+    message: messageText,
+    conversation_id: conversationId.value
   }))
 
   // Clear input
@@ -342,7 +383,10 @@ const formatMessage = (content) => {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  // Load conversation history first
+  await loadConversationHistory()
+  // Then connect WebSocket
   connectWebSocket()
 })
 
