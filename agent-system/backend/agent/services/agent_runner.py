@@ -471,7 +471,7 @@ class AgentRunner:
             
         # Sort by score desc, take top 50
         scored_artifacts.sort(key=lambda x: x[0], reverse=True)
-        top_artifacts = [a for s, a in scored_artifacts[:50]]
+        top_artifacts = [a for s, a in scored_artifacts[:200]]
         
         # 3. Contextualize
         context = "\n".join([f"- {a.get('type')}: {a.get('name')} ({a.get('file_path') or a.get('file', 'unknown')})" for a in top_artifacts])

@@ -89,6 +89,11 @@ class CRSContext:
 
         query_lower = query.lower()
         artifacts = self._artifacts.get("artifacts", [])
+        if "admin" not in query_lower:
+            artifacts = [
+                a for a in artifacts
+                if "admin.py" not in (a.get("file_path") or a.get("file") or "").lower()
+            ]
 
         matches = []
         for artifact in artifacts:
@@ -158,6 +163,10 @@ class CRSContext:
             self.load_all()
 
         artifacts = self._artifacts.get("artifacts", []) if self._artifacts else []
+        artifacts = [
+            a for a in artifacts
+            if "admin.py" not in (a.get("file_path") or a.get("file") or "").lower()
+        ]
         artifact_types: Dict[str, int] = {}
         for artifact in artifacts:
             art_type = artifact.get("type", "unknown")
