@@ -303,7 +303,22 @@ class Repository(models.Model):
     last_crs_run = models.DateTimeField(null=True, blank=True)
     artifacts_count = models.IntegerField(default=0)
     relationships_count = models.IntegerField(default=0)
-    
+
+    # Knowledge Agent state
+    KNOWLEDGE_STATUS_CHOICES = [
+        ('pending', 'Pending Extraction'),
+        ('extracting', 'Extracting Knowledge'),
+        ('ready', 'Knowledge Ready'),
+        ('error', 'Extraction Error'),
+    ]
+    knowledge_status = models.CharField(
+        max_length=50,
+        choices=KNOWLEDGE_STATUS_CHOICES,
+        default='pending'
+    )
+    knowledge_last_extracted = models.DateTimeField(null=True, blank=True)
+    knowledge_docs_count = models.IntegerField(default=0)
+
     # Sync
     last_synced = models.DateTimeField(null=True, blank=True)
     last_commit_sha = models.CharField(max_length=40, blank=True)
