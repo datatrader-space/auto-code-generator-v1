@@ -148,5 +148,10 @@ export default {
   getBenchmarkReports: () => api.get('/benchmarks/reports/'),
   getBenchmarkReport: (id) => api.get(`/benchmarks/reports/${id}/`),
   createBenchmarkRun: (data) => api.post('/benchmarks/runs/', data),
-  getBenchmarkRun: (id) => api.get(`/benchmarks/runs/${id}/`)
+  getBenchmarkRun: (id) => api.get(`/benchmarks/runs/${id}/`),
+  getBenchmarkReportDownloadUrl: (id, filePath) => {
+    const base = api.defaults.baseURL || ''
+    const encoded = encodeURIComponent(filePath)
+    return `${base}/benchmarks/reports/${id}/download?file=${encoded}`
+  }
 }

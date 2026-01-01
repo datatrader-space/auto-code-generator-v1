@@ -66,6 +66,7 @@ urlpatterns = [
     path('benchmarks', views.benchmark_list, name='benchmark-list'),
     path('benchmarks/<uuid:run_id>/status', views.benchmark_status, name='benchmark-status'),
     path('benchmarks/<uuid:run_id>/report', views.benchmark_report, name='benchmark-report'),
+    path('benchmarks/reports/<str:run_id>/download', views.benchmark_report_download, name='benchmark-report-download'),
 
     # Authentication endpoints
     path('auth/register', auth_views.register_user, name='auth-register'),

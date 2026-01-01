@@ -125,6 +125,26 @@ def get_benchmark_report(user: User, run_id: str) -> Dict[str, Any]:
     return _build_report_payload(run_json, summary_json, run_dir)
 
 
+def list_benchmark_downloads(user: User, run_id: str) -> List[Dict[str, str]]:
+    run_dir = _find_run_dir(user, run_id)
+    if not run_dir:
+        raise FileNotFoundError(f"Run {run_id} not found.")
+    return _collect_downloads(run_dir)
+
+
+def get_benchmark_download(user: User, run_id: str, file_path: str) -> Path:
+    run_dir = _find_run_dir(user, run_id)
+    if not run_dir:
+        raise FileNotFoundError(f"Run {run_id} not found.")
+    downloads = {entry["path"]: entry for entry in _collect_downloads(run_dir)}
+    if file_path not in downloads:
+        raise ValueError("Requested artifact is not available for download.")
+    resolved = (run_dir / file_path).resolve()
+    if not resolved.is_file() or run_dir.resolve() not in resolved.parents:
+        raise FileNotFoundError("Requested artifact not found.")
+    return resolved
+
+
 def _build_task_suite(system: System, task_types: List[str], suite_size: int) -> List[BenchmarkTask]:
     tasks = list(Task.objects.filter(system=system).order_by("-created_at"))
     filtered = []
@@ -205,6 +225,7 @@ def _serialize_model(model: LLMModel) -> Dict[str, Any]:
     }
 
 
+def _build_report_payload(run_json: Dict[str, Any], summary_json: Dict[str, Any], run_dir: Path) -> Dict[str, Any]:
 def _build_report_payload(
     run_json: Dict[str, Any],
     summary_json: Dict[str, Any],
@@ -215,6 +236,16 @@ def _build_report_payload(
     modes = run_json.get("modes_by_model", {})
     task_types = [task.get("task_type") for task in run_json.get("task_suite", [])]
     summary_metrics = _summarize_scores(summary_json, run_json)
+    failed_cases = _collect_failed_cases(run_dir, run_json)
+    downloads = _collect_downloads(run_dir)
+    model_lookup = [
+        {
+            "model_id": str(model.get("model_id") or model.get("id") or ""),
+            "name": model.get("name") or model.get("model_id") or model.get("id"),
+            "provider": model.get("provider"),
+        }
+        for model in models
+    ]
     results_payloads = _load_results_payloads(run_dir)
     task_index = {task.get("task_id"): task for task in run_json.get("task_suite", [])}
     computed_metrics = _compute_report_metrics(results_payloads, task_index)
@@ -226,12 +257,34 @@ def _build_report_payload(
         "created_at": run_json.get("started_at"),
         "system": run_json.get("metadata", {}).get("system_id"),
         "system_name": run_json.get("metadata", {}).get("system_name"),
+        "models": model_lookup,
         "models_summary": ", ".join(model_names),
         "model_count": len(models),
         "mode_summary": ", ".join(sorted({mode for modes in modes.values() for mode in modes})),
         "agent_modes": sorted({mode for modes in modes.values() for mode in modes}),
         "task_summary": ", ".join(sorted(set(task_types))) if task_types else None,
         "task_types": sorted(set(task_types)),
+        "summary_metrics": summary_metrics,
+        "model_summaries": summary_json.get("model_summaries", {}),
+        "model_ranking": summary_json.get("model_ranking", []),
+        "crs_lag": summary_json.get("crs_lag", []),
+        "failed_cases": failed_cases,
+        "downloads": downloads,
+        "failure_taxonomy": {
+            "retrieval_misses": 0,
+            "representation_drift": 0,
+            "ambiguous_instructions": 0,
+        },
+        "write_verification": {
+            "verified": 0,
+            "failed_tests": 0,
+            "manual_review": 0,
+        },
+        "crs_backlog": {
+            "index_gaps": 0,
+            "prompt_updates": 0,
+            "workflow_changes": 0,
+        },
         "summary_metrics": {
             **summary_metrics,
             "latency": computed_metrics["latency_summary"],
@@ -481,6 +534,71 @@ def _find_run_dir(user: User, run_id: str) -> Optional[Path]:
         if entry.get("run_id") == run_id:
             return Path(entry["run_dir"])
     return None
+
+
+def _collect_failed_cases(run_dir: Path, run_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+    task_lookup = {
+        task.get("task_id"): task
+        for task in run_json.get("task_suite", [])
+    }
+    failed_cases = []
+    for result_path in run_dir.rglob("results.json"):
+        payload = _load_json(result_path)
+        results = payload.get("results", [])
+        for result in results:
+            success = result.get("success")
+            error = result.get("error")
+            if success is False or error:
+                task_id = result.get("task_id")
+                task = task_lookup.get(task_id, {})
+                failed_cases.append(
+                    {
+                        "model_id": payload.get("model_id"),
+                        "mode": payload.get("mode"),
+                        "task_id": task_id,
+                        "task_type": task.get("task_type"),
+                        "prompt": task.get("prompt"),
+                        "error": error,
+                        "details": result.get("details", {}),
+                    }
+                )
+    return failed_cases
+
+
+def _collect_downloads(run_dir: Path) -> List[Dict[str, str]]:
+    downloads = []
+    for filename, label, kind in (
+        ("run.jsonl", "run.jsonl", "run_jsonl"),
+        ("context_trace.json", "context_trace.json", "context_trace"),
+    ):
+        path = run_dir / filename
+        if path.exists():
+            downloads.append(
+                {
+                    "label": label,
+                    "path": filename,
+                    "kind": kind,
+                }
+            )
+
+    diff_candidates = []
+    for diff_path in run_dir.rglob("*diff*"):
+        if diff_path.is_file():
+            try:
+                relative = diff_path.relative_to(run_dir).as_posix()
+            except ValueError:
+                continue
+            diff_candidates.append(relative)
+
+    for relative in sorted(set(diff_candidates))[:50]:
+        downloads.append(
+            {
+                "label": relative,
+                "path": relative,
+                "kind": "diff",
+            }
+        )
+    return downloads
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
