@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from agent.models import (
     System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory,
-    RepositoryReasoningTrace, SystemDocumentation
+    RepositoryReasoningTrace, SystemDocumentation,ChatMessage,ChatConversation
 )
 
 User = get_user_model()

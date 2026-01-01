@@ -25,8 +25,8 @@ from agent.serializers import (
     RepositoryQuestionSerializer, AnswerQuestionsSerializer,
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
-    AnalyzeRepositorySerializer, LLMHealthSerializer,
-    RepositoryReasoningTraceSerializer, SystemDocumentationSerializer
+    AnalyzeRepositorySerializer, LLMHealthSerializer,ChatConversationListSerializer,
+    RepositoryReasoningTraceSerializer, SystemDocumentationSerializer,ChatConversationSerializer
 )
 from agent.services.repo_analyzer import RepositoryAnalyzer
 from agent.services.question_generator import QuestionGenerator
