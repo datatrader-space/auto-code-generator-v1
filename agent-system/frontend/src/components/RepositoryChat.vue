@@ -70,15 +70,54 @@
 
         <!-- Assistant Message -->
         <div v-else-if="message.role === 'assistant'" class="message-content assistant-message">
-          <div class="flex items-start gap-2">
+          <div class="flex items-start gap-2 w-full">
             <div class="assistant-avatar">
               <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
                 <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
               </svg>
             </div>
-            <div class="message-bubble">
-              <div v-html="formatMessage(message.content)"></div>
+            <div class="flex-1">
+              <div class="message-bubble">
+                <div v-html="formatMessage(message.content)"></div>
+              </div>
+
+              <!-- Trace Information -->
+              <div v-if="message.trace && message.trace.length > 0" class="mt-2 text-xs">
+                <details class="trace-details">
+                  <summary class="cursor-pointer text-gray-500 hover:text-gray-700">
+                    🔍 View trace ({{ message.trace.length }} steps)
+                  </summary>
+                  <div class="trace-content mt-2 space-y-1">
+                    <div
+                      v-for="(step, idx) in message.trace"
+                      :key="idx"
+                      class="text-gray-600 font-mono"
+                    >
+                      {{ step }}
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <!-- Tool Results -->
+              <div v-if="message.toolResults && message.toolResults.length > 0" class="mt-2">
+                <details class="tool-results-details">
+                  <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+                    🔧 Tool calls ({{ message.toolResults.length }})
+                  </summary>
+                  <div class="tool-results-content mt-2 space-y-2">
+                    <div
+                      v-for="(toolResult, idx) in message.toolResults"
+                      :key="idx"
+                      class="tool-result-item"
+                    >
+                      <div class="font-semibold text-xs text-blue-600">{{ toolResult.tool }}</div>
+                      <pre class="text-xs bg-gray-50 p-2 rounded mt-1 overflow-x-auto">{{ toolResult.result }}</pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
             </div>
           </div>
         </div>
@@ -351,8 +390,23 @@ const handleWebSocketMessage = (data) => {
       if (completedMessage && completedMessage.streaming) {
         completedMessage.streaming = false
         completedMessage.content = data.full_message
+        completedMessage.trace = data.trace || []
       }
       currentStreamingMessage = ''
+      break
+
+    case 'tool_result':
+      // Store tool results for display
+      const lastMsg = messages.value[messages.value.length - 1]
+      if (lastMsg && lastMsg.role === 'assistant') {
+        if (!lastMsg.toolResults) {
+          lastMsg.toolResults = []
+        }
+        lastMsg.toolResults.push({
+          tool: data.tool_name,
+          result: data.result
+        })
+      }
       break
 
     case 'error':
@@ -392,7 +446,7 @@ const sendMessage = () => {
     type: 'chat_message',
     message: messageText,
     conversation_id: conversationId.value,
-    model_id: selectedModelId.value
+    model_id: selectedModelId.value,
     message_id: messageId
   }))
 
@@ -459,7 +513,6 @@ watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) 
   selectedModelId.value = null
   await loadConversationHistory()
   await loadModels()
-  connectWebSocket()
   connectWebSocket(nextRepositoryId)
 })
 </script>
@@ -558,5 +611,23 @@ watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) 
 
 :deep(strong) {
   @apply font-semibold;
+}
+
+/* Trace and tool results */
+.trace-details summary,
+.tool-results-details summary {
+  @apply text-xs px-2 py-1 bg-gray-50 rounded inline-block;
+}
+
+.trace-content {
+  @apply pl-2 border-l-2 border-gray-300;
+}
+
+.tool-result-item {
+  @apply bg-white border border-gray-200 rounded p-2;
+}
+
+.tool-result-item pre {
+  @apply max-h-40 overflow-y-auto;
 }
 </style>
