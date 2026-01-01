@@ -1246,3 +1246,292 @@ Be specific and reference repository names, artifacts, and relationship types.""
     def get_conversation_history(self, conversation, limit=10):
         """Get recent conversation history"""
         return list(conversation.messages.order_by('-created_at')[:limit][::-1])
+
+
+# =============================================================================
+# KNOWLEDGE EXTRACTION CONSUMER
+# =============================================================================
+
+class KnowledgeConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket consumer for real-time knowledge extraction events
+    
+    Streams events during repository knowledge analysis:
+    - Extraction started
+    - Progress updates (profile, domain model, patterns, etc.)
+    - Extraction complete
+    - Errors
+    """
+    
+    async def connect(self):
+        """Accept WebSocket connection"""
+        self.repository_id = self.scope['url_route']['kwargs']['repository_id']
+        self.room_group_name = f'knowledge_{self.repository_id}'
+        
+        # Join room group
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        logger.info(f"Knowledge WebSocket connected for repository {self.repository_id}")
+    
+    async def disconnect(self, close_code):
+        """Handle WebSocket disconnection"""
+        # Leave room group
+        await self.channel_layer.group_discard(
+            self.room_group_name,
+            self.channel_name
+        )
+        logger.info(f"Knowledge WebSocket disconnected: {close_code}")
+    
+    async def receive(self, text_data):
+        """
+        Receive message from WebSocket
+        
+        Expected commands:
+        - {"type": "start_extraction", "force": false}
+        - {"type": "ping"}
+        """
+        try:
+            data = json.loads(text_data)
+            message_type = data.get('type')
+            
+            if message_type == 'start_extraction':
+                await self.start_extraction(data.get('force', False))
+            elif message_type == 'ping':
+                await self.send_json({'type': 'pong'})
+            else:
+                await self.send_json({
+                    'type': 'error',
+                    'error': f'Unknown message type: {message_type}'
+                })
+        
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            await self.send_json({
+                'type': 'error',
+                'error': 'Invalid JSON'
+            })
+        except Exception as e:
+            logger.error(f"Error handling message: {e}", exc_info=True)
+            await self.send_json({
+                'type': 'error',
+                'error': str(e)
+            })
+    
+    async def start_extraction(self, force=False):
+        """Start knowledge extraction"""
+        try:
+            from agent.services.knowledge_agent import RepositoryKnowledgeAgent
+            from django.utils import timezone
+            
+            # Get repository
+            repository = await self.get_repository()
+            
+            # Check CRS status
+            from agent.services.crs_runner import get_crs_summary
+            crs_summary = await sync_to_async(get_crs_summary)(repository)
+            
+            if crs_summary.get('status') != 'ready':
+                await self.send_json({
+                    'type': 'error',
+                    'error': 'CRS must be ready before knowledge extraction'
+                })
+                return
+            
+            # Check if already extracting
+            if repository.knowledge_status == 'extracting' and not force:
+                await self.send_json({
+                    'type': 'error',
+                    'error': 'Knowledge extraction already in progress'
+                })
+                return
+            
+            # Update status
+            repository.knowledge_status = 'extracting'
+            await sync_to_async(repository.save)(update_fields=['knowledge_status'])
+            
+            # Create agent with socket callback
+            def socket_callback(event):
+                """Callback to send events through WebSocket"""
+                import asyncio
+                asyncio.create_task(self.send_json(event))
+            
+            knowledge_agent = RepositoryKnowledgeAgent(
+                repository=repository,
+                socket_callback=socket_callback
+            )
+            
+            # Run extraction
+            result = await sync_to_async(knowledge_agent.analyze_repository)()
+            
+            # Update repository
+            repository.knowledge_status = 'ready' if result.get('status') == 'success' else 'error'
+            repository.knowledge_last_extracted = timezone.now()
+            repository.knowledge_docs_count = result.get('docs_created', 0)
+            await sync_to_async(repository.save)(update_fields=[
+                'knowledge_status',
+                'knowledge_last_extracted',
+                'knowledge_docs_count'
+            ])
+        
+        except Exception as e:
+            logger.error(f"Knowledge extraction failed: {e}", exc_info=True)
+            await self.send_json({
+                'type': 'knowledge_extraction_error',
+                'error': str(e)
+            })
+    
+    async def send_json(self, data):
+        """Send JSON message to WebSocket"""
+        await self.send(text_data=json.dumps(data))
+    
+    @database_sync_to_async
+    def get_repository(self):
+        """Get repository from database"""
+        return Repository.objects.get(id=self.repository_id)
+    
+    # Event handlers for group messages
+    async def knowledge_event(self, event):
+        """Handle knowledge extraction events from group"""
+        await self.send_json(event)
+
+
+# =============================================================================
+# AGENT RUNNER CONSUMER
+# =============================================================================
+
+class AgentRunnerConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket consumer for real-time agent execution events
+    
+    Streams events during autonomous agent execution:
+    - Session creation
+    - Planning
+    - Step execution
+    - Patch operations
+    - Verification
+    - Rollback
+    - Session completion
+    """
+    
+    async def connect(self):
+        """Accept WebSocket connection"""
+        self.repository_id = self.scope['url_route']['kwargs']['repository_id']
+        self.room_group_name = f'agent_{self.repository_id}'
+        
+        # Join room group
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        logger.info(f"Agent Runner WebSocket connected for repository {self.repository_id}")
+    
+    async def disconnect(self, close_code):
+        """Handle WebSocket disconnection"""
+        # Leave room group
+        await self.channel_layer.group_discard(
+            self.room_group_name,
+            self.channel_name
+        )
+        logger.info(f"Agent Runner WebSocket disconnected: {close_code}")
+    
+    async def receive(self, text_data):
+        """
+        Receive message from WebSocket
+        
+        Expected commands:
+        - {"type": "execute", "request": "Add payment method"}
+        - {"type": "ping"}
+        """
+        try:
+            data = json.loads(text_data)
+            message_type = data.get('type')
+            
+            if message_type == 'execute':
+                await self.execute_agent(data.get('request', ''))
+            elif message_type == 'ping':
+                await self.send_json({'type': 'pong'})
+            else:
+                await self.send_json({
+                    'type': 'error',
+                    'error': f'Unknown message type: {message_type}'
+                })
+        
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            await self.send_json({
+                'type': 'error',
+                'error': 'Invalid JSON'
+            })
+        except Exception as e:
+            logger.error(f"Error handling message: {e}", exc_info=True)
+            await self.send_json({
+                'type': 'error',
+                'error': str(e)
+            })
+    
+    async def execute_agent(self, request):
+        """Execute agent runner"""
+        if not request:
+            await self.send_json({
+                'type': 'error',
+                'error': 'Request cannot be empty'
+            })
+            return
+        
+        try:
+            from agent.services.agent_runner import AgentRunner
+            import uuid
+            
+            # Get repository
+            repository = await self.get_repository()
+            
+            # Generate session ID
+            session_id = f"session_{uuid.uuid4().hex[:12]}"
+            
+            # Create agent runner with socket callback
+            def socket_callback(event):
+                """Callback to send events through WebSocket"""
+                import asyncio
+                asyncio.create_task(self.send_json(event))
+            
+            agent_runner = AgentRunner(
+                repository=repository,
+                socket_callback=socket_callback
+            )
+            
+            # Execute
+            result = await sync_to_async(agent_runner.execute)(
+                session_id=session_id,
+                request=request
+            )
+            
+            # Final result already sent via socket_callback events
+            # Just log completion
+            logger.info(f"Agent execution completed: {session_id} - {result.get('status')}")
+        
+        except Exception as e:
+            logger.error(f"Agent execution failed: {e}", exc_info=True)
+            await self.send_json({
+                'type': 'agent_session_error',
+                'error': str(e)
+            })
+    
+    async def send_json(self, data):
+        """Send JSON message to WebSocket"""
+        await self.send(text_data=json.dumps(data))
+    
+    @database_sync_to_async
+    def get_repository(self):
+        """Get repository from database"""
+        return Repository.objects.get(id=self.repository_id)
+    
+    # Event handlers for group messages
+    async def agent_event(self, event):
+        """Handle agent execution events from group"""
+        await self.send_json(event)
