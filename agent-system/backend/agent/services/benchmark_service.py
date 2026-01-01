@@ -2,6 +2,7 @@ import json
 import math
 import random
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -189,21 +190,249 @@ def _execute_task_suite(
     tasks: List[BenchmarkTask],
 ) -> List[BenchmarkResult]:
     results = []
+    model_id = model.get("id")
+    llm_model = None
+    if model_id:
+        llm_model = LLMModel.objects.select_related("provider").filter(id=model_id).first()
+
     for task in tasks:
+        start_time = time.monotonic()
+        error = None
+        answer = None
+        citations: List[str] = []
+        trace = {
+            "trace_id": f"benchmark-{uuid.uuid4().hex[:12]}",
+            "mode": mode,
+        }
+
+        try:
+            repository = _get_repository_for_task(task)
+            if not repository:
+                raise ValueError("Repository not found for benchmark task.")
+
+            response = _run_read_task(
+                repository=repository,
+                task=task,
+                mode=mode,
+                llm_model=llm_model,
+            )
+            answer = response.get("answer")
+            citations = response.get("citations", [])
+            trace.update(response.get("trace", {}))
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        success = error is None and bool(answer)
+
         results.append(
             BenchmarkResult(
                 task_id=task.task_id,
-                success=None,
-                latency_ms=None,
-                error=None,
+                success=success,
+                latency_ms=latency_ms,
+                error=error,
                 details={
-                    "status": "skipped",
+                    "answer": answer,
+                    "citations": citations,
+                    "trace": trace,
                     "mode": mode,
                     "model_id": model.get("model_id") or model.get("id"),
                 },
             )
         )
+
     return results
+
+
+def _get_repository_for_task(task: BenchmarkTask) -> Optional[Repository]:
+    system_id = task.metadata.get("system_id")
+    if not system_id:
+        return None
+    system = System.objects.filter(id=system_id).first()
+    if not system:
+        return None
+    return _get_primary_repository(system)
+
+
+def _run_read_task(
+    *,
+    repository: Repository,
+    task: BenchmarkTask,
+    mode: str,
+    llm_model: Optional[LLMModel],
+) -> Dict[str, Any]:
+    from agent.crs_tools import CRSTools
+    from agent.services.crs_runner import get_crs_summary
+    from llm.router import get_llm_router
+
+    router = get_llm_router()
+    llm_client = _build_llm_client(router, llm_model)
+    crs_tools = CRSTools(repository=repository)
+    use_tools = _mode_uses_tools(mode)
+
+    messages = [
+        {
+            "role": "system",
+            "content": _build_system_prompt(repository, mode, get_crs_summary(repository), crs_tools),
+        },
+        {
+            "role": "user",
+            "content": task.prompt,
+        },
+    ]
+
+    tool_results: List[str] = []
+    citations: List[str] = []
+    tool_trace: List[Dict[str, Any]] = []
+    final_answer = ""
+
+    for _ in range(3):
+        response = llm_client.query(messages)
+        content = response.get("content", "")
+        if not use_tools:
+            final_answer = content
+            break
+
+        tool_calls = crs_tools.parse_tool_calls(content)
+        if not tool_calls:
+            final_answer = content
+            break
+
+        for tool_call in tool_calls:
+            tool_name = tool_call.get("name", "")
+            tool_params = tool_call.get("parameters", {})
+            result = crs_tools.execute_tool(tool_name, tool_params)
+            tool_results.append(result)
+            citations.extend(_extract_citations(result))
+            tool_trace.append({"name": tool_name, "parameters": tool_params})
+
+        messages.append({"role": "assistant", "content": content})
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Tool Results:\n\n"
+                    f"{'\n\n'.join(tool_results)}\n\n"
+                    "Now answer the user's original question using this data. Provide a clear response with citations."
+                ),
+            }
+        )
+
+    return {
+        "answer": final_answer,
+        "citations": sorted(set(citations)),
+        "trace": {
+            "tools_called": tool_trace,
+            "provider": llm_client.model if hasattr(llm_client, "model") else None,
+        },
+    }
+
+
+def _build_llm_client(router, llm_model: Optional[LLMModel]):
+    from llm.router import LLMConfig
+
+    if llm_model and llm_model.provider:
+        provider = llm_model.provider
+        config = LLMConfig(
+            provider=provider.provider_type,
+            model=llm_model.model_id,
+            base_url=provider.base_url or None,
+            api_key=provider.api_key or None,
+            max_tokens=llm_model.metadata.get("max_tokens")
+            or provider.metadata.get("max_tokens")
+            or 4000,
+            temperature=llm_model.metadata.get("temperature")
+            or provider.metadata.get("temperature")
+            or 0.7,
+        )
+        return router.client_for_config(config)
+
+    return router.local_client
+
+
+def _mode_uses_tools(mode: str) -> bool:
+    if not mode:
+        return True
+    normalized = mode.lower()
+    return any(token in normalized for token in ("crs", "rag", "tool", "tools", "search"))
+
+
+def _build_system_prompt(
+    repository: Repository,
+    mode: str,
+    summary: Dict[str, Any],
+    crs_tools,
+) -> str:
+    tool_definitions = crs_tools.get_tool_definitions()
+    status_message = summary.get("status")
+    crs_status_context = f"""
+# Repository CRS Status
+
+- Repository: {repository.name}
+- Status: {summary.get('status', 'unknown')}
+- Django Models: ~{summary.get('artifacts', 0) // 4} (estimated)
+- Total Artifacts: {summary.get('artifacts', 0)}
+- Blueprint Files: {summary.get('blueprint_files', 0)}
+- Relationships: {summary.get('relationships', 0)}
+
+Execution mode: {mode or 'default'}
+"""
+
+    if status_message != "ready":
+        return f"""You are analyzing a code repository.
+
+CRS Status: Analysis incomplete ({summary.get('status', 'unknown')}).
+
+# LIMITED MODE
+- Semantic Search (SEARCH_CRS, CRS_RELATIONSHIPS) is unavailable.
+- File Access (READ_FILE, LIST_ARTIFACTS) is AVAILABLE.
+
+Please:
+1. Use `LIST_ARTIFACTS` to find files/models (best effort).
+2. Use `READ_FILE` to read code directly.
+3. Determine if you can answer based on file contents.
+
+---
+
+{tool_definitions}
+
+---
+
+Now answer the user's question using the available tools."""
+
+    return f"""You are a code repository assistant with access to CRS (Contextual Retrieval System) tools.
+
+{crs_status_context}
+
+# YOUR JOB
+
+1. **PLAN** which tools to use
+2. **REQUEST** tools in the JSON format below
+3. **WAIT** for tool results
+4. **ANSWER** the user's question with citations
+
+---
+
+{tool_definitions}
+
+---
+
+# CRITICAL: Inventory Questions
+
+For "list/show all/what X exist" questions, you MUST use LIST_ARTIFACTS.
+NEVER answer from memory or make assumptions.
+
+Now answer the user's question using the appropriate tools."""
+
+
+def _extract_citations(result: str) -> List[str]:
+    citations = []
+    for token in result.split():
+        if ":" in token and "/" in token:
+            cleaned = token.strip(".,;()[]")
+            if ":" in cleaned:
+                citations.append(cleaned)
+    return citations
 
 
 def _infer_task_type(task: Any) -> str:
