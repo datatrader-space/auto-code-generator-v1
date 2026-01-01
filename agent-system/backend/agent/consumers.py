@@ -18,6 +18,7 @@ from agent.knowledge.crs_documentation import (
 )
 from llm.router import get_llm_router
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from agent.services.agent_runner import AgentRunner
 from agent.services.knowledge_agent import RepositoryKnowledgeAgent
 User = get_user_model()
@@ -655,49 +656,145 @@ class RepositoryChatConsumer(BaseChatConsumer):
         # Save user message
         await self.save_user_message(conversation, user_message)
 
+        # --- CREATE SESSION LOG ---
+        import uuid
+        import time
+        session_id = f"session_{uuid.uuid4().hex[:12]}"
+        session_start_time = time.time()
+        
+        session = await self._create_session_log(
+            session_id=session_id,
+            user_request=user_message,
+            conversation=conversation
+        )
+
         # --- INTENT CLASSIFICATION ---
         # Determine if this is a conversational request or an automated task
         intent = await self._classify_intent(user_message)
         logger.info(f"Classified intent for message: {intent}")
+        
+        # Update session with intent
+        await self._update_session_log(session, intent_classified_as=intent)
 
         if intent == 'TASK':
-            await self._handle_task_request(user_message, conversation)
+            await self._handle_task_request(user_message, conversation, session, session_start_time)
         else:
-            await self._handle_chat_request(user_message, conversation)
+            await self._handle_chat_request(user_message, conversation, session, session_start_time)
 
-    async def _handle_chat_request(self, user_message, conversation):
+    async def _handle_chat_request(self, user_message, conversation, session, session_start_time):
         """Handle standard conversational (RAG) request"""
-        # Get CRS context
-        context = await self.get_crs_context(user_message)
-
-        # Stream LLM response
-        await self.stream_llm_response(user_message, context, conversation)
-
-    async def _handle_task_request(self, user_message, conversation):
-        """Handle autonomous task request via Agent Runner"""
+        import time
+        
         try:
+            # Get CRS context
+            context = await self.get_crs_context(user_message)
+
+            # Track context retrieval
+            context_summary = {
+                'blueprints_found': len(context.get('blueprints', [])) if isinstance(context.get('blueprints'), list) else 0,
+                'artifacts_found': len(context.get('artifacts', [])) if isinstance(context.get('artifacts'), list) else 0,
+                'relationships_found': len(context.get('relationships', [])) if isinstance(context.get('relationships'), list) else 0,
+            }
+
+            # Stream LLM response
+            response_text = await self.stream_llm_response(user_message, context, conversation)
+            
+            # Complete session with captured data
+            duration_ms = int((time.time() - session_start_time) * 1000)
+            await self._update_session_log(
+                session,
+                status='success',
+                completed_at=timezone.now(),
+                duration_ms=duration_ms,
+                final_answer=response_text[:500] if response_text else None,  # First 500 chars
+                knowledge_context={
+                    **session.knowledge_context,
+                    'context_retrieved': context_summary
+                }
+            )
+        except Exception as e:
+            logger.error(f"Chat request failed: {e}", exc_info=True)
+            await self._update_session_log(
+                session,
+                status='failed',
+                error_message=str(e),
+                completed_at=timezone.now()
+            )
+            raise
+
+    async def _handle_task_request(self, user_message, conversation, session, session_start_time):
+        """Handle autonomous task request via Agent Runner"""
+        import time
+        
+        try:
+            # Update session type
+            await self._update_session_log(session, session_type='task')
+            
             await self.send_json({
                 'type': 'agent_event',
                 'event': 'session_start',
-                'data': {'status': 'planning', 'message': 'Handing over to Agent Runner...'}
+                'data': {'status': 'planning', 'message': 'Handing over to Agent Runner...', 'session_id': session.session_id}
             })
             
             # Execute Agent Runner in a thread (since it is synchronous)
             # We use the lazy-loaded self.agent_runner which has the socket_callback wired up
             await sync_to_async(self.agent_runner.run_session)(user_message)
             
+            # Complete session
+            duration_ms = int((time.time() - session_start_time) * 1000)
+            await self._update_session_log(
+                session,
+                status='success',
+                completed_at=timezone.now(),
+                duration_ms=duration_ms
+            )
+            
             await self.send_json({
                 'type': 'agent_event',
                 'event': 'session_complete',
-                'data': {'status': 'completed', 'message': 'Agent Runner finished.'}
+                'data': {'status': 'completed', 'message': 'Agent Runner finished.', 'session_id': session.session_id}
             })
 
         except Exception as e:
             logger.error(f"Agent Runner Execution Error: {e}", exc_info=True)
+            
+            await self._update_session_log(
+                session,
+                status='failed',
+                error_message=str(e),
+                completed_at=timezone.now()
+            )
+            
             await self.send_json({
                 'type': 'error',
                 'error': f"Agent Runner failed: {str(e)}"
             })
+
+    @database_sync_to_async
+    def _create_session_log(self, session_id, user_request, conversation):
+        """Create initial session log entry"""
+        from agent.models import AgentSession
+        
+        return AgentSession.objects.create(
+            session_id=session_id,
+            conversation=conversation,
+            repository=self.repository,
+            session_type='chat',  # Will be updated if it becomes a task
+            user_request=user_request,
+            status='running',
+            knowledge_context={
+                'architecture_style': self.repository.config.get('paradigm', 'unknown') if self.repository.config else 'unknown',
+                'domain': self.repository.config.get('domain', 'unknown') if self.repository.config else 'unknown',
+            }
+        )
+    
+    @database_sync_to_async
+    def _update_session_log(self, session, **kwargs):
+        """Update session log fields"""
+        for key, value in kwargs.items():
+            setattr(session, key, value)
+        session.save()
+        return session
 
     async def _classify_intent(self, user_message):
         """
