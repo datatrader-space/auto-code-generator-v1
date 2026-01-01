@@ -4,7 +4,7 @@ import ast
 import json
 import os
 from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from core.fs import WorkspaceFS
 
@@ -37,6 +37,8 @@ A_ADMIN_REGISTER = "admin_register"
 A_URLCONF = "django_urlconf"
 A_URL_PATTERN = "url_pattern"
 A_ROUTER_REGISTER = "router_register"
+A_CELERY_TASK = "celery_task"
+A_REDIS_CLIENT = "redis_client"
 
 
 # -----------------------------
@@ -151,8 +153,20 @@ def make_artifact_id(a_type: str, name: str, anchor: Dict[str, Any]) -> str:
 # -----------------------------
 # Extractors
 # -----------------------------
-def _is_django_model(bases: List[str]) -> bool:
-    return any(b in ("models.Model", "django.db.models.Model") or b.endswith(".models.Model") for b in bases)
+def _is_django_model(
+    bases: List[str],
+    model_module_aliases: Set[str],
+    model_class_aliases: Set[str],
+) -> bool:
+    for base in bases:
+        if base in ("models.Model", "django.db.models.Model") or base.endswith(".models.Model"):
+            return True
+        if base in model_class_aliases:
+            return True
+        for alias in model_module_aliases:
+            if base == f"{alias}.Model":
+                return True
+    return False
 
 
 def _is_drf_serializer(bases: List[str]) -> bool:
@@ -204,14 +218,27 @@ def _extract_meta_model_and_fields(class_node: ast.ClassDef) -> Tuple[Optional[s
     return meta_model, meta_fields
 
 
-def _extract_model_fields(class_node: ast.ClassDef) -> List[Dict[str, Any]]:
+def _extract_model_fields(
+    class_node: ast.ClassDef,
+    model_module_aliases: Set[str],
+    model_field_aliases: Set[str],
+) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for stmt in class_node.body:
         if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
             field_name = stmt.targets[0].id
             if isinstance(stmt.value, ast.Call):
                 callee = _get_full_attr_name(stmt.value.func)
-                if not callee or not callee.startswith("models."):
+                if not callee:
+                    continue
+
+                base = None
+                if "." in callee:
+                    base = callee.split(".", 1)[0]
+
+                is_module_field = base in model_module_aliases
+                is_direct_field = callee in model_field_aliases
+                if not (is_module_field or is_direct_field):
                     continue
 
                 is_field = callee.endswith("Field") or callee.endswith(("ForeignKey", "OneToOneField", "ManyToManyField"))
@@ -246,6 +273,124 @@ def _extract_model_fields(class_node: ast.ClassDef) -> List[Dict[str, Any]]:
                     }
                 )
     return out
+
+
+def _collect_import_aliases(tree: ast.Module) -> Dict[str, Set[str]]:
+    model_module_aliases: Set[str] = {"models"}
+    model_class_aliases: Set[str] = {"Model"}
+    model_field_aliases: Set[str] = set()
+    redis_module_aliases: Set[str] = {"redis"}
+    redis_class_aliases: Set[str] = {"Redis", "StrictRedis"}
+
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                name = alias.name
+                as_name = alias.asname or name.split(".")[-1]
+                if name in ("django.db.models", "django.db"):
+                    model_module_aliases.add(as_name)
+                if name == "redis":
+                    redis_module_aliases.add(as_name)
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == "django.db":
+                for alias in node.names:
+                    if alias.name == "models":
+                        model_module_aliases.add(alias.asname or alias.name)
+            if module == "django.db.models":
+                for alias in node.names:
+                    name = alias.name
+                    as_name = alias.asname or name
+                    if name == "Model":
+                        model_class_aliases.add(as_name)
+                    if name.endswith("Field") or name in ("ForeignKey", "OneToOneField", "ManyToManyField"):
+                        model_field_aliases.add(as_name)
+            if module == "redis":
+                for alias in node.names:
+                    name = alias.name
+                    as_name = alias.asname or name
+                    if name in ("Redis", "StrictRedis"):
+                        redis_class_aliases.add(as_name)
+
+    return {
+        "model_module_aliases": model_module_aliases,
+        "model_class_aliases": model_class_aliases,
+        "model_field_aliases": model_field_aliases,
+        "redis_module_aliases": redis_module_aliases,
+        "redis_class_aliases": redis_class_aliases,
+    }
+
+
+def _is_celery_task_decorator(name: Optional[str]) -> bool:
+    if not name:
+        return False
+    return name == "shared_task" or name.endswith(".shared_task") or name.endswith(".task")
+
+
+def _extract_celery_tasks(tree: ast.Module, file_path: str) -> List[Artifact]:
+    artifacts: List[Artifact] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for dec in node.decorator_list:
+                dec_name = None
+                if isinstance(dec, ast.Call):
+                    dec_name = _get_full_attr_name(dec.func)
+                else:
+                    dec_name = _get_full_attr_name(dec)
+                if _is_celery_task_decorator(dec_name):
+                    anchor = _anchor_for_node(file_path, node)
+                    artifacts.append(
+                        Artifact(
+                            artifact_id=make_artifact_id(A_CELERY_TASK, node.name, anchor),
+                            type=A_CELERY_TASK,
+                            name=node.name,
+                            file_path=file_path,
+                            anchor=anchor,
+                            confidence="probable",
+                            evidence=[{"anchor": anchor, "note": f"celery task decorator {dec_name}"}],
+                            meta={"decorator": dec_name},
+                        )
+                    )
+                    break
+    return artifacts
+
+
+def _extract_redis_clients(
+    tree: ast.Module,
+    file_path: str,
+    redis_module_aliases: Set[str],
+    redis_class_aliases: Set[str],
+) -> List[Artifact]:
+    artifacts: List[Artifact] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            callee = _get_full_attr_name(node.func)
+            if not callee:
+                continue
+            if callee in redis_class_aliases:
+                matched = callee
+            else:
+                base = callee.split(".", 1)[0]
+                if base not in redis_module_aliases:
+                    continue
+                if not callee.endswith((".Redis", ".StrictRedis")):
+                    continue
+                matched = callee
+
+            anchor = _anchor_for_node(file_path, node)
+            artifacts.append(
+                Artifact(
+                    artifact_id=make_artifact_id(A_REDIS_CLIENT, matched, anchor),
+                    type=A_REDIS_CLIENT,
+                    name=matched,
+                    file_path=file_path,
+                    anchor=anchor,
+                    confidence="probable",
+                    evidence=[{"anchor": anchor, "note": f"redis client instantiation {matched}"}],
+                    meta={"client": matched},
+                )
+            )
+    return artifacts
 
 
 def _extract_serializer_declared_fields(class_node: ast.ClassDef) -> List[Dict[str, Any]]:
@@ -501,8 +646,18 @@ def extract_artifacts_from_file(file_path: str, raw_text: str) -> List[Artifact]
         )
         return artifacts
 
+    aliases = _collect_import_aliases(tree)
     artifacts.extend(_extract_urlconf(tree, file_path)[0])
     artifacts.extend(_extract_admin(tree, file_path))
+    artifacts.extend(_extract_celery_tasks(tree, file_path))
+    artifacts.extend(
+        _extract_redis_clients(
+            tree,
+            file_path,
+            aliases["redis_module_aliases"],
+            aliases["redis_class_aliases"],
+        )
+    )
 
     for node in tree.body:
         if not isinstance(node, ast.ClassDef):
@@ -512,8 +667,16 @@ def extract_artifacts_from_file(file_path: str, raw_text: str) -> List[Artifact]
         bases = _bases_as_names(node)
         class_anchor = _anchor_for_node(file_path, node)
 
-        if _is_django_model(bases):
-            fields = _extract_model_fields(node)
+        if _is_django_model(
+            bases,
+            aliases["model_module_aliases"],
+            aliases["model_class_aliases"],
+        ):
+            fields = _extract_model_fields(
+                node,
+                aliases["model_module_aliases"],
+                aliases["model_field_aliases"],
+            )
 
             artifacts.append(
                 Artifact(

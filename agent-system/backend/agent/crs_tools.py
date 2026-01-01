@@ -83,7 +83,7 @@ You MUST output tool calls in this EXACT format:
 ### 2. LIST_ARTIFACTS
 - **Purpose**: Get complete inventory of code elements (DETERMINISTIC)
 - **Parameters**:
-  - `kind` (required): django_model | drf_serializer | drf_viewset | drf_apiview | url_pattern | admin_register
+  - `kind` (required): django_model | drf_serializer | drf_viewset | drf_apiview | url_pattern | admin_register | celery_task | redis_client
   - `filter` (optional): Text filter for names/paths
 - **Returns**: All artifacts of that type with file:line locations
 - **CRITICAL**: This is the ONLY correct way to answer "list all X" questions
@@ -290,7 +290,7 @@ You MUST output tool calls in this EXACT format:
         This is the ONLY correct way to answer "list all X" questions
         """
         if not kind:
-            return "❌ Missing 'kind' parameter. Valid kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register"
+            return "❌ Missing 'kind' parameter. Valid kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register, celery_task, redis_client"
 
         try:
             self.retriever._load_crs_data()
@@ -298,6 +298,11 @@ You MUST output tool calls in this EXACT format:
 
             # Filter by type
             filtered = [a for a in all_artifacts if a.get('type', '').lower() == kind.lower()]
+            if kind.lower() != "admin_register":
+                filtered = [
+                    a for a in filtered
+                    if "admin.py" not in (a.get("file_path") or a.get("file") or "").lower()
+                ]
 
             # Apply optional text filter
             if filter_text:
@@ -313,7 +318,7 @@ You MUST output tool calls in this EXACT format:
 
             result = [f"📋 **{kind.upper()} Inventory** ({len(filtered)} items)\n"]
 
-            for artifact in filtered[:50]:  # Limit to 50 for readability
+            for artifact in filtered[:200]:  # Limit to 200 for readability
                 name = artifact.get('name', 'unknown')
                 file_path = artifact.get('file_path', 'unknown')
                 anchor = artifact.get('anchor', {})
@@ -369,8 +374,8 @@ You MUST output tool calls in this EXACT format:
 
                 result.append("")
 
-            if len(filtered) > 50:
-                result.append(f"... and {len(filtered) - 50} more (showing first 50)")
+            if len(filtered) > 200:
+                result.append(f"... and {len(filtered) - 200} more (showing first 200)")
 
             return '\n'.join(result)
 
