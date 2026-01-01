@@ -985,13 +985,36 @@ def benchmark_list(request):
     return Response(serializer.data)
 
 
+def _derive_benchmark_execution_status(benchmark_run):
+    if benchmark_run.status == 'failed' or benchmark_run.error_message:
+        return 'failed'
+
+    report_metrics = benchmark_run.report_metrics or {}
+    summary_metrics = report_metrics.get('summary_metrics')
+    if isinstance(summary_metrics, dict):
+        metrics = summary_metrics
+    else:
+        metrics = report_metrics
+
+    total_cases = metrics.get('total_cases')
+    executed_cases = metrics.get('executed_cases')
+    if total_cases is None or executed_cases is None:
+        return 'completed' if benchmark_run.status == 'completed' else 'partial'
+    if total_cases == 0 or executed_cases == 0:
+        return 'dry_run'
+    if executed_cases < total_cases:
+        return 'partial'
+    return 'completed'
+
+
 @decorators.api_view(['GET'])
 @decorators.permission_classes([IsAuthenticated])
 def benchmark_status(request, run_id):
     benchmark_run = get_object_or_404(BenchmarkRun, run_id=run_id, user=request.user)
+    derived_status = _derive_benchmark_execution_status(benchmark_run)
     payload = {
         'run_id': str(benchmark_run.run_id),
-        'status': benchmark_run.status,
+        'status': derived_status,
         'current_phase': benchmark_run.current_phase,
         'progress': benchmark_run.progress,
         'started_at': benchmark_run.started_at.isoformat() if benchmark_run.started_at else None,
@@ -1006,17 +1029,19 @@ def benchmark_status(request, run_id):
 @decorators.permission_classes([IsAuthenticated])
 def benchmark_report(request, run_id):
     benchmark_run = get_object_or_404(BenchmarkRun, run_id=run_id, user=request.user)
-    if benchmark_run.status != 'completed':
+    derived_status = _derive_benchmark_execution_status(benchmark_run)
+    if derived_status == 'failed':
         return Response(
             {
-                'error': 'Benchmark run not completed',
-                'status': benchmark_run.status,
+                'error': 'Benchmark run failed',
+                'status': derived_status,
             },
             status=status.HTTP_409_CONFLICT,
         )
 
     payload = {
         'run_id': str(benchmark_run.run_id),
+        'status': derived_status,
         'report_metrics': benchmark_run.report_metrics,
         'report_artifacts': benchmark_run.report_artifacts,
         'report_output_path': benchmark_run.report_output_path,
