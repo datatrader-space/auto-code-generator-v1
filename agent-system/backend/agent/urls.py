@@ -15,8 +15,11 @@ from agent import auth_views
 router = DefaultRouter()
 router.register(r'systems', views.SystemViewSet, basename='system')
 router.register(r'conversations', views.ChatConversationViewSet, basename='conversation')
+router.register(r'sessions', views.AgentSessionViewSet, basename='agent-session')
 router.register(r'llm/providers', views.LLMProviderViewSet, basename='llm-provider')
 router.register(r'llm/models', views.LLMModelViewSet, basename='llm-model')
+router.register(r'benchmarks/runs', views.BenchmarkRunViewSet, basename='benchmark-run')
+router.register(r'benchmarks/reports', views.BenchmarkReportViewSet, basename='benchmark-report')
 
 # Nested routers for system resources
 systems_router = nested_routers.NestedDefaultRouter(
@@ -56,6 +59,14 @@ urlpatterns = [
 
     # LLM health
     path('llm/health/', views.llm_health, name='llm-health'),
+    path('llm/stats/', views.llm_stats, name='llm-stats'),
+
+    # Benchmarks
+    path('benchmarks/run', views.benchmark_run, name='benchmark-run'),
+    path('benchmarks', views.benchmark_list, name='benchmark-list'),
+    path('benchmarks/<uuid:run_id>/status', views.benchmark_status, name='benchmark-status'),
+    path('benchmarks/<uuid:run_id>/report', views.benchmark_report, name='benchmark-report'),
+    path('benchmarks/reports/<str:run_id>/download', views.benchmark_report_download, name='benchmark-report-download'),
 
     # Authentication endpoints
     path('auth/register', auth_views.register_user, name='auth-register'),

@@ -70,6 +70,19 @@ You MUST output tool calls in this EXACT format:
 ===END_TOOL_CALLS===
 ```
 
+**Example - Correct Workflow (Get Model Details):**
+```
+Step 1: List all models
+===TOOL_CALLS===
+[{"name":"LIST_ARTIFACTS","parameters":{"kind":"django_model"}}]
+===END_TOOL_CALLS===
+
+Step 2: Get details using the EXACT artifact_id from Step 1 output
+===TOOL_CALLS===
+[{"name":"GET_ARTIFACT","parameters":{"artifact_id":"django_model:Customer:customer/models.py:10-50"}}]
+===END_TOOL_CALLS===
+```
+
 ---
 
 ## Available Tools
@@ -83,7 +96,7 @@ You MUST output tool calls in this EXACT format:
 ### 2. LIST_ARTIFACTS
 - **Purpose**: Get complete inventory of code elements (DETERMINISTIC)
 - **Parameters**:
-  - `kind` (required): django_model | drf_serializer | drf_viewset | drf_apiview | url_pattern | admin_register
+  - `kind` (required): django_model | drf_serializer | drf_viewset | drf_apiview | url_pattern | admin_register | celery_task | redis_client | django_app_config | django_settings | requirement
   - `filter` (optional): Text filter for names/paths
 - **Returns**: All artifacts of that type with file:line locations
 - **CRITICAL**: This is the ONLY correct way to answer "list all X" questions
@@ -92,7 +105,13 @@ You MUST output tool calls in this EXACT format:
 - **Purpose**: Get full details of a specific artifact
 - **Parameters**:
   - `artifact_id` (required): Full artifact ID from LIST_ARTIFACTS or SEARCH_CRS
+    - Format: `type:name:file_path:start_line-end_line`
+    - Example: `django_model:Customer:customer/models.py:10-50`
+    - Example: `drf_viewset:CustomerViewSet:customer/views.py:100-200`
 - **Returns**: Complete artifact details, metadata, evidence
+- **CRITICAL**: You MUST use the exact `artifact_id` from LIST_ARTIFACTS/SEARCH_CRS output
+  - ❌ WRONG: `/customer/models.py#Customer` or `customer.models.Customer`
+  - ✅ CORRECT: `django_model:Customer:customer/models.py:10-50`
 
 ### 4. SEARCH_CRS
 - **Purpose**: Keyword search for code elements
@@ -130,55 +149,84 @@ You MUST output tool calls in this EXACT format:
 → Use CRS_RELATIONSHIPS
 
 **Always check CRS_STATUS first if data availability is uncertain**
+
+### 7. READ_REQUIREMENTS
+- **Purpose**: Read project requirements, specs, or PRD documents
+- **Parameters**: None
+- **Returns**: Content of requirements.md, specifications.md, etc.
+
+### 8. READ_DOCS
+- **Purpose**: Read generated documentation or usage guides
+- **Parameters**:
+  - `doc_type` (optional): "usage_guide" | "api_reference" | "summary"
+- **Returns**: Relevant documentation content
 """
 
     def parse_tool_calls(self, llm_response: str) -> List[Dict[str, Any]]:
         """
-        Parse tool calls from LLM response using strict JSON protocol
-
-        Expected format:
-        ===TOOL_CALLS===
-        [{"name":"LIST_ARTIFACTS","parameters":{"kind":"django_model"}}]
-        ===END_TOOL_CALLS===
+        Parse tool calls from LLM response using strict JSON protocol OR markdown blocks
+        
+        Supported formats:
+        1. Strict: ===TOOL_CALLS=== [...] ===END_TOOL_CALLS===
+        2. Markdown: ```json [...] ``` or ```json {...} ```
         """
-        # Look for delimited JSON block
+        tools = []
+        
+        # 1. Try strict parsing first
         pattern = r'===TOOL_CALLS===\s*(\[.*?\])\s*===END_TOOL_CALLS==='
         match = re.search(pattern, llm_response, re.DOTALL)
 
-        if not match:
-            logger.debug("No tool calls found in response (no ===TOOL_CALLS=== block)")
+        if match:
+            json_str = match.group(1).strip()
+            tools = self._parse_json_safe(json_str)
+        else:
+            # 2. Try markdown code blocks
+            # Look for JSON blocks
+            md_pattern = r'```json\s*(.*?)\s*```'
+            matches = re.findall(md_pattern, llm_response, re.DOTALL)
+            
+            for m in matches:
+                parsed_items = self._parse_json_safe(m)
+                if parsed_items:
+                    tools.extend(parsed_items)
+
+        if not tools:
+            logger.debug("No tool calls found in response")
             return []
 
-        json_str = match.group(1).strip()
+        # Validate structure
+        validated = []
+        for tool in tools:
+            if not isinstance(tool, dict):
+                continue
 
+            if 'name' not in tool:
+                continue
+
+            # Basic heuristic to avoid confusing normal JSON with tool calls
+            # Tool calls usually have "name" (req) and "parameters" (opt)
+            # If it has unexpected keys like "file_path" or "type" it might just be data
+            
+            validated.append({
+                'name': tool['name'].upper(),
+                'parameters': tool.get('parameters', {})
+            })
+
+        logger.info(f"Parsed {len(validated)} valid tool calls: {[t['name'] for t in validated]}")
+        return validated
+
+    def _parse_json_safe(self, json_str: str) -> List[Dict[str, Any]]:
+        """Helper to parse JSON string into a list of dicts"""
         try:
-            tools = json.loads(json_str)
-
-            if not isinstance(tools, list):
-                logger.error(f"Tool calls must be a JSON array, got: {type(tools)}")
-                return []
-
-            # Validate structure
-            validated = []
-            for tool in tools:
-                if not isinstance(tool, dict):
-                    logger.warning(f"Skipping non-dict tool call: {tool}")
-                    continue
-
-                if 'name' not in tool:
-                    logger.warning(f"Skipping tool call without 'name': {tool}")
-                    continue
-
-                validated.append({
-                    'name': tool['name'].upper(),
-                    'parameters': tool.get('parameters', {})
-                })
-
-            logger.info(f"Parsed {len(validated)} valid tool calls: {[t['name'] for t in validated]}")
-            return validated
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse tool calls JSON: {e}\nJSON string: {json_str}")
+            data = json.loads(json_str)
+            
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                # Handle single object case
+                return [data]
+            return []
+        except json.JSONDecodeError:
             return []
 
     def execute_tool(self, tool_name: str, parameters: Dict[str, str]) -> str:
@@ -214,6 +262,12 @@ You MUST output tool calls in this EXACT format:
                     start_line=int(parameters.get('start_line', '1')),
                     end_line=int(parameters.get('end_line', '100'))
                 )
+
+            elif tool_name == 'READ_REQUIREMENTS':
+                return self._read_requirements()
+
+            elif tool_name == 'READ_DOCS':
+                return self._read_docs(parameters.get('doc_type', 'summary'))
 
             else:
                 return f"❌ Unknown tool: {tool_name}"
@@ -255,7 +309,7 @@ You MUST output tool calls in this EXACT format:
         This is the ONLY correct way to answer "list all X" questions
         """
         if not kind:
-            return "❌ Missing 'kind' parameter. Valid kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register"
+            return "❌ Missing 'kind' parameter. Valid kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register, celery_task, redis_client, django_app_config, django_settings, requirement"
 
         try:
             self.retriever._load_crs_data()
@@ -263,6 +317,11 @@ You MUST output tool calls in this EXACT format:
 
             # Filter by type
             filtered = [a for a in all_artifacts if a.get('type', '').lower() == kind.lower()]
+            if kind.lower() != "admin_register":
+                filtered = [
+                    a for a in filtered
+                    if "admin.py" not in (a.get("file_path") or a.get("file") or "").lower()
+                ]
 
             # Apply optional text filter
             if filter_text:
@@ -278,7 +337,7 @@ You MUST output tool calls in this EXACT format:
 
             result = [f"📋 **{kind.upper()} Inventory** ({len(filtered)} items)\n"]
 
-            for artifact in filtered[:50]:  # Limit to 50 for readability
+            for artifact in filtered[:200]:  # Limit to 200 for readability
                 name = artifact.get('name', 'unknown')
                 file_path = artifact.get('file_path', 'unknown')
                 anchor = artifact.get('anchor', {})
@@ -334,8 +393,8 @@ You MUST output tool calls in this EXACT format:
 
                 result.append("")
 
-            if len(filtered) > 50:
-                result.append(f"... and {len(filtered) - 50} more (showing first 50)")
+            if len(filtered) > 200:
+                result.append(f"... and {len(filtered) - 200} more (showing first 200)")
 
             return '\n'.join(result)
 
@@ -565,3 +624,51 @@ You MUST output tool calls in this EXACT format:
         except Exception as e:
             logger.error(f"Read file error: {e}", exc_info=True)
             return f"❌ Error reading file: {str(e)}"
+
+    def _read_requirements(self) -> str:
+        """Find and read requirements/spec files"""
+        try:
+            if not self.repository.clone_path:
+                return "❌ Repository not cloned"
+
+            root = Path(self.repository.clone_path)
+            candidates = [
+                'requirements.md', 'REQUIREMENTS.md',
+                'spec.md', 'SPEC.md', 'specs.md',
+                'PRD.md', 'prd.md',
+                'README.md', 'readme.md' # Fallback
+            ]
+            
+            # Find first match
+            found_file = None
+            for fname in candidates:
+                fpath = root / fname
+                if fpath.exists() and fpath.is_file():
+                    found_file = fpath
+                    break
+            
+            if not found_file:
+                 # Try globbing
+                 match = next(root.glob('*req*.md'), None) or next(root.glob('*spec*.md'), None)
+                 if match:
+                     found_file = match
+
+            if not found_file:
+                return "❌ No requirements or specification files found in repository root."
+
+            content = found_file.read_text(encoding='utf-8', errors='ignore')
+            # Truncate if too huge
+            if len(content) > 20000:
+                content = content[:20000] + "\n... (truncated)"
+
+            return f"📄 **Requirements ({found_file.name})**\n\n{content}"
+
+        except Exception as e:
+            logger.error(f"Read requirements error: {e}")
+            return f"❌ Error reading requirements: {e}"
+
+    def _read_docs(self, doc_type: str) -> str:
+        """Read generated documentation"""
+        # For now, just a placeholder or list standard docs if they exist
+        # In future, this connects to the Knowledge Agent's generated docs
+        return "ℹ️ Generated documentation integration pending. Please read source files directly."

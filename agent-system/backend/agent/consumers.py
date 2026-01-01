@@ -4,11 +4,12 @@ WebSocket consumers for real-time chat
 
 import json
 import logging
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 
-from agent.models import Repository, System, ChatConversation, ChatMessage, LLMModel
+from agent.models import Repository, System, ChatConversation, ChatMessage, LLMModel, LLMRequestLog
 from agent.services.crs_context import CRSContext
 from agent.rag import CRSRetriever, ConversationMemory
 from agent.knowledge.crs_documentation import (
@@ -17,6 +18,9 @@ from agent.knowledge.crs_documentation import (
 )
 from llm.router import get_llm_router
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from agent.services.agent_runner import AgentRunner
+from agent.services.knowledge_agent import RepositoryKnowledgeAgent
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -104,6 +108,8 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             ('api view', 'drf_apiview'),
             ('apiview', 'drf_apiview'),
             ('url', 'url_pattern'),
+            ('route', 'url_pattern'),
+            ('endpoint', 'url_pattern'),
         ]
 
         # Check for inventory keywords
@@ -135,6 +141,10 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
         # If user is asking for inventory, call LIST_ARTIFACTS directly
         is_inventory, artifact_kind = self._detect_inventory_intent(user_message)
 
+        request_started = time.monotonic()
+        last_usage = None
+        model_info = {'provider': conversation.model_provider or 'local', 'model': None}
+
         if is_inventory and artifact_kind:
             logger.info(f"Server-side inventory routing: {artifact_kind}")
 
@@ -157,11 +167,19 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 })
 
                 # Let LLM format the answer
+                from llm.router import LLMConfig
                 router = await sync_to_async(get_llm_router)()
-                config = {
-                    'provider': conversation.model_provider or 'local'
-                }
+                
+                provider_type = conversation.model_provider or 'ollama'
+                config = LLMConfig(
+                    provider=provider_type,
+                    model=None, #/default
+                    base_url='http://localhost:11434', # Prevent NoneType error in Ollama client
+                    max_tokens=4000
+                )
+                
                 client = await sync_to_async(router.client_for_config)(config)
+                model_info = {'provider': provider_type, 'model': None}
 
                 # Simple prompt for formatting
                 format_messages = [
@@ -170,6 +188,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 ]
 
                 chunks = await sync_to_async(lambda: list(client.query_stream(format_messages)))()
+                last_usage = getattr(client, 'last_usage', None)
                 formatted_answer = ''.join(chunks)
 
                 for chunk in chunks:
@@ -189,11 +208,28 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                     context,
                     {'provider': config['provider']}
                 )
+                await self.create_llm_request_log(
+                    conversation=conversation,
+                    model_info=model_info,
+                    request_type='stream',
+                    status='success',
+                    latency_ms=self._calculate_latency_ms(request_started),
+                    usage=last_usage
+                )
 
                 logger.info(f"Server-side inventory routing succeeded for {artifact_kind}")
                 return
 
             except Exception as e:
+                """ await self.create_llm_request_log(
+                    conversation=conversation,
+                    model_info=model_info,
+                    request_type='stream',
+                    status='error',
+                    latency_ms=self._calculate_latency_ms(request_started),
+                    usage=last_usage,
+                    error=str(e)
+                ) """
                 logger.error(f"Server-side inventory routing failed: {e}")
                 # Fall through to normal tool loop
             finally:
@@ -212,10 +248,10 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
         if llm_config:
             config = llm_config['config']
             client = await sync_to_async(router.client_for_config)(config)
-            model_info = llm_config.get('model_info', {'provider': 'local'})
+            model_info = llm_config.get('model_info', {'provider': 'ollama'})
         else:
             # Fallback to basic config
-            config = {'provider': conversation.model_provider or 'local'}
+            config = {'provider': conversation.model_provider or 'ollama'}
             client = await sync_to_async(router.client_for_config)(config)
             model_info = {'provider': config['provider']}
 
@@ -235,25 +271,28 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             if llm_config:
                 config = llm_config['config']
                 client = router.client_for_config(config)
-                model_info = {
-                    'provider': llm_config['provider'],
-                    'model': llm_config['model']
-                }
+                # Removed redundant model_info block
             else:
-                client = router.local_client if conversation.model_provider == 'local' else router.cloud_client
-                model_info = {
-                    'provider': conversation.model_provider,
-                    'model': getattr(router.local_config if conversation.model_provider == 'local' else router.cloud_config, 'model', None)
-                }
-        
-            client = router.local_client if model_info['provider'] == 'local' else router.cloud_client
+                 # Standard router logic handled above
+                 pass
+            print(model_info)
+            # Removed hardcoded client overwrite logic
+            # client = router.local_client if model_info['provider'] == 'ollama' else router.cloud_client
 
             # Tool-calling loop
             for iteration in range(max_tool_iterations):
                 logger.info(f"Tool iteration {iteration + 1}/{max_tool_iterations}")
 
+                # FIX: Re-inject system reminder if history is getting long to prevent context drift
+                if iteration > 0:
+                     messages.append({
+                        'role': 'system', 
+                        'content': f"REMINDER: You are the code repository assistant. You just received tool results. Use them to answer the user's question: '{user_message}'.\n\nDO NOT simulate a conversation. DO NOT generate 'User:' or 'Assistant:' lines. Just provide the answer."
+                     })
+
                 # Get LLM response (still buffered for now, TODO: fix streaming)
                 chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
+                last_usage = getattr(client, 'last_usage', None) or last_usage
 
                 iteration_response = ""
                 for text_chunk in chunks:
@@ -264,6 +303,8 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                         'type': 'assistant_message_chunk',
                         'chunk': text_chunk
                     })
+                
+                logger.info(f"LLM Response (Iteration {iteration+1}): {iteration_response[:200]}...")
 
                 # Check for tool calls
                 tool_calls = crs_tools.parse_tool_calls(iteration_response)
@@ -328,10 +369,27 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 context,
                 model_info
             )
+            await self.create_llm_request_log(
+                conversation=conversation,
+                model_info=model_info,
+                request_type='stream',
+                status='success',
+                latency_ms=self._calculate_latency_ms(request_started),
+                usage=last_usage
+            )
 
             logger.info(f"Tool trace: {' -> '.join(debug_trace)}")
 
         except Exception as e:
+            """  await self.create_llm_request_log(
+                conversation=conversation,
+                model_info=model_info,
+                request_type='stream',
+                status='error',
+                latency_ms=self._calculate_latency_ms(request_started),
+                usage=last_usage,
+                error=str(e)
+            ) """
             logger.error(f"LLM streaming error: {e}", exc_info=True)
             await self.send_json({
                 'type': 'error',
@@ -344,6 +402,66 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 'type': 'assistant_typing',
                 'typing': False
             })
+
+    def _calculate_latency_ms(self, started_at):
+        if not started_at:
+            return None
+        return int((time.monotonic() - started_at) * 1000)
+
+    def _extract_token_counts(self, usage):
+        if not usage:
+            return {}
+        prompt_tokens = usage.get('prompt_tokens')
+        completion_tokens = usage.get('completion_tokens')
+        total_tokens = usage.get('total_tokens')
+        if prompt_tokens is None and 'input_tokens' in usage:
+            prompt_tokens = usage.get('input_tokens')
+        if completion_tokens is None and 'output_tokens' in usage:
+            completion_tokens = usage.get('output_tokens')
+        if total_tokens is None and 'total_tokens' in usage:
+            total_tokens = usage.get('total_tokens')
+        if total_tokens is None:
+            total_tokens = usage.get('totalTokenCount')
+        if prompt_tokens is None:
+            prompt_tokens = usage.get('promptTokenCount')
+        if completion_tokens is None:
+            completion_tokens = usage.get('candidatesTokenCount')
+        return {
+            'prompt_tokens': prompt_tokens,
+            'completion_tokens': completion_tokens,
+            'total_tokens': total_tokens
+        }
+
+    @database_sync_to_async
+    def create_llm_request_log(
+        self,
+        *,
+        conversation,
+        model_info,
+        request_type,
+        status,
+        latency_ms,
+        usage,
+        error=None
+    ):
+        token_counts = self._extract_token_counts(usage)
+        provider = model_info.get('provider') or 'unknown'
+        model = model_info.get('model') or ''
+        print(model_info)
+        return True
+        return LLMRequestLog.objects.create(
+            user=conversation.user,
+            conversation=conversation,
+            provider=provider,
+            model=model,
+            request_type=request_type,
+            status=status,
+            latency_ms=latency_ms,
+            prompt_tokens=token_counts.get('prompt_tokens'),
+            completion_tokens=token_counts.get('completion_tokens'),
+            total_tokens=token_counts.get('total_tokens'),
+            error=error or ''
+        )
 
     @database_sync_to_async
     def save_assistant_message(self, conversation, content, context_used, model_info):
@@ -425,7 +543,34 @@ class RepositoryChatConsumer(BaseChatConsumer):
             await self.close()
             return
 
+        # Initialize sub-agents
+        self._agent_runner = None
+        self._knowledge_agent = None
+
         await super().connect()
+
+    @property
+    def agent_runner(self):
+        """Lazy-load Agent Runner"""
+        if self._agent_runner is None:
+            from asgiref.sync import async_to_sync
+            
+            def socket_callback(event):
+                """Bridge synchronous agent execution to asynchronous WebSocket consumer"""
+                async_to_sync(self.send_json)(event)
+
+            self._agent_runner = AgentRunner(
+                repository=self.repository,
+                socket_callback=socket_callback
+            )
+        return self._agent_runner
+
+    @property
+    def knowledge_agent(self):
+        """Lazy-load Knowledge Agent"""
+        if self._knowledge_agent is None:
+            self._knowledge_agent = RepositoryKnowledgeAgent(self.repository)
+        return self._knowledge_agent
 
     @database_sync_to_async
     def get_repository(self):
@@ -477,7 +622,9 @@ class RepositoryChatConsumer(BaseChatConsumer):
         )
 
     async def handle_chat_message(self, data):
-        """Handle repository chat message"""
+        """
+        Handle repository chat message - Super Agent Router
+        """
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
         model_id = data.get('model_id')
@@ -509,19 +656,190 @@ class RepositoryChatConsumer(BaseChatConsumer):
         # Save user message
         await self.save_user_message(conversation, user_message)
 
-        # Get CRS context
-        context = await self.get_crs_context(user_message)
+        # --- CREATE SESSION LOG ---
+        import uuid
+        import time
+        session_id = f"session_{uuid.uuid4().hex[:12]}"
+        session_start_time = time.time()
+        
+        session = await self._create_session_log(
+            session_id=session_id,
+            user_request=user_message,
+            conversation=conversation
+        )
 
-        # Stream LLM response
-        await self.stream_llm_response(user_message, context, conversation)
+        # --- INTENT CLASSIFICATION ---
+        # Determine if this is a conversational request or an automated task
+        intent = await self._classify_intent(user_message)
+        logger.info(f"Classified intent for message: {intent}")
+        
+        # Update session with intent
+        await self._update_session_log(session, intent_classified_as=intent)
+
+        if intent == 'TASK':
+            await self._handle_task_request(user_message, conversation, session, session_start_time)
+        else:
+            await self._handle_chat_request(user_message, conversation, session, session_start_time)
+
+    async def _handle_chat_request(self, user_message, conversation, session, session_start_time):
+        """Handle standard conversational (RAG) request"""
+        import time
+        
+        try:
+            # Get CRS context
+            context = await self.get_crs_context(user_message)
+
+            # Track context retrieval
+            context_summary = {
+                'blueprints_found': len(context.get('blueprints', [])) if isinstance(context.get('blueprints'), list) else 0,
+                'artifacts_found': len(context.get('artifacts', [])) if isinstance(context.get('artifacts'), list) else 0,
+                'relationships_found': len(context.get('relationships', [])) if isinstance(context.get('relationships'), list) else 0,
+            }
+
+            # Stream LLM response
+            response_text = await self.stream_llm_response(user_message, context, conversation)
+            
+            # Complete session with captured data
+            duration_ms = int((time.time() - session_start_time) * 1000)
+            await self._update_session_log(
+                session,
+                status='success',
+                completed_at=timezone.now(),
+                duration_ms=duration_ms,
+                final_answer=response_text[:500] if response_text else None,  # First 500 chars
+                knowledge_context={
+                    **session.knowledge_context,
+                    'context_retrieved': context_summary
+                }
+            )
+        except Exception as e:
+            logger.error(f"Chat request failed: {e}", exc_info=True)
+            await self._update_session_log(
+                session,
+                status='failed',
+                error_message=str(e),
+                completed_at=timezone.now()
+            )
+            raise
+
+    async def _handle_task_request(self, user_message, conversation, session, session_start_time):
+        """Handle autonomous task request via Agent Runner"""
+        import time
+        
+        try:
+            # Update session type
+            await self._update_session_log(session, session_type='task')
+            
+            await self.send_json({
+                'type': 'agent_event',
+                'event': 'session_start',
+                'data': {'status': 'planning', 'message': 'Handing over to Agent Runner...', 'session_id': session.session_id}
+            })
+            
+            # Execute Agent Runner in a thread (since it is synchronous)
+            # We use the lazy-loaded self.agent_runner which has the socket_callback wired up
+            await sync_to_async(self.agent_runner.run_session)(user_message)
+            
+            # Complete session
+            duration_ms = int((time.time() - session_start_time) * 1000)
+            await self._update_session_log(
+                session,
+                status='success',
+                completed_at=timezone.now(),
+                duration_ms=duration_ms
+            )
+            
+            await self.send_json({
+                'type': 'agent_event',
+                'event': 'session_complete',
+                'data': {'status': 'completed', 'message': 'Agent Runner finished.', 'session_id': session.session_id}
+            })
+
+        except Exception as e:
+            logger.error(f"Agent Runner Execution Error: {e}", exc_info=True)
+            
+            await self._update_session_log(
+                session,
+                status='failed',
+                error_message=str(e),
+                completed_at=timezone.now()
+            )
+            
+            await self.send_json({
+                'type': 'error',
+                'error': f"Agent Runner failed: {str(e)}"
+            })
 
     @database_sync_to_async
-    def get_crs_context(self, query):
-        """
-        Get CRS context - tool-first approach
+    def _create_session_log(self, session_id, user_request, conversation):
+        """Create initial session log entry"""
+        from agent.models import AgentSession
+        
+        return AgentSession.objects.create(
+            session_id=session_id,
+            conversation=conversation,
+            repository=self.repository,
+            session_type='chat',  # Will be updated if it becomes a task
+            user_request=user_request,
+            status='running',
+            knowledge_context={
+                'architecture_style': self.repository.config.get('paradigm', 'unknown') if self.repository.config else 'unknown',
+                'domain': self.repository.config.get('domain', 'unknown') if self.repository.config else 'unknown',
+            }
+        )
+    
+    @database_sync_to_async
+    def _update_session_log(self, session, **kwargs):
+        """Update session log fields"""
+        for key, value in kwargs.items():
+            setattr(session, key, value)
+        session.save()
+        return session
 
-        No longer returns search blobs - tools handle data retrieval
-        Just checks if CRS is ready
+    async def _classify_intent(self, user_message):
+        """
+        Classify user intent: 'CHAT' vs 'TASK'
+        
+        Simple heuristic + fast LLM check.
+        """
+        # Fast heuristics
+        lower_msg = user_message.lower()
+        if any(w in lower_msg for w in ['create', 'implement', 'refactor', 'fix', 'change', 'update', 'delete', 'add']):
+            # Likely a task, but verify with LLM to avoid false positives on "How do I create..."
+            # For now, let's trust the router if configured, otherwise default to CHAT if ambiguous
+            pass
+
+        try:
+            # Use small/fast model for classification
+            router = get_llm_router()
+            
+            messages = [
+                {"role": "system", "content": "You are a classifier. Output ONLY valid JSON."},
+                {"role": "user", "content": f"""Classify this message into one of two categories:
+1. CHAT: The user is asking a question, asking for explanation, or general conversation.
+2. TASK: The user is explicitly asking for files to be created, modified, code to be written/refactored, or an action to be performed on the codebase.
+
+User message: "{user_message}"
+
+Output ONLY the JSON: {{"intent": "CHAT" | "TASK"}}"""}
+            ]
+            
+            response = router.query(messages, json_mode=True)
+            content = response.get('content', '')
+            
+            # Basic parsing
+            if '"intent": "TASK"' in content or "'intent': 'TASK'" in content:
+                return 'TASK'
+            return 'CHAT'
+
+        except Exception as e:
+            logger.warning(f"Intent classification failed: {e}. Defaulting to CHAT.")
+            return 'CHAT'
+
+    async def get_crs_context(self, query):
+        """
+        Get CRS context - tool-first approach (Enhanced for Super Agent)
+        Now explicitly checks for RepositoryKnowledgeAgent readiness.
         """
         from agent.services.crs_runner import get_crs_summary
 
@@ -529,8 +847,11 @@ class RepositoryChatConsumer(BaseChatConsumer):
             summary = get_crs_summary(self.repository)
 
             if summary.get('status') != 'ready':
+                # FIX: Do not block tools. Return partial context.
                 return {
-                    'status_message': f"CRS status: {summary.get('status', 'unknown')}. Analysis must complete first."
+                    'crs_ready': False,
+                    'status_message': f"Analysis incomplete ({summary.get('status', 'unknown')}). Semantic Search unavailable, but File Access is open.",
+                    'artifact_count': 0
                 }
 
             # CRS is ready - return minimal context
@@ -542,8 +863,11 @@ class RepositoryChatConsumer(BaseChatConsumer):
 
         except Exception as e:
             logger.warning(f"CRS context error: {e}")
+            # Even on error, allow file access if repo exists
             return {
-                'status_message': f"CRS not available: {str(e)}"
+                'crs_ready': False,
+                'status_message': f"CRS unavailable: {str(e)}. File Access only.",
+                'artifact_count': 0
             }
 
     async def build_llm_messages(self, conversation, user_message, context):
@@ -617,17 +941,28 @@ Examples of inventory questions:
 Now answer the user's question using the appropriate tools."""
 
         if status_message:
+            # FIX: Still provide tool access, but warn about search limitations
             system_prompt = f"""You are analyzing a code repository.
 
 CRS Status: {status_message}
 
-The CRS system is not ready yet. Please explain to the user that:
-1. CRS analysis must be run on this repository first
-2. They should wait for CRS to complete, then try again
-3. CRS provides structured code knowledge (blueprints, artifacts, relationships)
+# LIMITED MODE
+- Semantic Search (SEARCH_CRS, CRS_RELATIONSHIPS) is unavailable.
+- File Access (READ_FILE, LIST_ARTIFACTS) is AVAILABLE.
 
-Keep your response brief and helpful."""
+Please:
+1. Use `LIST_ARTIFACTS` to find files/models (best effort).
+2. Use `READ_FILE` to read code directly.
+3. Determine if you can answer based on file contents.
 
+---
+
+{tool_definitions}
+
+---
+
+Now answer the user's question using the available tools."""
+        
         messages = [
             {
                 'role': 'system',
@@ -1189,17 +1524,7 @@ class KnowledgeConsumer(AsyncWebsocketConsumer):
                 })
                 return
             
-            # Check if already extracting
-            if repository.knowledge_status == 'extracting' and not force:
-                await self.send_json({
-                    'type': 'error',
-                    'error': 'Knowledge extraction already in progress'
-                })
-                return
-            
-            # Update status
-            repository.knowledge_status = 'extracting'
-            await sync_to_async(repository.save)(update_fields=['knowledge_status'])
+            # Skip status check - fields don't exist
             
             # Create agent with socket callback
             def socket_callback(event):
@@ -1215,15 +1540,7 @@ class KnowledgeConsumer(AsyncWebsocketConsumer):
             # Run extraction
             result = await sync_to_async(knowledge_agent.analyze_repository)()
             
-            # Update repository
-            repository.knowledge_status = 'ready' if result.get('status') == 'success' else 'error'
-            repository.knowledge_last_extracted = timezone.now()
-            repository.knowledge_docs_count = result.get('docs_created', 0)
-            await sync_to_async(repository.save)(update_fields=[
-                'knowledge_status',
-                'knowledge_last_extracted',
-                'knowledge_docs_count'
-            ])
+            # No need to update repository fields since they don't exist
         
         except Exception as e:
             logger.error(f"Knowledge extraction failed: {e}", exc_info=True)
@@ -1343,10 +1660,14 @@ class AgentRunnerConsumer(AsyncWebsocketConsumer):
             session_id = f"session_{uuid.uuid4().hex[:12]}"
             
             # Create agent runner with socket callback
+            # Create agent runner with socket callback
+            from asgiref.sync import async_to_sync
+            
             def socket_callback(event):
                 """Callback to send events through WebSocket"""
-                import asyncio
-                asyncio.create_task(self.send_json(event))
+                # Since AgentRunner runs in a sync thread (via sync_to_async),
+                # we need to bridge back to the async consumer to send the message.
+                async_to_sync(self.send_json)(event)
             
             agent_runner = AgentRunner(
                 repository=repository,

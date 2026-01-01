@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LLMConfig:
     """LLM configuration"""
-    provider: Literal['ollama', 'anthropic', 'openai', 'gemini', 'custom']
+    provider: Literal['ollama', 'anthropic', 'openai']
     model: str
     base_url: Optional[str] = None
     api_key: Optional[str] = None
@@ -73,14 +73,6 @@ class LLMRouter:
                 max_tokens=4000,
                 temperature=0.7
             )
-        elif provider == 'gemini':
-            return LLMConfig(
-                provider='gemini',
-                model=os.getenv('GEMINI_MODEL', 'gemini-1.5-pro'),
-                api_key=os.getenv('GEMINI_API_KEY'),
-                max_tokens=4000,
-                temperature=0.7
-            )
         else:
             raise ValueError(f"Unknown cloud provider: {provider}")
     
@@ -96,9 +88,14 @@ class LLMRouter:
     def cloud_client(self):
         """Lazy-load cloud client"""
         if self._cloud_client is None:
-            self._cloud_client = self._build_client(self.cloud_config)
+            if self.cloud_config.provider == 'anthropic':
+                from llm.anthropic_client import AnthropicClient
+                self._cloud_client = AnthropicClient(self.cloud_config)
+            elif self.cloud_config.provider == 'openai':
+                from llm.openai_client import OpenAIClient
+                self._cloud_client = OpenAIClient(self.cloud_config)
         return self._cloud_client
-
+    
     def _build_client(self, config: LLMConfig):
         if config.provider == 'ollama':
             from llm.ollama import OllamaClient
@@ -129,7 +126,6 @@ class LLMRouter:
         if cache_key not in self._clients:
             self._clients[cache_key] = self._build_client(config)
         return self._clients[cache_key]
-    
     def query(
         self,
         messages: List[Dict[str, str]],

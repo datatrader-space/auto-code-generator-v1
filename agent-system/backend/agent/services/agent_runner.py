@@ -51,7 +51,19 @@ class AgentRunner:
         """Lazy-load WorkspaceFS"""
         if self._fs is None:
             from core.fs import WorkspaceFS
-            self._fs = WorkspaceFS(workspace_root=self.repository.crs_workspace_path)
+            from django.conf import settings
+            
+            # Compute CRS workspace path using same logic as crs_runner
+            repo_root = Path(settings.BASE_DIR).parents[1]
+            crs_workspace_path = (
+                repo_root / "crs_workspaces"
+                / str(self.repository.system.user_id)
+                / str(self.repository.system_id)
+                / f"{self.repository.name}_crs"
+            )
+            config_path = crs_workspace_path / 'config.json'
+            
+            self._fs = WorkspaceFS(config_path=str(config_path))
         return self._fs
 
     @property
@@ -239,72 +251,79 @@ class AgentRunner:
         # For now, create a simple plan based on keywords
         # In production, this would use LLM to generate sophisticated plans
 
-        request_lower = request.lower()
-        steps = []
+        # Use LLM to determine intent and plan
+        prompt = f"""
+        You are an autonomous coding agent. 
+        Determine the execution plan for this request: "{request}"
 
-        # Detect intent
-        if any(kw in request_lower for kw in ['list', 'show', 'what', 'find']):
-            # Query operation
-            steps.append({
-                'id': 'step_query',
+        Available Actions:
+        - QUERY: For questions about the codebase, "how to", "explain", "list files", "search".
+        - ANALYZE: For "analyze", "review", or understanding complex changes.
+        - PATCH: For "create", "add", "modify", "update", "change", "fix", "refactor". (Only if request is an imperative command to change code).
+        
+        If the request is "How do I modify X?", this is a QUERY (seeking instructions).
+        If the request is "Modify X", this is a PATCH (imperative action).
+
+        Return a VALID JSON object with keys: intent (QUERY|ANALYZE|PATCH), steps (array of objects {{id, action, description, params}}).
+        
+        Example QUERY:
+        {{
+            "intent": "QUERY",
+            "steps": [
+                {{ "id": "step_1", "action": "QUERY", "description": "Search for relevant artifacts", "params": {{ "query": "{request}" }} }}
+            ]
+        }}
+
+        Example PATCH:
+        {{
+            "intent": "PATCH",
+            "steps": [
+                {{ "id": "find_files", "action": "FIND", "description": "Locate relevant files" }},
+                {{ "id": "analyze_impact", "action": "IMPACT_ANALYSIS", "description": "Check dependencies", "depends_on": ["find_files"] }},
+                {{ "id": "apply_patch", "action": "PATCH", "description": "Apply changes", "depends_on": ["analyze_impact"] }},
+                {{ "id": "verify_fix", "action": "VERIFY", "description": "Run tests", "depends_on": ["apply_patch"] }}
+            ]
+        }}
+        
+        Output ONLY JSON.
+        """
+
+        try:
+            response = self._ask_llm(prompt)
+            # Parse JSON safely (using KnowledgeAgent-style robustness if available, or simple strip)
+            import json
+            import re
+            
+            cleaned = response.strip()
+            cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL).strip()
+            if "```" in cleaned:
+                match = re.search(r"```(?:json)?(.*?)```", cleaned, re.DOTALL)
+                if match: cleaned = match.group(1).strip()
+            
+            # Substring extraction fallback
+            if not (cleaned.startswith('{') or cleaned.startswith('[')):
+                start = cleaned.find('{')
+                end = cleaned.rfind('}')
+                if start != -1 and end != -1:
+                    cleaned = cleaned[start:end+1]
+
+            plan_data = json.loads(cleaned)
+            steps = plan_data.get('steps', [])
+            
+            # Fallback if no steps generated
+            if not steps:
+                if plan_data.get('intent') == 'QUERY':
+                     steps.append({ "id": "q1", "action": "QUERY", "description": "Query codebase", "params": { "query": request } })
+        
+        except Exception as e:
+            logger.error(f"LLM Planning failed: {e}")
+            # Fallback to Query
+            steps = [{
+                'id': 'fallback_query',
                 'action': 'QUERY',
-                'description': 'Query repository artifacts',
+                'description': 'Query repository artifacts (fallback)',
                 'params': {'query': request}
-            })
-
-        elif any(kw in request_lower for kw in ['add', 'create', 'implement']):
-            # Create operation
-            steps.append({
-                'id': 'step_analyze',
-                'action': 'ANALYZE',
-                'description': 'Analyze where to add new code'
-            })
-            steps.append({
-                'id': 'step_patch',
-                'action': 'PATCH',
-                'description': 'Apply code changes',
-                'depends_on': ['step_analyze']
-            })
-            steps.append({
-                'id': 'step_verify',
-                'action': 'VERIFY',
-                'description': 'Run verification suite',
-                'depends_on': ['step_patch']
-            })
-
-        elif any(kw in request_lower for kw in ['change', 'update', 'modify']):
-            # Update operation
-            steps.append({
-                'id': 'step_find',
-                'action': 'FIND',
-                'description': 'Find artifacts to modify'
-            })
-            steps.append({
-                'id': 'step_impact',
-                'action': 'IMPACT_ANALYSIS',
-                'description': 'Analyze change impact',
-                'depends_on': ['step_find']
-            })
-            steps.append({
-                'id': 'step_patch',
-                'action': 'PATCH',
-                'description': 'Apply changes',
-                'depends_on': ['step_impact']
-            })
-            steps.append({
-                'id': 'step_verify',
-                'action': 'VERIFY',
-                'description': 'Verify changes',
-                'depends_on': ['step_patch']
-            })
-
-        else:
-            # Default: analyze operation
-            steps.append({
-                'id': 'step_analyze',
-                'action': 'ANALYZE',
-                'description': 'Analyze request'
-            })
+            }]
 
         return {
             'steps': steps,
@@ -353,7 +372,7 @@ class AgentRunner:
         result = {'status': 'success', 'action': action}
 
         try:
-            if action == 'QUERY':
+            if action == 'QUERY' or action == 'SEARCH':
                 result['data'] = self._execute_query(step.get('params', {}))
 
             elif action == 'ANALYZE':
@@ -408,16 +427,84 @@ class AgentRunner:
 
             return error_result
 
-    def _execute_query(self, params: dict) -> Dict[str, Any]:
-        """Execute query operation"""
-        query = params.get('query', '')
+    def _ask_llm(self, prompt: str) -> str:
+        """Ask LLM a question"""
+        try:
+            from llm.router import get_llm_router
+            router = get_llm_router()
+            response = router.query(
+                messages=[
+                    {"role": "system", "content": "You are a helpful coding assistant. Answer the user's question based on the provided context."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response.get('content', '')
+        except Exception as e:
+            logger.error(f"LLM request failed: {e}")
+            return f"Error querying LLM: {str(e)}"
 
-        # Simple artifact search
-        artifacts = self.query_api.find_artifacts()
+    def _execute_query(self, params: dict) -> Dict[str, Any]:
+        """Execute query operation with RAG"""
+        query = params.get('query', '')
+        query_terms = query.lower().split()
+
+        # 1. Retrieve relevant artifacts
+        # We fetch a larger batch to perform client-side ranking
+        all_artifacts = self.query_api.find_artifacts(limit=1000)
+        
+        # 2. Rank artifacts based on relevance to query
+        scored_artifacts = []
+        for artifact in all_artifacts:
+            score = 0
+            text_content = (
+                f"{artifact.get('name', '')} "
+                f"{artifact.get('type', '')} "
+                f"{artifact.get('file_path', '')} "
+                f"{artifact.get('description', '')}"
+            ).lower()
+            
+            # Simple keyword matching
+            for term in query_terms:
+                if term in text_content:
+                    score += 1
+                # Bonus for exact name match
+                if term == artifact.get('name', '').lower():
+                    score += 3
+                    
+            # Bonus for specific types if query mentions them
+            a_type = artifact.get('type', '')
+            if 'route' in query or 'url' in query or 'api' in query:
+                if 'url' in a_type: score += 5  # Massive boost for URLs
+                if 'view' in a_type: score += 3
+            if 'model' in query and 'model' in a_type: score += 3
+            
+            scored_artifacts.append((score, artifact))
+            
+        # Sort by score desc, take top 50
+        scored_artifacts.sort(key=lambda x: x[0], reverse=True)
+        top_artifacts = [a for s, a in scored_artifacts[:200]]
+        
+        # 3. Contextualize
+        context = "\n".join([f"- {a.get('type')}: {a.get('name')} ({a.get('file_path') or a.get('file', 'unknown')})" for a in top_artifacts])
+        
+        prompt = f"""
+        Question: {query}
+        
+        Context (Codebase Artifacts):
+        {context[:30000]}  # Increased context size
+        
+        Answer the question concisely based on the context. 
+        If you see a ViewSet (e.g. AccountCreationJobViewSet) and a URL pattern (e.g. router.register), infer the connection even if the names aren't identical.
+        If the context is still insufficient, state clearly what is missing.
+        """
+        
+        # 4. Ask LLM
+        answer = self._ask_llm(prompt)
 
         return {
-            'artifacts_found': len(artifacts),
-            'artifacts': artifacts[:10]  # Return first 10
+            'artifacts_found': len(top_artifacts),
+            'answer': answer,
+            'artifacts': top_artifacts
         }
 
     def _execute_analyze(self, params: dict) -> Dict[str, Any]:
@@ -575,6 +662,9 @@ class AgentRunner:
             data = result.get('data', {})
 
             if action == 'QUERY':
+                answer = data.get('answer')
+                if answer:
+                    return f"Answer: {answer[:100]}..."
                 count = data.get('artifacts_found', 0)
                 return f"Found {count} artifacts"
 

@@ -8,8 +8,9 @@ from django.contrib.auth import get_user_model
 from agent.models import (
     System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory,
-    RepositoryReasoningTrace, SystemDocumentation,
-    ChatConversation, ChatMessage, LLMProvider, LLMModel
+    SystemDocumentation,
+    ChatConversation, ChatMessage, LLMProvider, LLMModel,
+    AgentSession, BenchmarkRun
 )
 
 User = get_user_model()
@@ -33,11 +34,11 @@ class SystemListSerializer(serializers.ModelSerializer):
     class Meta:
         model = System
         fields = [
-            'id', 'name', 'slug', 'description', 'status',
+            'id', 'name', 'description', 'status',
             'repositories_count', 'knowledge_count',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'slug', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_repositories_count(self, obj):
         return obj.repositories.count()
@@ -55,10 +56,9 @@ class RepositoryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Repository
         fields = [
-            'id', 'name', 'github_url', 'status', 'crs_status',
+            'id', 'name', 'github_url', 'status',
             'questions_count', 'questions_answered',
-            'artifacts_count', 'relationships_count',
-            'last_synced', 'created_at'
+            'last_synced_at', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
     
@@ -79,19 +79,17 @@ class RepositoryDetailSerializer(serializers.ModelSerializer):
         model = Repository
         fields = [
             'id', 'system', 'name', 'github_url', 'github_branch',
-            'clone_path', 'crs_workspace_path',
-            'status', 'error_message', 'crs_status',
+            'clone_path', 'local_path',
+            'status', 'error_message',
             'analysis', 'config',
-            'artifacts_count', 'relationships_count',
             'questions_count', 'questions_answered',
-            'last_synced', 'last_commit_sha', 'last_crs_run',
+            'last_synced_at', 'last_commit_sha',
             'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'id', 'clone_path', 'crs_workspace_path', 
+            'id', 'clone_path',
             'status', 'analysis', 'config',
-            'artifacts_count', 'relationships_count',
-            'last_crs_run', 'created_at', 'updated_at'
+            'created_at', 'updated_at'
         ]
     
     def get_questions_count(self, obj):
@@ -124,15 +122,13 @@ class SystemDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = System
         fields = [
-            'id', 'name', 'slug', 'description', 'status',
-            'workspace_path', 'system_spec_path',
+            'id', 'name', 'description', 'status',
             'intent_constraints',
             'repositories', 'knowledge_count',
             'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'id', 'slug', 'workspace_path', 'system_spec_path',
-            'created_at', 'updated_at'
+            'id', 'created_at', 'updated_at'
         ]
     
     def get_knowledge_count(self, obj):
@@ -155,13 +151,6 @@ class RepositoryQuestionSerializer(serializers.ModelSerializer):
         ]
 
 
-class RepositoryReasoningTraceSerializer(serializers.ModelSerializer):
-    """Repository reasoning trace serializer"""
-
-    class Meta:
-        model = RepositoryReasoningTrace
-        fields = ['id', 'stage', 'payload', 'created_at']
-        read_only_fields = ['id', 'created_at']
 
 
 class AnswerQuestionsSerializer(serializers.Serializer):
@@ -253,6 +242,57 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
+class BenchmarkRunSerializer(serializers.ModelSerializer):
+    system_name = serializers.CharField(source='system.name', read_only=True)
+
+    class Meta:
+        model = BenchmarkRun
+        fields = [
+            'run_id',
+            'system',
+            'system_name',
+            'selected_models',
+            'agent_modes',
+            'suite_definition',
+            'run_jsonl_path',
+            'context_trace_path',
+            'report_output_path',
+            'status',
+            'current_phase',
+            'progress',
+            'report_metrics',
+            'report_artifacts',
+            'error_message',
+            'created_at',
+            'started_at',
+            'completed_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'run_id',
+            'status',
+            'current_phase',
+            'progress',
+            'report_metrics',
+            'report_artifacts',
+            'error_message',
+            'created_at',
+            'started_at',
+            'completed_at',
+            'updated_at',
+        ]
+
+
+class BenchmarkRunCreateSerializer(serializers.Serializer):
+    system_id = serializers.IntegerField(required=False, allow_null=True)
+    selected_models = serializers.JSONField()
+    agent_modes = serializers.JSONField()
+    suite_definition = serializers.JSONField()
+    run_jsonl_path = serializers.CharField(required=False, allow_blank=True)
+    context_trace_path = serializers.CharField(required=False, allow_blank=True)
+    report_output_path = serializers.CharField(required=False, allow_blank=True)
+
+
 class AgentMemorySerializer(serializers.ModelSerializer):
     """Agent memory serializer"""
     
@@ -279,6 +319,18 @@ class LLMHealthSerializer(serializers.Serializer):
     
     local = serializers.DictField()
     cloud = serializers.DictField()
+
+
+class LLMStatsSerializer(serializers.Serializer):
+    """Serializer for LLM stats response"""
+
+    total_requests = serializers.IntegerField()
+    error_rate = serializers.FloatField()
+    avg_latency_ms = serializers.FloatField(allow_null=True)
+    top_provider_model = serializers.DictField(allow_null=True)
+    tokens_by_provider_model = serializers.ListField(child=serializers.DictField())
+    last_24h_trend = serializers.ListField(child=serializers.DictField())
+    recent_requests = serializers.ListField(child=serializers.DictField())
 
 
 class LLMProviderSerializer(serializers.ModelSerializer):
@@ -375,3 +427,45 @@ class ChatConversationListSerializer(serializers.ModelSerializer):
                 'created_at': last_msg.created_at
             }
         return None
+
+
+class AgentSessionSerializer(serializers.ModelSerializer):
+    """Agent session serializer for debugging and replay"""
+    
+    repository_name = serializers.CharField(source='repository.name', read_only=True)
+    conversation_title = serializers.CharField(source='conversation.title', read_only=True)
+    llm_model_name = serializers.CharField(source='llm_model_used.name', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = AgentSession
+        fields = [
+            'id', 'session_id', 'session_type', 'intent_classified_as',
+            'user_request', 'status', 'plan', 'steps',
+            'final_answer', 'artifacts_used', 'tools_called',
+            'duration_ms', 'error_message', 'knowledge_context',
+            'repository', 'repository_name',
+            'conversation', 'conversation_title',
+            'llm_model_used', 'llm_model_name',
+            'created_at', 'completed_at'
+        ]
+        read_only_fields = ['id', 'session_id', 'created_at', 'completed_at']
+
+
+class AgentSessionListSerializer(serializers.ModelSerializer):
+    """Agent session list serializer (minimal)"""
+    
+    repository_name = serializers.CharField(source='repository.name', read_only=True)
+    step_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AgentSession
+        fields = [
+            'id', 'session_id', 'session_type', 'status',
+            'user_request', 'duration_ms',
+            'repository', 'repository_name',
+            'step_count', 'created_at', 'completed_at'
+        ]
+        read_only_fields = ['id', 'session_id', 'created_at', 'completed_at']
+    
+    def get_step_count(self, obj):
+        return len(obj.steps) if obj.steps else 0

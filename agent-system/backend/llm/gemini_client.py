@@ -68,6 +68,12 @@ class GeminiClient:
             response.raise_for_status()
             data = response.json()
             content = data["candidates"][0]["content"]["parts"][0]["text"]
+            usage = data.get("usageMetadata", {})
+            self.last_usage = usage
+            return {
+                "content": content,
+                "usage": usage
+            self.last_usage = data.get("usageMetadata", {})
             return {
                 "content": content,
                 "usage": data.get("usageMetadata", {})
@@ -83,6 +89,7 @@ class GeminiClient:
         max_tokens: int = None,
         temperature: float = None
     ):
+        self.last_usage = None
         result = self.query(messages, json_mode=json_mode, max_tokens=max_tokens, temperature=temperature)
         yield result.get("content", "")
 

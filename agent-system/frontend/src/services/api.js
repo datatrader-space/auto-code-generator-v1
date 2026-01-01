@@ -109,6 +109,7 @@ export default {
   
   // LLM
   checkLLMHealth: () => api.get('/llm/health/'),
+  getLlmStats: () => api.get('/llm/stats/'),
   getLlmProviders: () => api.get('/llm/providers/'),
   createLlmProvider: (data) => api.post('/llm/providers/', data),
   updateLlmProvider: (id, data) => api.put(`/llm/providers/${id}/`, data),
@@ -141,5 +142,16 @@ export default {
   getCrsSummary: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/summary/`),
   getCrsBlueprints: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/blueprints/`),
   getCrsArtifacts: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/artifacts/`),
-  getCrsRelationships: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/relationships/`)
+  getCrsRelationships: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/relationships/`),
+
+  // Benchmarks
+  getBenchmarkReports: () => api.get('/benchmarks/reports/'),
+  getBenchmarkReport: (id) => api.get(`/benchmarks/reports/${id}/`),
+  createBenchmarkRun: (data) => api.post('/benchmarks/runs/', data),
+  getBenchmarkRun: (id) => api.get(`/benchmarks/runs/${id}/`),
+  getBenchmarkReportDownloadUrl: (id, filePath) => {
+    const base = api.defaults.baseURL || ''
+    const encoded = encodeURIComponent(filePath)
+    return `${base}/benchmarks/reports/${id}/download?file=${encoded}`
+  }
 }

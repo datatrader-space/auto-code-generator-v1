@@ -103,9 +103,6 @@ def _build_crs_workspace(repository: Repository) -> CRSWorkspacePaths:
     }
     config_path.write_text(json.dumps(config, indent=2))
 
-    if repository.crs_workspace_path != str(crs_workspace_root):
-        repository.crs_workspace_path = str(crs_workspace_root)
-        repository.save(update_fields=["crs_workspace_path"])
     print(config)
     return CRSWorkspacePaths(
         workspace_root=crs_workspace_root,
@@ -190,10 +187,6 @@ def get_crs_summary(repository: Repository) -> Dict[str, Any]:
 
     return {
         "status": repository.status,
-        "crs_status": repository.crs_status,
-        "last_crs_run": repository.last_crs_run,
-        "artifacts_count": repository.artifacts_count,
-        "relationships_count": repository.relationships_count,
         "blueprints_count": blueprints_payload.get("file_count", 0),
         "artifact_items": len(artifacts_payload.get("artifacts", [])) if artifacts_payload else 0,
         "relationship_items": len(relationships_payload.get("relationships", [])) if relationships_payload else 0,

@@ -136,6 +136,48 @@
       ]
     },
     {
+      "type": "celery_task",
+      "purpose": "Represents a Celery task function.",
+      "key_fields": [
+        "name",
+        "meta.decorator"
+      ]
+    },
+    {
+      "type": "redis_client",
+      "purpose": "Represents a Redis client instantiation.",
+      "key_fields": [
+        "name",
+        "meta.client"
+      ]
+    },
+    {
+      "type": "django_app_config",
+      "purpose": "Represents a Django AppConfig class.",
+      "key_fields": [
+        "name",
+        "meta.app_label",
+        "meta.verbose_name"
+      ]
+    },
+    {
+      "type": "django_settings",
+      "purpose": "Represents a Django settings assignment.",
+      "key_fields": [
+        "name",
+        "meta.setting",
+        "meta.value"
+      ]
+    },
+    {
+      "type": "requirement",
+      "purpose": "Represents a dependency entry in requirements files.",
+      "key_fields": [
+        "name",
+        "meta.raw"
+      ]
+    },
+    {
       "type": "parse_error",
       "purpose": "Represents a file parse error or missing file referenced by blueprint.",
       "key_fields": [
