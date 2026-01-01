@@ -356,10 +356,11 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 final_answer = iteration_response
                 logger.warning("Hit max tool iterations - using last response as final answer")
 
-            # Send completion with ONLY the final answer (no tool dumps)
+            # Send completion with final answer AND trace data
             await self.send_json({
                 'type': 'assistant_message_complete',
-                'full_message': final_answer
+                'full_message': final_answer,
+                'trace': debug_trace
             })
 
             # Save ONLY final answer to database (no tool results pollution)
