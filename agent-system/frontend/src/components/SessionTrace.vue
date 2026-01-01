@@ -1,165 +1,146 @@
 <template>
-  <div class="session-trace">
-    <!-- Loading -->
-    <div v-if="loading" class="text-center py-8">
-      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      <p class="mt-2 text-sm text-gray-600">Loading sessions...</p>
+  <div class="session-trace-viewer">
+    <div class="header">
+      <h2>Agent Session Traces</h2>
+      <div class="filters">
+        <select v-model="filterType" @change="loadSessions" class="filter-select">
+          <option value="">All Types</option>
+          <option value="chat">Chat</option>
+          <option value="task">Task</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+        <select v-model="filterStatus" @change="loadSessions" class="filter-select">
+          <option value="">All Status</option>
+          <option value="success">Success</option>
+          <option value="failed">Failed</option>
+          <option value="running">Running</option>
+        </select>
+        <button @click="loadSessions" class="refresh-btn">🔄 Refresh</button>
+      </div>
     </div>
 
-    <!-- Sessions List -->
-    <div v-else-if="sessions.length > 0" class="space-y-4">
-      <div
-        v-for="session in sessions"
-        :key="session.id"
-        class="border rounded-lg overflow-hidden"
+    <div v-if="loading" class="loading">Loading sessions...</div>
+
+    <div v-else-if="sessions.length === 0" class="empty-state">
+      No sessions found. Send a message to create a session trace.
+    </div>
+
+    <div v-else class="sessions-list">
+      <div 
+        v-for="session in sessions" 
+        :key="session.id" 
+        class="session-card"
+        @click="viewDetails(session)"
       >
-        <!-- Session Header -->
-        <div
-          class="px-4 py-3 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100"
-          @click="toggleSession(session.id)"
-        >
-          <div class="flex-1">
-            <div class="flex items-center gap-2">
-              <span
-                class="px-2 py-1 text-xs font-medium rounded-full"
-                :class="{
-                  'bg-green-100 text-green-800': session.status === 'success',
-                  'bg-yellow-100 text-yellow-800': session.status === 'running',
-                  'bg-red-100 text-red-800': session.status === 'failed',
-                  'bg-gray-100 text-gray-800': session.status === 'cancelled'
-                }"
-              >
-                {{ session.status }}
-              </span>
-              <span
-                class="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800"
-              >
-                {{ session.session_type }}
-              </span>
-              <span class="text-sm text-gray-600">
-                {{ formatDate(session.created_at) }}
-              </span>
-              <span v-if="session.duration_ms" class="text-xs text-gray-500">
-                {{ session.duration_ms }}ms
-              </span>
-            </div>
-            <p class="text-sm text-gray-900 mt-1">
-              {{ session.user_request }}
-            </p>
-          </div>
-          <svg
-            class="w-5 h-5 text-gray-400 transition-transform"
-            :class="{ 'rotate-180': expandedSessions.has(session.id) }"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
+        <div class="session-header">
+          <span class="session-type" :class="session.session_type">
+            {{ session.session_type.toUpperCase() }}
+          </span>
+          <span class="session-status" :class="session.status">
+            {{ session.status }}
+          </span>
+          <span class="session-time">{{ formatTime(session.created_at) }}</span>
         </div>
 
-        <!-- Session Details -->
-        <div
-          v-if="expandedSessions.has(session.id)"
-          class="px-4 py-3 bg-white border-t"
-        >
-          <div class="space-y-3 text-sm">
-            <!-- Basic Info -->
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <span class="font-medium text-gray-700">Session ID:</span>
-                <span class="text-gray-600 ml-2 font-mono text-xs">{{ session.session_id }}</span>
-              </div>
-              <div>
-                <span class="font-medium text-gray-700">Intent:</span>
-                <span class="text-gray-600 ml-2">{{ session.intent_classified_as || 'N/A' }}</span>
-              </div>
-            </div>
+        <p class="user-request">{{ session.user_request }}</p>
 
-            <!-- LLM Model -->
-            <div v-if="session.llm_model_name">
-              <span class="font-medium text-gray-700">Model:</span>
-              <span class="text-gray-600 ml-2">{{ session.llm_model_name }}</span>
-            </div>
-
-            <!-- Error Message -->
-            <div v-if="session.error_message" class="mt-2">
-              <span class="font-medium text-red-700">Error:</span>
-              <pre class="mt-1 text-xs bg-red-50 p-2 rounded text-red-900 overflow-x-auto">{{ session.error_message }}</pre>
-            </div>
-
-            <!-- Final Answer -->
-            <div v-if="session.final_answer" class="mt-2">
-              <span class="font-medium text-gray-700">Answer:</span>
-              <div class="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded">
-                {{ session.final_answer }}
-              </div>
-            </div>
-
-            <!-- Knowledge Context -->
-            <div v-if="session.knowledge_context && Object.keys(session.knowledge_context).length > 0" class="mt-2">
-              <details class="cursor-pointer">
-                <summary class="font-medium text-gray-700 hover:text-gray-900">
-                  📚 Knowledge Context
-                </summary>
-                <pre class="mt-2 text-xs bg-gray-50 p-2 rounded overflow-x-auto">{{ JSON.stringify(session.knowledge_context, null, 2) }}</pre>
-              </details>
-            </div>
-
-            <!-- Tools Used -->
-            <div v-if="session.tools_used && session.tools_used.length > 0" class="mt-2">
-              <span class="font-medium text-gray-700">🔧 Tools Used:</span>
-              <div class="flex flex-wrap gap-1 mt-1">
-                <span
-                  v-for="(tool, idx) in session.tools_used"
-                  :key="idx"
-                  class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded"
-                >
-                  {{ tool }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Conversation Link -->
-            <div v-if="session.conversation_title" class="mt-2">
-              <span class="font-medium text-gray-700">Conversation:</span>
-              <span class="text-gray-600 ml-2">{{ session.conversation_title }}</span>
-            </div>
-          </div>
+        <div class="session-meta">
+          <span class="meta-item">⏱️ {{ session.duration_ms || 0 }}ms</span>
+          <span class="meta-item">🔧 {{ session.step_count || 0 }} steps</span>
+          <span class="meta-item">📦 {{ session.repository_name }}</span>
         </div>
       </div>
     </div>
 
-    <!-- Empty State -->
-    <div v-else class="text-center py-12">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-      </svg>
-      <p class="mt-2 text-sm text-gray-600">No agent sessions yet</p>
-      <p class="text-xs text-gray-500 mt-1">Sessions will appear here when you interact with the repository chat</p>
+    <!-- Detail Modal -->
+    <div v-if="selectedSession" class="modal-overlay" @click="closeDetails">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Session Details</h3>
+          <button @click="closeDetails" class="close-btn">✕</button>
+        </div>
+
+        <div class="session-details">
+          <div class="detail-section">
+            <h4>Session Info</h4>
+            <div class="detail-grid">
+              <div><strong>ID:</strong> {{ selectedSession.session_id }}</div>
+              <div><strong>Type:</strong> {{ selectedSession.session_type }}</div>
+              <div><strong>Status:</strong> {{ selectedSession.status }}</div>
+              <div><strong>Duration:</strong> {{ selectedSession.duration_ms }}ms</div>
+              <div><strong>Intent:</strong> {{ selectedSession.intent_classified_as || 'N/A' }}</div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Request</h4>
+            <p class="request-text">{{ selectedSession.user_request }}</p>
+          </div>
+
+          <div v-if="selectedSession.steps && selectedSession.steps.length" class="detail-section">
+            <h4>Execution Steps</h4>
+            <div v-for="(step, idx) in selectedSession.steps" :key="idx" class="step-item">
+              <span class="step-number">{{ idx + 1 }}</span>
+              <span class="step-action">{{ step.action }}</span>
+              <span class="step-status" :class="step.status">{{ step.status }}</span>
+              <span class="step-duration">{{ step.duration_ms }}ms</span>
+            </div>
+          </div>
+
+          <div v-if="selectedSession.tools_called && selectedSession.tools_called.length" class="detail-section">
+            <h4>Tools Called</h4>
+            <div class="tools-list">
+              <span v-for="tool in selectedSession.tools_called" :key="tool" class="tool-badge">
+                {{ tool }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="selectedSession.artifacts_used && selectedSession.artifacts_used.length" class="detail-section">
+            <h4>Artifacts Used</h4>
+            <div class="artifacts-list">
+              <code v-for="artifact in selectedSession.artifacts_used" :key="artifact" class="artifact-item">
+                {{ artifact }}
+              </code>
+            </div>
+          </div>
+
+          <div v-if="selectedSession.error_message" class="detail-section error-section">
+            <h4>Error</h4>
+            <pre class="error-message">{{ selectedSession.error_message }}</pre>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
-import api from '../services/api'
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
 
 const props = defineProps({
   repositoryId: {
     type: Number,
-    required: true
+    default: null
   }
 })
 
 const sessions = ref([])
+const selectedSession = ref(null)
 const loading = ref(false)
-const expandedSessions = ref(new Set())
+const filterType = ref('')
+const filterStatus = ref('')
 
 const loadSessions = async () => {
+  loading.value = true
   try {
-    loading.value = true
-    const response = await api.get(`/sessions/?repository=${props.repositoryId}`)
+    const params = {}
+    if (props.repositoryId) params.repository = props.repositoryId
+    if (filterType.value) params.session_type = filterType.value
+    if (filterStatus.value) params.status = filterStatus.value
+
+    const response = await axios.get('/api/sessions/', { params })
     sessions.value = response.data.results || response.data
   } catch (error) {
     console.error('Failed to load sessions:', error)
@@ -168,51 +149,344 @@ const loadSessions = async () => {
   }
 }
 
-const toggleSession = (sessionId) => {
-  if (expandedSessions.value.has(sessionId)) {
-    expandedSessions.value.delete(sessionId)
-  } else {
-    expandedSessions.value.add(sessionId)
+const viewDetails = async (session) => {
+  try {
+    const response = await axios.get(`/api/sessions/${session.id}/`)
+    selectedSession.value = response.data
+  } catch (error) {
+    console.error('Failed to load session details:', error)
   }
 }
 
-const formatDate = (dateString) => {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now - date
-  const diffMins = Math.floor(diffMs / 60000)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
-
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+const closeDetails = () => {
+  selectedSession.value = null
 }
 
-// Load on mount and when repository changes
-onMounted(() => {
-  loadSessions()
-})
+const formatTime = (timestamp) => {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now - date
+  
+  if (diff < 60000) return 'Just now'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+  return date.toLocaleDateString()
+}
 
-watch(() => props.repositoryId, () => {
-  loadSessions()
-})
+onMounted(loadSessions)
+
+// Auto-refresh every 10 seconds
+setInterval(loadSessions, 10000)
 </script>
 
 <style scoped>
-.session-trace {
-  @apply p-4;
-  max-height: 600px;
+.session-trace-viewer {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+.refresh-btn {
+  padding: 8px 16px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.refresh-btn:hover {
+  background: #2980b9;
+}
+
+.loading, .empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+}
+
+.sessions-list {
+  display: grid;
+  gap: 16px;
+}
+
+.session-card {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.session-card:hover {
+  border-color: #3498db;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.1);
+}
+
+.session-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.session-type {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.session-type.chat {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.session-type.task {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.session-type.hybrid {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.session-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.session-status.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.session-status.failed {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.session-status.running {
+  background: #fff9c4;
+  color: #f57f17;
+}
+
+.session-time {
+  margin-left: auto;
+  font-size: 12px;
+  color: #95a5a6;
+}
+
+.user-request {
+  margin: 0 0 12px 0;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.session-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #95a5a6;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.close-btn:hover {
+  background: #f5f5f5;
+  color: #2c3e50;
+}
+
+.session-details {
+  padding: 20px;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section h4 {
+  margin: 0 0 12px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  font-size: 14px;
+}
+
+.request-text {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.step-number {
+  background: #3498db;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.step-action {
+  flex: 1;
+  font-weight: 500;
+}
+
+.step-duration {
+  color: #7f8c8d;
+  font-size: 12px;
+}
+
+.tools-list, .artifacts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tool-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.artifact-item {
+  display: block;
+  background: #f5f5f5;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.error-section {
+  background: #ffebee;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.error-message {
+  margin: 0;
+  color: #c62828;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>

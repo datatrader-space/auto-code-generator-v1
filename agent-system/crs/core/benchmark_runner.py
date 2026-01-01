@@ -82,7 +82,17 @@ class BenchmarkRunner:
                         "model_id": model_id,
                         "mode": mode,
                         "results": [],
-                        "metrics": {"success_rate": None, "avg_latency_ms": None, "total": 0},
+                        "metrics": {
+                            "success_rate": None,
+                            "avg_latency_ms": None,
+                            "total": 0,
+                            "scored": 0,
+                            "total_cases": 0,
+                            "executed_cases": 0,
+                            "skipped_cases": 0,
+                            "success_rate_executed": None,
+                            "avg_latency_ms_executed": None,
+                        },
                         "error": f"{type(exc).__name__}: {exc}",
                         "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     }
@@ -128,6 +138,7 @@ class BenchmarkRunner:
         successes = 0
         scored = 0
         latencies = []
+        executed_latencies = []
         total = 0
         for result in results:
             total += 1
@@ -135,16 +146,26 @@ class BenchmarkRunner:
                 scored += 1
                 if result.success:
                     successes += 1
+                if result.latency_ms is not None:
+                    executed_latencies.append(result.latency_ms)
             if result.latency_ms is not None:
                 latencies.append(result.latency_ms)
 
         success_rate = (successes / scored) if scored else None
         avg_latency = sum(latencies) / len(latencies) if latencies else None
+        avg_latency_executed = (
+            sum(executed_latencies) / len(executed_latencies) if executed_latencies else None
+        )
         return {
             "success_rate": success_rate,
             "avg_latency_ms": avg_latency,
             "total": total,
             "scored": scored,
+            "total_cases": total,
+            "executed_cases": scored,
+            "skipped_cases": total - scored,
+            "success_rate_executed": success_rate,
+            "avg_latency_ms_executed": avg_latency_executed,
         }
 
     def _aggregate_results(self, run_id: str, results_index: Dict[str, Dict[str, Dict[str, Any]]]) -> Dict[str, Any]:
@@ -154,6 +175,11 @@ class BenchmarkRunner:
             success_rates = []
             latencies = []
             total_results = 0
+            total_cases = 0
+            executed_cases = 0
+            skipped_cases = 0
+            executed_successes = 0.0
+            executed_latency_total = 0.0
             for mode, payload in mode_payloads.items():
                 metrics = payload.get("metrics", {})
                 mode_metrics[mode] = metrics
@@ -161,14 +187,39 @@ class BenchmarkRunner:
                     success_rates.append(metrics["success_rate"])
                 if metrics.get("avg_latency_ms") is not None:
                     latencies.append(metrics["avg_latency_ms"])
-                total_results += metrics.get("total", 0)
+                total_value = metrics.get("total_cases", metrics.get("total", 0))
+                executed_value = metrics.get("executed_cases", metrics.get("scored", 0))
+                skipped_value = metrics.get("skipped_cases", total_value - executed_value)
+                total_results += total_value
+                total_cases += total_value
+                executed_cases += executed_value
+                skipped_cases += skipped_value
+                success_rate_executed = metrics.get("success_rate_executed")
+                if success_rate_executed is None:
+                    success_rate_executed = metrics.get("success_rate")
+                if success_rate_executed is not None and executed_value:
+                    executed_successes += success_rate_executed * executed_value
+                avg_latency_executed = metrics.get("avg_latency_ms_executed")
+                if avg_latency_executed is not None and executed_value:
+                    executed_latency_total += avg_latency_executed * executed_value
 
             overall_score = sum(success_rates) / len(success_rates) if success_rates else None
             avg_latency = sum(latencies) / len(latencies) if latencies else None
+            success_rate_executed = (
+                (executed_successes / executed_cases) if executed_cases else None
+            )
+            avg_latency_ms_executed = (
+                (executed_latency_total / executed_cases) if executed_cases else None
+            )
             model_summaries[model_id] = {
                 "overall_score": overall_score,
                 "avg_latency_ms": avg_latency,
                 "total_results": total_results,
+                "total_cases": total_cases,
+                "executed_cases": executed_cases,
+                "skipped_cases": skipped_cases,
+                "success_rate_executed": success_rate_executed,
+                "avg_latency_ms_executed": avg_latency_ms_executed,
                 "mode_metrics": mode_metrics,
             }
 

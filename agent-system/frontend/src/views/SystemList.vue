@@ -192,11 +192,13 @@ const notify = inject('notify')
 
 const systems = ref([])
 const loading = ref(true)
-const llmStats = ref(null)
+
 const showCreateModal = ref(false)
 const creating = ref(false)
+
 const stats = ref(null)
 const statsLoading = ref(false)
+
 const newSystem = ref({
   name: '',
   description: ''
@@ -207,28 +209,24 @@ const loadSystems = async () => {
   try {
     loading.value = true
     const response = await api.getSystems()
-    systems.value = response.data.results || response.data
+    systems.value = response.data?.results || response.data || []
   } catch (error) {
-    notify('Failed to load systems', 'error')
+    notify?.('Failed to load systems', 'error')
     console.error(error)
   } finally {
     loading.value = false
   }
 }
 
-const loadLlmStats = async () => {
-  try {
-    const response = await api.getLlmStats()
-    llmStats.value = response.data
-  } catch (error) {
-    console.error('Failed to load LLM stats:', error)
+// Load LLM stats (single source of truth)
 const loadStats = async () => {
   try {
     statsLoading.value = true
     const response = await api.getLlmStats()
     stats.value = response.data
   } catch (error) {
-    console.error(error)
+    console.error('Failed to load LLM stats:', error)
+    stats.value = null
   } finally {
     statsLoading.value = false
   }
@@ -239,15 +237,14 @@ const createSystem = async () => {
   try {
     creating.value = true
     const response = await api.createSystem(newSystem.value)
-    
-    notify('System created successfully!', 'success')
+
+    notify?.('System created successfully!', 'success')
     showCreateModal.value = false
     newSystem.value = { name: '', description: '' }
-    
-    // Navigate to the new system
+
     router.push(`/systems/${response.data.id}`)
   } catch (error) {
-    notify('Failed to create system', 'error')
+    notify?.('Failed to create system', 'error')
     console.error(error)
   } finally {
     creating.value = false
@@ -259,43 +256,30 @@ const goToSystem = (id) => {
   router.push(`/systems/${id}`)
 }
 
-// Format date
+// Formatting helpers
 const formatDate = (dateString) => {
+  if (!dateString) return '—'
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
   })
 }
 
-const formatLatency = (value) => {
-  if (value === null || value === undefined) return '—'
-  return `${value} ms`
-}
-
-const formatErrorRate = (value) => {
-  if (value === null || value === undefined) return '—'
-  return `${(value * 100).toFixed(1)}%`
-}
-
-// Load on mount
-onMounted(() => {
-  loadSystems()
-  loadLlmStats()
 const formatPercent = (value) => {
-  if (value === null || value === undefined) return '--'
+  if (value === null || value === undefined) return '—'
   return `${(value * 100).toFixed(1)}%`
 }
 
 const formatLatency = (value) => {
-  if (value === null || value === undefined) return '--'
+  if (value === null || value === undefined) return '—'
   return `${Math.round(value)} ms`
 }
 
 const topProviderModel = computed(() => {
-  if (!stats.value || !stats.value.top_provider_model) return '—'
-  const top = stats.value.top_provider_model
+  const top = stats.value?.top_provider_model
+  if (!top) return '—'
   return [top.provider, top.model].filter(Boolean).join(' / ')
 })
 
