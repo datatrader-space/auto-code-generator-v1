@@ -59,6 +59,12 @@ urlpatterns = [
     path('llm/health/', views.llm_health, name='llm-health'),
     path('llm/stats/', views.llm_stats, name='llm-stats'),
 
+    # Benchmarks
+    path('benchmarks/run', views.benchmark_run, name='benchmark-run'),
+    path('benchmarks', views.benchmark_list, name='benchmark-list'),
+    path('benchmarks/<uuid:run_id>/status', views.benchmark_status, name='benchmark-status'),
+    path('benchmarks/<uuid:run_id>/report', views.benchmark_report, name='benchmark-report'),
+
     # Authentication endpoints
     path('auth/register', auth_views.register_user, name='auth-register'),
     path('auth/login', auth_views.login_user, name='auth-login'),

@@ -10,7 +10,7 @@ from agent.models import (
     SystemKnowledge, Task, AgentMemory,
     SystemDocumentation,
     ChatConversation, ChatMessage, LLMProvider, LLMModel,
-    AgentSession
+    AgentSession, BenchmarkRun
 )
 
 User = get_user_model()
@@ -240,6 +240,57 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Description cannot be empty")
         return value.strip()
+
+
+class BenchmarkRunSerializer(serializers.ModelSerializer):
+    system_name = serializers.CharField(source='system.name', read_only=True)
+
+    class Meta:
+        model = BenchmarkRun
+        fields = [
+            'run_id',
+            'system',
+            'system_name',
+            'selected_models',
+            'agent_modes',
+            'suite_definition',
+            'run_jsonl_path',
+            'context_trace_path',
+            'report_output_path',
+            'status',
+            'current_phase',
+            'progress',
+            'report_metrics',
+            'report_artifacts',
+            'error_message',
+            'created_at',
+            'started_at',
+            'completed_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'run_id',
+            'status',
+            'current_phase',
+            'progress',
+            'report_metrics',
+            'report_artifacts',
+            'error_message',
+            'created_at',
+            'started_at',
+            'completed_at',
+            'updated_at',
+        ]
+
+
+class BenchmarkRunCreateSerializer(serializers.Serializer):
+    system_id = serializers.IntegerField(required=False, allow_null=True)
+    selected_models = serializers.JSONField()
+    agent_modes = serializers.JSONField()
+    suite_definition = serializers.JSONField()
+    run_jsonl_path = serializers.CharField(required=False, allow_blank=True)
+    context_trace_path = serializers.CharField(required=False, allow_blank=True)
+    report_output_path = serializers.CharField(required=False, allow_blank=True)
 
 
 class AgentMemorySerializer(serializers.ModelSerializer):

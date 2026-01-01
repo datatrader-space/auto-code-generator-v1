@@ -650,3 +650,58 @@ class AgentSession(models.Model):
 
     def __str__(self):
         return f"{self.session_type.upper()} | {self.session_id} | {self.status}"
+
+
+class BenchmarkRun(models.Model):
+    """
+    Tracks benchmark runs for system/model/mode combinations.
+    """
+
+    STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+
+    run_id = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='benchmark_runs')
+    system = models.ForeignKey(
+        System,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='benchmark_runs'
+    )
+
+    selected_models = models.JSONField(default=list, blank=True)
+    agent_modes = models.JSONField(default=list, blank=True)
+    suite_definition = models.JSONField(default=dict, blank=True)
+
+    run_jsonl_path = models.CharField(max_length=500, blank=True)
+    context_trace_path = models.CharField(max_length=500, blank=True)
+    report_output_path = models.CharField(max_length=500, blank=True)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    current_phase = models.CharField(max_length=200, blank=True)
+    progress = models.IntegerField(default=0, help_text='Progress percent 0-100')
+
+    report_metrics = models.JSONField(default=dict, blank=True)
+    report_artifacts = models.JSONField(default=list, blank=True)
+
+    error_message = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'benchmark_runs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"BenchmarkRun {self.run_id} | {self.status}"

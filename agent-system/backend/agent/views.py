@@ -28,7 +28,9 @@ from agent.models import (
     SystemKnowledge, Task, AgentMemory,
     ChatConversation, ChatMessage,
     LLMProvider, LLMModel, LLMRequestLog,
-    SystemDocumentation, AgentSession,
+    SystemDocumentation,
+    BenchmarkRun,
+     AgentSession,
 )
 from agent.serializers import (
     SystemListSerializer, SystemDetailSerializer,
@@ -40,6 +42,7 @@ from agent.serializers import (
     ChatConversationListSerializer, ChatConversationSerializer,
     SystemDocumentationSerializer,
     LLMProviderSerializer, LLMModelSerializer,
+    BenchmarkRunSerializer, BenchmarkRunCreateSerializer,
     AgentSessionSerializer, AgentSessionListSerializer,
 )
 from agent.services.github_client import GitHubClient
@@ -935,6 +938,84 @@ class AgentMemoryViewSet(viewsets.ReadOnlyModelViewSet):
         return AgentMemory.objects.filter(system_id=system_id, system__user=self.request.user).order_by('-created_at')
 
 
+@decorators.api_view(['POST'])
+@decorators.permission_classes([IsAuthenticated])
+def benchmark_run(request):
+    serializer = BenchmarkRunCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    system = None
+    system_id = data.get('system_id')
+    if system_id is not None:
+        system = get_object_or_404(System, id=system_id, user=request.user)
+
+    benchmark_run = BenchmarkRun.objects.create(
+        user=request.user,
+        system=system,
+        selected_models=data['selected_models'],
+        agent_modes=data['agent_modes'],
+        suite_definition=data['suite_definition'],
+        run_jsonl_path=data.get('run_jsonl_path', ''),
+        context_trace_path=data.get('context_trace_path', ''),
+        report_output_path=data.get('report_output_path', ''),
+        status='running',
+        current_phase='queued',
+        progress=0,
+        started_at=timezone.now(),
+    )
+
+    response_serializer = BenchmarkRunSerializer(benchmark_run)
+    return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+@decorators.api_view(['GET'])
+@decorators.permission_classes([IsAuthenticated])
+def benchmark_list(request):
+    runs = BenchmarkRun.objects.filter(user=request.user).select_related('system').order_by('-created_at')
+    serializer = BenchmarkRunSerializer(runs, many=True)
+    return Response(serializer.data)
+
+
+@decorators.api_view(['GET'])
+@decorators.permission_classes([IsAuthenticated])
+def benchmark_status(request, run_id):
+    benchmark_run = get_object_or_404(BenchmarkRun, run_id=run_id, user=request.user)
+    payload = {
+        'run_id': str(benchmark_run.run_id),
+        'status': benchmark_run.status,
+        'current_phase': benchmark_run.current_phase,
+        'progress': benchmark_run.progress,
+        'started_at': benchmark_run.started_at.isoformat() if benchmark_run.started_at else None,
+        'completed_at': benchmark_run.completed_at.isoformat() if benchmark_run.completed_at else None,
+        'updated_at': benchmark_run.updated_at.isoformat() if benchmark_run.updated_at else None,
+        'error_message': benchmark_run.error_message,
+    }
+    return Response(payload)
+
+
+@decorators.api_view(['GET'])
+@decorators.permission_classes([IsAuthenticated])
+def benchmark_report(request, run_id):
+    benchmark_run = get_object_or_404(BenchmarkRun, run_id=run_id, user=request.user)
+    if benchmark_run.status != 'completed':
+        return Response(
+            {
+                'error': 'Benchmark run not completed',
+                'status': benchmark_run.status,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    payload = {
+        'run_id': str(benchmark_run.run_id),
+        'report_metrics': benchmark_run.report_metrics,
+        'report_artifacts': benchmark_run.report_artifacts,
+        'report_output_path': benchmark_run.report_output_path,
+    }
+    return Response(payload)
+
+
 @decorators.api_view(['GET'])
 @decorators.permission_classes([IsAuthenticated])
 def llm_health(request):
@@ -1060,6 +1141,7 @@ def api_root(request):
             'systems': '/api/systems/',
             'llm_health': '/api/llm/health/',
             'llm_stats': '/api/llm/stats/',
+            'benchmarks': '/api/benchmarks',
             'docs': '/api/docs/',
         }
     })
