@@ -80,9 +80,13 @@ const loadInitial = async () => {
       api.getBenchmarkReports()
     ])
 
-    systems.value = systemsResponse.data || []
-    models.value = modelsResponse.data || []
-    reports.value = reportsResponse.data || []
+    const systemsData = systemsResponse.data?.results || systemsResponse.data || []
+    const modelsData = modelsResponse.data?.results || modelsResponse.data || []
+    const reportsData = reportsResponse.data?.results || reportsResponse.data || []
+
+    systems.value = systemsData
+    models.value = modelsData
+    reports.value = reportsData
     lastUpdatedAt.value = new Date()
   } catch (error) {
     console.error('Failed to load benchmark data:', error)
@@ -130,7 +134,7 @@ const selectReport = async (id) => {
 const refreshReports = async () => {
   try {
     const response = await api.getBenchmarkReports()
-    reports.value = response.data || []
+    reports.value = response.data?.results || response.data || []
     lastUpdatedAt.value = new Date()
   } catch (error) {
     console.error('Failed to refresh reports:', error)
