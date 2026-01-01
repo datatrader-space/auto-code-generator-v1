@@ -39,6 +39,9 @@ A_URL_PATTERN = "url_pattern"
 A_ROUTER_REGISTER = "router_register"
 A_CELERY_TASK = "celery_task"
 A_REDIS_CLIENT = "redis_client"
+A_DJANGO_APP_CONFIG = "django_app_config"
+A_DJANGO_SETTINGS = "django_settings"
+A_REQUIREMENT = "requirement"
 
 
 # -----------------------------
@@ -169,6 +172,22 @@ def _is_django_model(
     return False
 
 
+def _is_django_app_config(
+    bases: List[str],
+    appconfig_module_aliases: Set[str],
+    appconfig_class_aliases: Set[str],
+) -> bool:
+    for base in bases:
+        if base in ("django.apps.AppConfig",):
+            return True
+        if base in appconfig_class_aliases:
+            return True
+        for alias in appconfig_module_aliases:
+            if base == f"{alias}.AppConfig":
+                return True
+    return False
+
+
 def _is_drf_serializer(bases: List[str]) -> bool:
     return any(
         b.startswith("serializers.") and b.endswith("Serializer")
@@ -279,6 +298,8 @@ def _collect_import_aliases(tree: ast.Module) -> Dict[str, Set[str]]:
     model_module_aliases: Set[str] = {"models"}
     model_class_aliases: Set[str] = {"Model"}
     model_field_aliases: Set[str] = set()
+    appconfig_module_aliases: Set[str] = {"apps"}
+    appconfig_class_aliases: Set[str] = {"AppConfig"}
     redis_module_aliases: Set[str] = {"redis"}
     redis_class_aliases: Set[str] = {"Redis", "StrictRedis"}
 
@@ -289,6 +310,8 @@ def _collect_import_aliases(tree: ast.Module) -> Dict[str, Set[str]]:
                 as_name = alias.asname or name.split(".")[-1]
                 if name in ("django.db.models", "django.db"):
                     model_module_aliases.add(as_name)
+                if name == "django.apps":
+                    appconfig_module_aliases.add(as_name)
                 if name == "redis":
                     redis_module_aliases.add(as_name)
         if isinstance(node, ast.ImportFrom):
@@ -297,6 +320,12 @@ def _collect_import_aliases(tree: ast.Module) -> Dict[str, Set[str]]:
                 for alias in node.names:
                     if alias.name == "models":
                         model_module_aliases.add(alias.asname or alias.name)
+            if module == "django.apps":
+                for alias in node.names:
+                    name = alias.name
+                    as_name = alias.asname or name
+                    if name == "AppConfig":
+                        appconfig_class_aliases.add(as_name)
             if module == "django.db.models":
                 for alias in node.names:
                     name = alias.name
@@ -316,6 +345,8 @@ def _collect_import_aliases(tree: ast.Module) -> Dict[str, Set[str]]:
         "model_module_aliases": model_module_aliases,
         "model_class_aliases": model_class_aliases,
         "model_field_aliases": model_field_aliases,
+        "appconfig_module_aliases": appconfig_module_aliases,
+        "appconfig_class_aliases": appconfig_class_aliases,
         "redis_module_aliases": redis_module_aliases,
         "redis_class_aliases": redis_class_aliases,
     }
@@ -390,6 +421,162 @@ def _extract_redis_clients(
                     meta={"client": matched},
                 )
             )
+    return artifacts
+
+
+def _extract_app_configs(
+    tree: ast.Module,
+    file_path: str,
+    appconfig_module_aliases: Set[str],
+    appconfig_class_aliases: Set[str],
+) -> List[Artifact]:
+    artifacts: List[Artifact] = []
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef):
+            continue
+        bases = _bases_as_names(node)
+        if not _is_django_app_config(bases, appconfig_module_aliases, appconfig_class_aliases):
+            continue
+        anchor = _anchor_for_node(file_path, node)
+        app_label = None
+        verbose_name = None
+        for stmt in node.body:
+            if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
+                key = stmt.targets[0].id
+                if key == "name":
+                    app_label = _const_str(stmt.value) or _get_full_attr_name(stmt.value)
+                if key == "verbose_name":
+                    verbose_name = _const_str(stmt.value)
+        artifacts.append(
+            Artifact(
+                artifact_id=make_artifact_id(A_DJANGO_APP_CONFIG, node.name, anchor),
+                type=A_DJANGO_APP_CONFIG,
+                name=node.name,
+                file_path=file_path,
+                anchor=anchor,
+                confidence="probable",
+                evidence=[{"anchor": anchor, "note": f"class {node.name} inherits from AppConfig"}],
+                meta={
+                    "bases": bases,
+                    "app_label": app_label,
+                    "verbose_name": verbose_name,
+                },
+            )
+        )
+    return artifacts
+
+
+def _node_repr(node: ast.AST) -> Optional[str]:
+    try:
+        return ast.unparse(node)
+    except Exception:
+        return None
+
+
+def _extract_settings_value(node: ast.AST) -> Any:
+    s = _const_str(node)
+    if s is not None:
+        return s
+    lst = _list_of_str(node)
+    if lst is not None:
+        return lst
+    if isinstance(node, ast.Dict):
+        keys: List[str] = []
+        for key in node.keys:
+            k = _const_str(key) if key is not None else None
+            if k:
+                keys.append(k)
+        if keys:
+            return {"keys": keys}
+    return _node_repr(node)
+
+
+def _extract_django_settings(tree: ast.Module, file_path: str) -> List[Artifact]:
+    if not file_path.endswith("settings.py"):
+        return []
+
+    tracked = {
+        "INSTALLED_APPS",
+        "MIDDLEWARE",
+        "AUTH_USER_MODEL",
+        "DATABASES",
+        "CACHES",
+        "TEMPLATES",
+        "REST_FRAMEWORK",
+        "CELERY_BROKER_URL",
+        "CELERY_RESULT_BACKEND",
+        "CELERY_TASK_ALWAYS_EAGER",
+    }
+
+    artifacts: List[Artifact] = []
+    for node in tree.body:
+        target = None
+        value_node = None
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            target = node.targets[0].id
+            value_node = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target = node.target.id
+            value_node = node.value
+
+        if not target or target not in tracked or value_node is None:
+            continue
+
+        anchor = _anchor_for_node(file_path, node)
+        artifacts.append(
+            Artifact(
+                artifact_id=make_artifact_id(A_DJANGO_SETTINGS, target, anchor),
+                type=A_DJANGO_SETTINGS,
+                name=target,
+                file_path=file_path,
+                anchor=anchor,
+                confidence="probable",
+                evidence=[{"anchor": anchor, "note": f"{target} setting assignment"}],
+                meta={"setting": target, "value": _extract_settings_value(value_node)},
+            )
+        )
+    return artifacts
+
+
+def _extract_requirements(file_path: str, raw_text: str) -> List[Artifact]:
+    if not (
+        file_path.endswith("requirements.txt")
+        or "/requirements/" in file_path.replace("\\", "/")
+        and file_path.endswith(".txt")
+    ):
+        return []
+
+    artifacts: List[Artifact] = []
+    for idx, line in enumerate(raw_text.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        name = stripped
+        for sep in ("==", ">=", "<=", "~=", ">", "<"):
+            if sep in name:
+                name = name.split(sep, 1)[0].strip()
+                break
+        if name.startswith("-"):
+            continue
+        anchor = {
+            "file_path": file_path,
+            "start_line": idx,
+            "start_col": 0,
+            "end_line": idx,
+            "end_col": 0,
+        }
+        artifacts.append(
+            Artifact(
+                artifact_id=make_artifact_id(A_REQUIREMENT, name or "requirement", anchor),
+                type=A_REQUIREMENT,
+                name=name or stripped,
+                file_path=file_path,
+                anchor=anchor,
+                confidence="probable",
+                evidence=[{"anchor": anchor, "note": "requirements entry"}],
+                meta={"raw": stripped},
+            )
+        )
     return artifacts
 
 
@@ -622,6 +809,10 @@ def _extract_admin(tree: ast.Module, file_path: str) -> List[Artifact]:
 def extract_artifacts_from_file(file_path: str, raw_text: str) -> List[Artifact]:
     artifacts: List[Artifact] = []
 
+    artifacts.extend(_extract_requirements(file_path, raw_text))
+    if artifacts:
+        return artifacts
+
     try:
         tree = ast.parse(raw_text)
     except SyntaxError as e:
@@ -658,6 +849,15 @@ def extract_artifacts_from_file(file_path: str, raw_text: str) -> List[Artifact]
             aliases["redis_class_aliases"],
         )
     )
+    artifacts.extend(
+        _extract_app_configs(
+            tree,
+            file_path,
+            aliases["appconfig_module_aliases"],
+            aliases["appconfig_class_aliases"],
+        )
+    )
+    artifacts.extend(_extract_django_settings(tree, file_path))
 
     for node in tree.body:
         if not isinstance(node, ast.ClassDef):

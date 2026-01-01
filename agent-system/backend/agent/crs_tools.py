@@ -83,7 +83,7 @@ You MUST output tool calls in this EXACT format:
 ### 2. LIST_ARTIFACTS
 - **Purpose**: Get complete inventory of code elements (DETERMINISTIC)
 - **Parameters**:
-  - `kind` (required): django_model | drf_serializer | drf_viewset | drf_apiview | url_pattern | admin_register | celery_task | redis_client
+  - `kind` (required): django_model | drf_serializer | drf_viewset | drf_apiview | url_pattern | admin_register | celery_task | redis_client | django_app_config | django_settings | requirement
   - `filter` (optional): Text filter for names/paths
 - **Returns**: All artifacts of that type with file:line locations
 - **CRITICAL**: This is the ONLY correct way to answer "list all X" questions
@@ -290,7 +290,7 @@ You MUST output tool calls in this EXACT format:
         This is the ONLY correct way to answer "list all X" questions
         """
         if not kind:
-            return "❌ Missing 'kind' parameter. Valid kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register, celery_task, redis_client"
+            return "❌ Missing 'kind' parameter. Valid kinds: django_model, drf_serializer, drf_viewset, drf_apiview, url_pattern, admin_register, celery_task, redis_client, django_app_config, django_settings, requirement"
 
         try:
             self.retriever._load_crs_data()
