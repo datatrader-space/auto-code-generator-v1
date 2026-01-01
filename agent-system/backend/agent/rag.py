@@ -24,19 +24,24 @@ class CRSRetriever:
 
     def _load_crs_data(self):
         """Load CRS data from JSON files"""
-        if self._blueprints is None and self.repository:
+        if not self.repository:
+            return
+
+        if self._blueprints is None:
             try:
                 self._blueprints = load_crs_payload(self.repository, "blueprints")
             except Exception as e:
                 logger.warning(f"Failed to load blueprints: {e}")
                 self._blueprints = {}
 
+        if self._artifacts is None:
             try:
                 self._artifacts = load_crs_payload(self.repository, "artifacts")
             except Exception as e:
                 logger.warning(f"Failed to load artifacts: {e}")
                 self._artifacts = {}
 
+        if self._relationships is None:
             try:
                 self._relationships = load_crs_payload(self.repository, "relationships")
             except Exception as e:
