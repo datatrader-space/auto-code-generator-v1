@@ -142,5 +142,11 @@ export default {
   getCrsSummary: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/summary/`),
   getCrsBlueprints: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/blueprints/`),
   getCrsArtifacts: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/artifacts/`),
-  getCrsRelationships: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/relationships/`)
+  getCrsRelationships: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/crs/relationships/`),
+
+  // Benchmarks
+  getBenchmarkReports: () => api.get('/benchmarks/reports/'),
+  getBenchmarkReport: (id) => api.get(`/benchmarks/reports/${id}/`),
+  createBenchmarkRun: (data) => api.post('/benchmarks/runs/', data),
+  getBenchmarkRun: (id) => api.get(`/benchmarks/runs/${id}/`)
 }
