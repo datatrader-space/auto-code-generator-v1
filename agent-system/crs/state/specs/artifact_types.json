@@ -136,6 +136,22 @@
       ]
     },
     {
+      "type": "celery_task",
+      "purpose": "Represents a Celery task function.",
+      "key_fields": [
+        "name",
+        "meta.decorator"
+      ]
+    },
+    {
+      "type": "redis_client",
+      "purpose": "Represents a Redis client instantiation.",
+      "key_fields": [
+        "name",
+        "meta.client"
+      ]
+    },
+    {
       "type": "parse_error",
       "purpose": "Represents a file parse error or missing file referenced by blueprint.",
       "key_fields": [
