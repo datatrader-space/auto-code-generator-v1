@@ -50,6 +50,12 @@ from agent.services.crs_runner import (
     run_crs_pipeline, load_crs_payload, get_crs_summary,
     run_crs_step, get_crs_step_status
 )
+from agent.services.benchmark_service import (
+    get_benchmark_report,
+    list_benchmark_reports,
+    load_benchmark_run,
+    run_benchmark,
+)
 from core.events import get_broadcaster
 from llm.router import get_llm_router
 
@@ -1164,6 +1170,74 @@ class LLMModelViewSet(viewsets.ModelViewSet):
         if provider.user_id != self.request.user.id:
             raise PermissionDenied("Provider does not belong to current user.")
         serializer.save()
+
+
+class BenchmarkRunViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request):
+        system_id = request.data.get("systemId") or request.data.get("system_id")
+        if not system_id:
+            return Response({"error": "systemId is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        model_ids = request.data.get("modelIds") or request.data.get("model_ids") or []
+        agent_modes = request.data.get("agentModes") or request.data.get("agent_modes") or []
+        task_types = request.data.get("taskTypes") or request.data.get("task_types") or []
+        suite_size = int(request.data.get("suiteSize") or request.data.get("suite_size") or 5)
+
+        system = get_object_or_404(System, id=system_id, user=request.user)
+        models = list(
+            LLMModel.objects.filter(
+                id__in=model_ids,
+                provider__user=request.user,
+            ).select_related("provider")
+        )
+
+        if not models:
+            return Response({"error": "No valid models selected."}, status=status.HTTP_400_BAD_REQUEST)
+
+        run_payload = run_benchmark(
+            system=system,
+            models=models,
+            agent_modes=agent_modes,
+            task_types=task_types,
+            suite_size=suite_size,
+            user=request.user,
+        )
+
+        return Response(
+            {
+                "id": run_payload.run_id,
+                "status": run_payload.status,
+                "started_at": run_payload.started_at,
+                "updated_at": run_payload.completed_at or run_payload.started_at,
+                "progress": 100 if run_payload.status == "completed" else 0,
+                "counts": run_payload.counts,
+                "summary": run_payload.summary,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def retrieve(self, request, pk=None):
+        try:
+            run_json = load_benchmark_run(request.user, pk)
+        except FileNotFoundError:
+            return Response({"error": "Benchmark run not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(run_json)
+
+
+class BenchmarkReportViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        return Response(list_benchmark_reports(request.user))
+
+    def retrieve(self, request, pk=None):
+        try:
+            report = get_benchmark_report(request.user, pk)
+        except FileNotFoundError:
+            return Response({"error": "Benchmark report not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(report)
 
 
 class AgentSessionViewSet(viewsets.ReadOnlyModelViewSet):
