@@ -1051,7 +1051,7 @@ const saveIntentConstraints = async () => {
 
 // Select repository
 const selectRepository = (repo) => {
-  console.log('Selected:', repo)
+  openCrsModal(repo)
 }
 
 // Load knowledge
