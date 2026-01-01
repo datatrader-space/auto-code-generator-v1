@@ -225,7 +225,6 @@ def _serialize_model(model: LLMModel) -> Dict[str, Any]:
     }
 
 
-def _build_report_payload(run_json: Dict[str, Any], summary_json: Dict[str, Any], run_dir: Path) -> Dict[str, Any]:
 def _build_report_payload(
     run_json: Dict[str, Any],
     summary_json: Dict[str, Any],
