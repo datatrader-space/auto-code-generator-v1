@@ -392,7 +392,7 @@ const sendMessage = () => {
     type: 'chat_message',
     message: messageText,
     conversation_id: conversationId.value,
-    model_id: selectedModelId.value
+    model_id: selectedModelId.value,
     message_id: messageId
   }))
 
@@ -459,7 +459,6 @@ watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) 
   selectedModelId.value = null
   await loadConversationHistory()
   await loadModels()
-  connectWebSocket()
   connectWebSocket(nextRepositoryId)
 })
 </script>
