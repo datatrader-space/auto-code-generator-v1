@@ -1,9 +1,10 @@
 import json
+import math
 import random
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 import sys
 
 from django.conf import settings
@@ -110,7 +111,7 @@ def list_benchmark_reports(user: User) -> List[Dict[str, Any]]:
         run_dir = Path(entry["run_dir"])
         run_json = _load_json(run_dir / "run.json")
         summary_json = _load_json(run_dir / "summary.json")
-        reports.append(_build_report_payload(run_json, summary_json))
+        reports.append(_build_report_payload(run_json, summary_json, run_dir))
     reports.sort(key=lambda item: item.get("created_at") or "", reverse=True)
     return reports
 
@@ -121,7 +122,7 @@ def get_benchmark_report(user: User, run_id: str) -> Dict[str, Any]:
         raise FileNotFoundError(f"Run {run_id} not found.")
     run_json = _load_json(run_dir / "run.json")
     summary_json = _load_json(run_dir / "summary.json")
-    return _build_report_payload(run_json, summary_json)
+    return _build_report_payload(run_json, summary_json, run_dir)
 
 
 def _build_task_suite(system: System, task_types: List[str], suite_size: int) -> List[BenchmarkTask]:
@@ -204,12 +205,20 @@ def _serialize_model(model: LLMModel) -> Dict[str, Any]:
     }
 
 
-def _build_report_payload(run_json: Dict[str, Any], summary_json: Dict[str, Any]) -> Dict[str, Any]:
+def _build_report_payload(
+    run_json: Dict[str, Any],
+    summary_json: Dict[str, Any],
+    run_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
     models = run_json.get("models", [])
     model_names = [model.get("name") or model.get("model_id") for model in models]
     modes = run_json.get("modes_by_model", {})
     task_types = [task.get("task_type") for task in run_json.get("task_suite", [])]
     summary_metrics = _summarize_scores(summary_json, run_json)
+    results_payloads = _load_results_payloads(run_dir)
+    task_index = {task.get("task_id"): task for task in run_json.get("task_suite", [])}
+    computed_metrics = _compute_report_metrics(results_payloads, task_index)
+    trace_links = _build_trace_links(run_dir, run_json.get("run_id"))
 
     return {
         "id": run_json.get("run_id"),
@@ -223,24 +232,20 @@ def _build_report_payload(run_json: Dict[str, Any], summary_json: Dict[str, Any]
         "agent_modes": sorted({mode for modes in modes.values() for mode in modes}),
         "task_summary": ", ".join(sorted(set(task_types))) if task_types else None,
         "task_types": sorted(set(task_types)),
-        "summary_metrics": summary_metrics,
+        "summary_metrics": {
+            **summary_metrics,
+            "latency": computed_metrics["latency_summary"],
+            "correctness": computed_metrics["correctness_summary"],
+            "grounding": computed_metrics["grounding_summary"],
+        },
         "model_ranking": summary_json.get("model_ranking", []),
         "crs_lag": summary_json.get("crs_lag", []),
-        "failure_taxonomy": {
-            "retrieval_misses": 0,
-            "representation_drift": 0,
-            "ambiguous_instructions": 0,
-        },
-        "write_verification": {
-            "verified": 0,
-            "failed_tests": 0,
-            "manual_review": 0,
-        },
-        "crs_backlog": {
-            "index_gaps": 0,
-            "prompt_updates": 0,
-            "workflow_changes": 0,
-        },
+        "failure_taxonomy": computed_metrics["failure_taxonomy"],
+        "write_verification": computed_metrics["write_verification"],
+        "crs_backlog": computed_metrics["crs_backlog"],
+        "lag_taxonomy": computed_metrics["lag_taxonomy"],
+        "chart_metrics": computed_metrics["chart_metrics"],
+        "trace_links": trace_links,
     }
 
 
@@ -254,6 +259,170 @@ def _summarize_scores(summary_json: Dict[str, Any], run_json: Dict[str, Any]) ->
         "read_success": None,
         "write_success": None,
     }
+
+
+def _load_results_payloads(run_dir: Optional[Path]) -> List[Dict[str, Any]]:
+    if not run_dir or not run_dir.exists():
+        return []
+    payloads = []
+    for path in run_dir.glob("**/results.json"):
+        payload = _load_json(path)
+        if payload:
+            payloads.append(payload)
+    return payloads
+
+
+def _percentile(values: List[float], percentile: float) -> Optional[float]:
+    if not values:
+        return None
+    values = sorted(values)
+    position = (len(values) - 1) * percentile
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return float(values[int(position)])
+    weight = position - lower
+    return float(values[lower] + (values[upper] - values[lower]) * weight)
+
+
+def _mean(values: Iterable[float]) -> Optional[float]:
+    values = list(values)
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _compute_report_metrics(
+    results_payloads: List[Dict[str, Any]],
+    task_index: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    all_results = []
+    failure_taxonomy = {
+        "retrieval_misses": 0,
+        "representation_drift": 0,
+        "ambiguous_instructions": 0,
+    }
+    write_verification = {
+        "verified": 0,
+        "failed_tests": 0,
+        "manual_review": 0,
+    }
+
+    for payload in results_payloads:
+        for result in payload.get("results", []):
+            all_results.append(result)
+            error_text = (result.get("error") or "").lower()
+            if "retrieval" in error_text:
+                failure_taxonomy["retrieval_misses"] += 1
+            if "representation" in error_text or "drift" in error_text:
+                failure_taxonomy["representation_drift"] += 1
+            if "ambiguous" in error_text:
+                failure_taxonomy["ambiguous_instructions"] += 1
+
+            task_info = task_index.get(result.get("task_id"))
+            if task_info and task_info.get("task_type") == "write":
+                success = result.get("success")
+                if success is True:
+                    write_verification["verified"] += 1
+                elif success is False:
+                    if "test" in error_text:
+                        write_verification["failed_tests"] += 1
+                    else:
+                        write_verification["manual_review"] += 1
+                else:
+                    write_verification["manual_review"] += 1
+
+    latencies = [result.get("latency_ms") for result in all_results if result.get("latency_ms") is not None]
+    scored = [result for result in all_results if result.get("success") is not None]
+    failures = [result for result in scored if result.get("success") is False or result.get("error")]
+
+    overall_error_rate = (len(failures) / len(scored)) if scored else None
+
+    per_task_breakdown = []
+    task_results: Dict[str, List[Dict[str, Any]]] = {}
+    for result in all_results:
+        task_results.setdefault(result.get("task_id"), []).append(result)
+
+    for task_id, results in task_results.items():
+        task_info = task_index.get(task_id, {})
+        task_latencies = [res.get("latency_ms") for res in results if res.get("latency_ms") is not None]
+        task_scored = [res for res in results if res.get("success") is not None]
+        task_failures = [res for res in task_scored if res.get("success") is False or res.get("error")]
+        per_task_breakdown.append(
+            {
+                "task_id": task_id,
+                "task_type": task_info.get("task_type"),
+                "task_pk": (task_info.get("metadata") or {}).get("task_pk"),
+                "total": len(results),
+                "scored": len(task_scored),
+                "success_rate": (len(task_scored) - len(task_failures)) / len(task_scored) if task_scored else None,
+                "error_rate": (len(task_failures) / len(task_scored)) if task_scored else None,
+                "latency_p50_ms": _percentile(task_latencies, 0.5),
+                "latency_p95_ms": _percentile(task_latencies, 0.95),
+            }
+        )
+
+    lag_taxonomy = [
+        {"tag": "retrieval", "count": failure_taxonomy["retrieval_misses"], "backlog_item": "index_gaps"},
+        {"tag": "representation", "count": failure_taxonomy["representation_drift"], "backlog_item": "prompt_updates"},
+        {"tag": "ambiguous", "count": failure_taxonomy["ambiguous_instructions"], "backlog_item": "workflow_changes"},
+    ]
+    crs_backlog = {
+        "index_gaps": failure_taxonomy["retrieval_misses"],
+        "prompt_updates": failure_taxonomy["representation_drift"],
+        "workflow_changes": failure_taxonomy["ambiguous_instructions"],
+    }
+
+    latency_summary = {
+        "p50_ms": _percentile(latencies, 0.5),
+        "p95_ms": _percentile(latencies, 0.95),
+        "avg_ms": _mean(latencies),
+    }
+    correctness_summary = {
+        "score": None,
+        "error_rate": overall_error_rate,
+    }
+    grounding_summary = {
+        "score": None,
+        "error_rate": overall_error_rate,
+    }
+
+    chart_metrics = {
+        "latency_ms": {
+            "p50": latency_summary["p50_ms"],
+            "p95": latency_summary["p95_ms"],
+            "avg": latency_summary["avg_ms"],
+        },
+        "error_rate": {
+            "overall": overall_error_rate,
+        },
+        "per_task_breakdown": per_task_breakdown,
+    }
+
+    return {
+        "latency_summary": latency_summary,
+        "correctness_summary": correctness_summary,
+        "grounding_summary": grounding_summary,
+        "failure_taxonomy": failure_taxonomy,
+        "write_verification": write_verification,
+        "crs_backlog": crs_backlog,
+        "lag_taxonomy": lag_taxonomy,
+        "chart_metrics": chart_metrics,
+    }
+
+
+def _build_trace_links(run_dir: Optional[Path], run_id: Optional[str]) -> List[Dict[str, Any]]:
+    if not run_dir or not run_dir.exists():
+        return []
+    trace_links = [
+        {"crs_id": run_id, "file_path": str(run_dir / "run.json"), "label": "run.json"},
+        {"crs_id": run_id, "file_path": str(run_dir / "summary.json"), "label": "summary.json"},
+    ]
+    for path in run_dir.glob("**/results.json"):
+        trace_links.append(
+            {"crs_id": run_id, "file_path": str(path), "label": "results.json"}
+        )
+    return trace_links
 
 
 def _derive_counts(summary_json: Dict[str, Any]) -> Dict[str, int]:
