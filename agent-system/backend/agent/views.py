@@ -748,6 +748,238 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         response.renderer_context = {}
         return response
 
+    # =========================================================================
+    # KNOWLEDGE AGENT ENDPOINTS
+    # =========================================================================
+
+    @decorators.action(detail=True, methods=['post'], url_path='knowledge/extract')
+    def extract_knowledge(self, request, pk=None, system_pk=None):
+        """
+        Trigger repository knowledge extraction
+
+        POST /api/systems/{system_id}/repositories/{repo_id}/knowledge/extract/
+        Body: {"force": false}
+
+        Analyzes CRS artifacts to build high-level understanding:
+        - Architecture patterns
+        - Domain models
+        - Coding conventions
+        - Design patterns
+        - Usage guides
+        """
+        repository = self.get_object()
+
+        # Check prerequisites
+        from agent.services.crs_runner import get_crs_summary
+        crs_summary = get_crs_summary(repository)
+
+        if crs_summary.get('status') != 'ready':
+            return Response({
+                'error': 'CRS must be ready before knowledge extraction',
+                'crs_status': crs_summary.get('status'),
+                'message': 'Please run CRS pipeline first'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        force = request.data.get('force', False)
+
+        # Check if already extracted and not forcing
+        if repository.knowledge_status == 'ready' and not force:
+            return Response({
+                'message': 'Knowledge already extracted',
+                'knowledge_status': repository.knowledge_status,
+                'last_extracted': repository.knowledge_last_extracted
+            })
+
+        try:
+            # Update status
+            repository.knowledge_status = 'extracting'
+            repository.save(update_fields=['knowledge_status'])
+
+            # Run extraction
+            from agent.services.knowledge_agent import RepositoryKnowledgeAgent
+            from django.utils import timezone
+
+            knowledge_agent = RepositoryKnowledgeAgent(repository=repository)
+            result = knowledge_agent.analyze_repository()
+
+            # Update repository
+            repository.knowledge_status = 'ready' if result.get('status') == 'success' else 'error'
+            repository.knowledge_last_extracted = timezone.now()
+            repository.knowledge_docs_count = result.get('docs_created', 0)
+            repository.save(update_fields=[
+                'knowledge_status',
+                'knowledge_last_extracted',
+                'knowledge_docs_count'
+            ])
+
+            return Response({
+                'status': 'success',
+                'knowledge_docs_created': result.get('docs_created'),
+                'duration_ms': result.get('duration_ms'),
+                'summary': result.get('summary')
+            })
+
+        except Exception as e:
+            logger.error(f"Knowledge extraction failed: {e}", exc_info=True)
+
+            repository.knowledge_status = 'error'
+            repository.save(update_fields=['knowledge_status'])
+
+            return Response({
+                'error': str(e),
+                'type': type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @decorators.action(detail=True, methods=['get'], url_path='knowledge/summary')
+    def knowledge_summary(self, request, pk=None, system_pk=None):
+        """
+        Get high-level knowledge summary
+
+        GET /api/systems/{system_id}/repositories/{repo_id}/knowledge/summary/
+
+        Returns repository profile and knowledge statistics
+        """
+        repository = self.get_object()
+
+        try:
+            from agent.services.knowledge_agent import RepositoryKnowledgeAgent
+
+            agent = RepositoryKnowledgeAgent(repository=repository)
+
+            # Get profile
+            profile = agent.spec_store.get_doc(kind='repository_profile', spec_id='main')
+
+            # Count docs by kind
+            docs_by_kind = {}
+            for doc in agent.spec_store.list_docs():
+                kind = doc.get('kind')
+                docs_by_kind[kind] = docs_by_kind.get(kind, 0) + 1
+
+            return Response({
+                'status': repository.knowledge_status,
+                'last_extracted': repository.knowledge_last_extracted,
+                'docs_count': repository.knowledge_docs_count,
+                'profile': profile,
+                'docs_by_kind': docs_by_kind,
+                'total_docs': sum(docs_by_kind.values())
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to get knowledge summary: {e}", exc_info=True)
+            return Response({
+                'error': str(e),
+                'type': type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @decorators.action(detail=True, methods=['get'], url_path='knowledge/docs')
+    def knowledge_docs(self, request, pk=None, system_pk=None):
+        """
+        List all knowledge documents
+
+        GET /api/systems/{system_id}/repositories/{repo_id}/knowledge/docs/
+        Query params: ?kind=<kind>
+
+        Returns list of knowledge documents, optionally filtered by kind
+        """
+        repository = self.get_object()
+        kind = request.query_params.get('kind')
+
+        try:
+            from agent.services.knowledge_agent import RepositoryKnowledgeAgent
+
+            agent = RepositoryKnowledgeAgent(repository=repository)
+            docs = agent.spec_store.list_docs(kind=kind)
+
+            return Response({
+                'docs': docs,
+                'count': len(docs),
+                'kind_filter': kind
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to list knowledge docs: {e}", exc_info=True)
+            return Response({
+                'error': str(e),
+                'type': type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @decorators.action(detail=True, methods=['get'], url_path='knowledge/docs/(?P<kind>[^/.]+)/(?P<spec_id>[^/.]+)')
+    def knowledge_doc_detail(self, request, pk=None, system_pk=None, kind=None, spec_id=None):
+        """
+        Get specific knowledge document
+
+        GET /api/systems/{system_id}/repositories/{repo_id}/knowledge/docs/{kind}/{spec_id}/
+
+        Returns detailed knowledge document
+        """
+        repository = self.get_object()
+
+        try:
+            from agent.services.knowledge_agent import RepositoryKnowledgeAgent
+
+            agent = RepositoryKnowledgeAgent(repository=repository)
+            doc = agent.spec_store.get_doc(kind=kind, spec_id=spec_id)
+
+            if not doc:
+                return Response({
+                    'error': f'Document not found: {kind}/{spec_id}'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            return Response(doc)
+
+        except Exception as e:
+            logger.error(f"Failed to get knowledge doc {kind}/{spec_id}: {e}", exc_info=True)
+            return Response({
+                'error': str(e),
+                'type': type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @decorators.action(detail=True, methods=['put'], url_path='knowledge/docs/(?P<kind>[^/.]+)/(?P<spec_id>[^/.]+)')
+    def update_knowledge_doc(self, request, pk=None, system_pk=None, kind=None, spec_id=None):
+        """
+        Update knowledge document (user edits)
+
+        PUT /api/systems/{system_id}/repositories/{repo_id}/knowledge/docs/{kind}/{spec_id}/
+        Body: <knowledge document JSON>
+
+        Allows users to edit and enhance knowledge documents
+        """
+        repository = self.get_object()
+
+        try:
+            from agent.services.knowledge_agent import RepositoryKnowledgeAgent
+
+            agent = RepositoryKnowledgeAgent(repository=repository)
+
+            # Validate payload
+            payload = request.data
+            if not isinstance(payload, dict):
+                return Response({
+                    'error': 'Payload must be a JSON object'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Add user edit provenance
+            payload.setdefault('provenance', {})
+            payload['provenance']['edited_by'] = request.user.username if request.user else 'anonymous'
+            payload['provenance']['edit_source'] = 'user_ui'
+            payload['provenance']['edited_at'] = timezone.now().isoformat()
+
+            # Update doc
+            updated_doc = agent.spec_store.upsert_doc(
+                kind=kind,
+                spec_id=spec_id,
+                payload=payload
+            )
+
+            return Response(updated_doc)
+
+        except Exception as e:
+            logger.error(f"Failed to update knowledge doc {kind}/{spec_id}: {e}", exc_info=True)
+            return Response({
+                'error': str(e),
+                'type': type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class SystemKnowledgeViewSet(viewsets.ReadOnlyModelViewSet):
     """
