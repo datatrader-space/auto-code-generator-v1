@@ -133,7 +133,8 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                     'provider': conversation.model_provider,
                     'model': getattr(router.local_config if conversation.model_provider == 'local' else router.cloud_config, 'model', None)
                 }
-            client = router.local_client if provider == 'local' else router.cloud_client
+        
+            client = router.local_client if model_info['provider'] == 'local' else router.cloud_client
 
             # Tool-calling loop
             for iteration in range(max_tool_iterations):
