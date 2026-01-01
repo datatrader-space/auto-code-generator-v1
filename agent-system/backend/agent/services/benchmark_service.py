@@ -101,8 +101,11 @@ def load_benchmark_run(user: User, run_id: str) -> Dict[str, Any]:
     run_json = _load_json(run_dir / "run.json")
     summary_json = _load_json(run_dir / "summary.json")
     run_json["summary"] = summary_json
-    run_json["counts"] = _derive_counts(summary_json)
-    run_json["progress"] = 100 if run_json.get("status") == "completed" else 0
+    counts = _derive_counts(summary_json)
+    run_json["counts"] = counts
+    total = counts.get("total", 0)
+    executed = counts.get("executed", 0)
+    run_json["progress"] = int(min(100, (executed / total) * 100)) if total else 0
     return run_json
 
 
@@ -709,16 +712,42 @@ def _build_trace_links(run_dir: Optional[Path], run_id: Optional[str]) -> List[D
 
 def _derive_counts(summary_json: Dict[str, Any]) -> Dict[str, int]:
     total = 0
-    succeeded = 0
-    failed = 0
+    executed = 0
+    skipped = 0
+    succeeded_estimate = 0.0
     for summary in summary_json.get("model_summaries", {}).values():
-        total += summary.get("total_results", 0)
+        mode_metrics = summary.get("mode_metrics", {})
+        if mode_metrics:
+            for metrics in mode_metrics.values():
+                total_cases = metrics.get("total_cases", metrics.get("total", 0))
+                executed_cases = metrics.get("executed_cases", metrics.get("scored", 0))
+                skipped_cases = metrics.get("skipped_cases", total_cases - executed_cases)
+                total += total_cases
+                executed += executed_cases
+                skipped += skipped_cases
+                success_rate = metrics.get("success_rate_executed", metrics.get("success_rate"))
+                if success_rate is not None and executed_cases:
+                    succeeded_estimate += success_rate * executed_cases
+        else:
+            total_cases = summary.get("total_cases", summary.get("total_results", 0))
+            executed_cases = summary.get("executed_cases", 0)
+            skipped_cases = summary.get("skipped_cases", total_cases - executed_cases)
+            total += total_cases
+            executed += executed_cases
+            skipped += skipped_cases
+            success_rate = summary.get("success_rate_executed")
+            if success_rate is not None and executed_cases:
+                succeeded_estimate += success_rate * executed_cases
+    succeeded = int(round(succeeded_estimate)) if executed else 0
+    failed = max(executed - succeeded, 0)
     return {
         "queued": 0,
         "running": 0,
         "succeeded": succeeded,
         "failed": failed,
         "total": total,
+        "executed": executed,
+        "skipped": skipped,
     }
 
 
