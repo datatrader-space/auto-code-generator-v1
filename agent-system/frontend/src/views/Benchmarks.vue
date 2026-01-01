@@ -23,6 +23,11 @@
 
     <RunStatus :run="activeRun" />
 
+    <BenchmarkDashboard
+      :active-runs="activeRuns"
+      :reports="reports"
+    />
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <ReportsList
         :reports="reports"
@@ -39,6 +44,7 @@ import { ref, onMounted, onUnmounted, inject, computed } from 'vue'
 import api from '../services/api'
 import RunConfig from '../components/benchmarks/RunConfig.vue'
 import RunStatus from '../components/benchmarks/RunStatus.vue'
+import BenchmarkDashboard from '../components/benchmarks/BenchmarkDashboard.vue'
 import ReportsList from '../components/benchmarks/ReportsList.vue'
 import ReportDetail from '../components/benchmarks/ReportDetail.vue'
 
@@ -168,6 +174,16 @@ const lastUpdated = computed(() => {
     return null
   }
   return lastUpdatedAt.value.toLocaleTimeString()
+})
+
+const activeRuns = computed(() => {
+  if (!activeRun.value) {
+    return []
+  }
+  if (['completed', 'failed'].includes(activeRun.value.status)) {
+    return []
+  }
+  return [activeRun.value]
 })
 
 onMounted(async () => {

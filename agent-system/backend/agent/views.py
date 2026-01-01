@@ -14,6 +14,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Avg, Count, Sum, Q
 from django.db.models.functions import TruncHour, Coalesce
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -54,6 +55,7 @@ from agent.services.crs_runner import (
     run_crs_step, get_crs_step_status
 )
 from agent.services.benchmark_service import (
+    get_benchmark_download,
     get_benchmark_report,
     list_benchmark_reports,
     load_benchmark_run,
@@ -1020,6 +1022,27 @@ def benchmark_report(request, run_id):
         'report_output_path': benchmark_run.report_output_path,
     }
     return Response(payload)
+
+
+@decorators.api_view(['GET'])
+@decorators.permission_classes([IsAuthenticated])
+def benchmark_report_download(request, run_id):
+    file_path = request.query_params.get('file')
+    if not file_path:
+        return Response({'error': 'file query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        artifact_path = get_benchmark_download(request.user, run_id, file_path)
+    except FileNotFoundError:
+        return Response({'error': 'Benchmark report or artifact not found.'}, status=status.HTTP_404_NOT_FOUND)
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return FileResponse(
+        open(artifact_path, 'rb'),
+        as_attachment=True,
+        filename=artifact_path.name,
+    )
 
 
 @decorators.api_view(['GET'])
