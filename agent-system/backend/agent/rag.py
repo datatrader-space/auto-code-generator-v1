@@ -79,6 +79,12 @@ class CRSRetriever:
         keywords = self._extract_keywords(query)
 
         artifacts = self._artifacts.get("artifacts", [])
+        query_lower = query.lower()
+        if "admin" not in query_lower:
+            artifacts = [
+                a for a in artifacts
+                if "admin.py" not in (a.get("file_path") or a.get("file") or "").lower()
+            ]
         logger.info(f"Searching {len(artifacts)} artifacts for keywords: {keywords}")
 
         # Special handling for "models" query - look for Django Model classes
@@ -87,7 +93,7 @@ class CRSRetriever:
             for artifact in artifacts:
                 artifact_type = artifact.get("type", "").lower()
                 name = artifact.get("name", "").lower()
-                file_path = artifact.get("file", "").lower()
+                file_path = (artifact.get("file_path") or artifact.get("file") or "").lower()
 
                 # Look for Model classes or models.py files
                 if (artifact_type == "class" and "model" in name) or "models.py" in file_path:
