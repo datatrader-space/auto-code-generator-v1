@@ -10,7 +10,7 @@ from rest_framework_nested import routers as nested_routers
 from agent import views
 from agent import oauth_views
 from agent import auth_views
-from agent.views import tool_views
+from agent.view_handlers import tool_views
 
 # Main router
 router = DefaultRouter()
