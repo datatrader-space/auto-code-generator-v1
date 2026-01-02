@@ -14,6 +14,7 @@ from typing import Dict, List, Any, Optional, Callable
 import time
 import logging
 import os
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,8 @@ class RepositoryKnowledgeAgent:
         """Lazy-load WorkspaceFS"""
         if self._fs is None:
             from core.fs import WorkspaceFS
-            self._fs = WorkspaceFS(workspace_root=self.repository.crs_workspace_path)
+            config_path = os.path.join(self.repository.crs_workspace_path, "config.json")
+            self._fs = WorkspaceFS(config_path=config_path)
         return self._fs
 
     @property
@@ -349,7 +351,7 @@ class RepositoryKnowledgeAgent:
         # Count artifact types
         artifact_counts = {}
         for artifact in artifacts:
-            kind = artifact.get('kind', 'unknown')
+            kind = artifact.get('type', 'unknown')
             artifact_counts[kind] = artifact_counts.get(kind, 0) + 1
 
         # Detect architecture components
@@ -393,9 +395,9 @@ class RepositoryKnowledgeAgent:
 
     def _detect_architectural_pattern(self, artifacts: list) -> str:
         """Detect architectural pattern"""
-        has_models = any(a.get('kind') == 'django_model' for a in artifacts)
-        has_serializers = any(a.get('kind') == 'drf_serializer' for a in artifacts)
-        has_views = any(a.get('kind') in ['drf_viewset', 'drf_apiview'] for a in artifacts)
+        has_models = any(a.get('type') == 'django_model' for a in artifacts)
+        has_serializers = any(a.get('type') == 'drf_serializer' for a in artifacts)
+        has_views = any(a.get('type') in ['drf_viewset', 'drf_apiview'] for a in artifacts)
 
         if has_models and has_serializers and has_views:
             return '3_tier_mvc'
@@ -407,7 +409,7 @@ class RepositoryKnowledgeAgent:
         model_names = [
             a.get('name', '').lower()
             for a in artifacts
-            if a.get('kind') == 'django_model'
+            if a.get('type') == 'django_model'
         ]
 
         model_text = ' '.join(model_names)
@@ -449,7 +451,7 @@ class RepositoryKnowledgeAgent:
 
     def _extract_domain_model(self) -> Dict[str, Any]:
         """Extract business logic understanding"""
-        models = self.query_api.find_artifacts(kind='django_model')
+        models = self.query_api.find_artifacts(type='django_model')
 
         entities = []
         relationships_map = {}
@@ -459,11 +461,14 @@ class RepositoryKnowledgeAgent:
             model_name = model.get('name')
 
             # Get relationships
-            outgoing = self.query_api.neighbors(model_id, direction='outgoing')
-            incoming = self.query_api.neighbors(model_id, direction='incoming')
+            outgoing_data = self.query_api.neighbors(model_id, direction='outgoing')
+            incoming_data = self.query_api.neighbors(model_id, direction='incoming')
+            
+            outgoing_rels = outgoing_data.get('relationships', [])
+            incoming_rels = incoming_data.get('relationships', [])
 
             # Determine entity role
-            role = self._determine_entity_role(model_name, outgoing, incoming)
+            role = self._determine_entity_role(model_name, outgoing_rels, incoming_rels)
 
             entities.append({
                 'name': model_name,
@@ -474,8 +479,8 @@ class RepositoryKnowledgeAgent:
             })
 
             relationships_map[model_name] = {
-                'outgoing': [{'type': r[0], 'target': r[1]} for r in outgoing[:10]],
-                'incoming': [{'type': r[0], 'source': r[1]} for r in incoming[:10]]
+                'outgoing': [{'type': r.get('type'), 'target': r.get('to', {}).get('name')} for r in outgoing_rels[:10]],
+                'incoming': [{'type': r.get('type'), 'source': r.get('from', {}).get('name')} for r in incoming_rels[:10]]
             }
 
         return {
@@ -512,102 +517,150 @@ class RepositoryKnowledgeAgent:
 
         return 'domain_entity'
 
+    # =========================================================================
+    # LLM ANALYSIS METHODS
+    # =========================================================================
+
+    def _analyze_with_llm(self, prompt: str, system_prompt: str = None) -> str:
+        """Analyze text with LLM"""
+        from llm.router import get_llm_router
+        router = get_llm_router()
+        
+        try:
+            response = router.query(
+                messages=[
+                    {"role": "system", "content": system_prompt or "You are a senior software architect analyzing a codebase."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2
+            )
+            content = response.get('content', '')
+            logger.info(f"LLM Response (len={len(content)}): {content[:200]}...")
+            return content
+        except Exception as e:
+            logger.error(f"LLM analysis failed: {e}")
+            return ""
+
+    def _parse_llm_json(self, response: str) -> Any:
+        """Parse JSON from LLM response safely"""
+        if not response:
+            return []
+            
+        try:
+            cleaned = response.strip()
+            
+            # Remove <think>...</think> blocks (greedy match to handle multiple lines)
+            import re
+            cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL).strip()
+            
+            # Remove markdown code blocks
+            if "```" in cleaned:
+                match = re.search(r"```(?:json)?(.*?)```", cleaned, re.DOTALL)
+                if match:
+                    cleaned = match.group(1).strip()
+            
+            # Fallback: Find first '[' or '{' and last ']' or '}'
+            if not (cleaned.startswith('{') or cleaned.startswith('[')):
+                start_marker = next((i for i, c in enumerate(cleaned) if c in '{['), -1)
+                end_marker = max(cleaned.rfind('}'), cleaned.rfind(']'))
+                
+                if start_marker != -1 and end_marker != -1 and end_marker > start_marker:
+                    cleaned = cleaned[start_marker:end_marker+1]
+
+            return json.loads(cleaned)
+        except Exception as e:
+            # Cleaned content logging for debugging
+            logger.error(f"Failed to parse LLM JSON: {e}")
+            logger.error(f"Response snippet: {response[:200]}")
+            return []
+
+    def _read_file_content(self, file_path: str, max_lines: int = 100) -> str:
+        """Read file content safely (partial)"""
+        try:
+            full_content = self.fs.read_text(file_path)
+            lines = full_content.splitlines()
+            return "\n".join(lines[:max_lines])
+        except Exception:
+            return ""
+
     def _detect_patterns(self) -> List[Dict[str, Any]]:
-        """Detect design patterns in the codebase"""
-        patterns = []
+        """Detect design patterns using LLM"""
+        artifacts = self.query_api.find_artifacts(limit=50)
+        artifact_list = "\n".join([f"- {a.get('type')}: {a.get('name')} ({a.get('file_path')})" for a in artifacts])
 
-        # For now, return empty list
-        # Would implement pattern detection heuristics here
+        prompt = f"""
+        Analyze the following list of codebase artifacts and identify architectural patterns.
+        
+        Artifacts:
+        {artifact_list}
 
-        return patterns
+        Return a VALID JSON array of objects with keys: id, name, description, probability (0-1).
+        Example: [{{ "id": "mvc", "name": "MVC", "description": "...", "probability": 0.9 }}]
+        Output ONLY JSON. Do not write any introduction or explanation.
+        """
+
+        response = self._analyze_with_llm(prompt)
+        return self._parse_llm_json(response) or []
 
     def _extract_conventions(self) -> List[Dict[str, Any]]:
-        """Extract coding conventions from existing code"""
+        """Extract coding conventions using LLM"""
         conventions = []
+        
+        # Get sample files
+        models = self.query_api.find_artifacts(type='django_model', limit=2)
+        views = self.query_api.find_artifacts(type='drf_viewset', limit=2)
+        
+        code_samples = ""
+        for m in models:
+            code_samples += f"\n--- File: {m.get('file_path')} ---\n"
+            code_samples += self._read_file_content(m.get('file_path'))
+            
+        for v in views:
+            code_samples += f"\n--- File: {v.get('file_path')} ---\n"
+            code_samples += self._read_file_content(v.get('file_path'))
 
-        # Model conventions
-        model_convention = self._analyze_model_conventions()
-        if model_convention:
-            conventions.append(model_convention)
+        if not code_samples:
+            return []
 
-        return conventions
+        prompt = f"""
+        Analyze the following code samples and identify coding conventions (naming, structure, docstrings).
+        
+        Code:
+        {code_samples}
 
-    def _analyze_model_conventions(self) -> Optional[Dict[str, Any]]:
-        """Analyze Django model conventions"""
-        models = self.query_api.find_artifacts(kind='django_model')
+        Return a VALID JSON array of objects with keys: id, name, description, examples (list of strings).
+        Example: [{{ "id": "snake_case_models", "name": "Snake Case Models", "description": "...", "examples": ["..."] }}]
+        Output ONLY JSON. Do not write any introduction or explanation.
+        """
 
-        if not models:
-            return None
-
-        return {
-            'id': 'model_conventions',
-            'spec_id': 'model_conventions',
-            'category': 'models',
-            'description': f'Django model conventions in {self.repository.name}',
-            'rules': [
-                {
-                    'name': 'model_count',
-                    'value': len(models),
-                    'description': f'Repository contains {len(models)} Django models'
-                }
-            ],
-            'examples': [
-                {
-                    'model': m.get('name'),
-                    'file': m.get('file'),
-                    'line': m.get('line')
-                } for m in models[:5]
-            ]
-        }
+        response = self._analyze_with_llm(prompt)
+        return self._parse_llm_json(response) or []
 
     def _generate_usage_guides(self) -> List[Dict[str, Any]]:
-        """Generate usage guides for common tasks"""
+        """Generate usage guides using LLM"""
+        # Heuristic fallback for essential guides
         guides = []
-
-        models = self.query_api.find_artifacts(kind='django_model')
-        serializers = self.query_api.find_artifacts(kind='drf_serializer')
-        viewsets = self.query_api.find_artifacts(kind='drf_viewset')
-
-        if models and serializers and viewsets:
-            guide = self._generate_add_api_guide(models[0], serializers[0], viewsets[0])
-            guides.append(guide)
-
+        
+        models = self.query_api.find_artifacts(type='django_model', limit=1)
+        if models:
+             prompt = f"""
+             Based on the Django model '{models[0].get('name')}', generate a step-by-step guide on "How to add a new API endpoint" for this project.
+             Assume standard Django REST Framework patterns.
+             
+             Return a VALID JSON object with keys: id, use_case, description, steps (array of {{ step, action, code }}).
+             Output ONLY JSON. Do not write any introduction or explanation.
+             """
+             response = self._analyze_with_llm(prompt)
+             guide = self._parse_llm_json(response)
+             
+             if guide:
+                if isinstance(guide, list) and guide:
+                     guide = guide[0] # Handle if LLM returned array
+                if isinstance(guide, dict):
+                    if 'id' not in guide: guide['id'] = 'add_api_endpoint'
+                    guides.append(guide)
+        
         return guides
-
-    def _generate_add_api_guide(self, example_model, example_serializer, example_viewset) -> Dict[str, Any]:
-        """Generate guide for adding a new model-backed API"""
-        return {
-            'id': 'add_new_model_backed_api',
-            'spec_id': 'add_new_model_backed_api',
-            'use_case': 'Creating a new model-backed REST API endpoint',
-            'description': 'Step-by-step guide based on existing patterns',
-            'steps': [
-                {
-                    'step': 1,
-                    'action': 'Create Django model',
-                    'location': '<app>/models.py',
-                    'example': f"{example_model.get('file')}:{example_model.get('line')}"
-                },
-                {
-                    'step': 2,
-                    'action': 'Create DRF serializer',
-                    'location': '<app>/serializers.py',
-                    'example': f"{example_serializer.get('file')}:{example_serializer.get('line')}"
-                },
-                {
-                    'step': 3,
-                    'action': 'Create ViewSet',
-                    'location': '<app>/views.py',
-                    'example': f"{example_viewset.get('file')}:{example_viewset.get('line')}"
-                },
-                {
-                    'step': 4,
-                    'action': 'Register router',
-                    'location': '<app>/urls.py',
-                    'code': "router.register(r'<resource>', <ViewSet>)"
-                }
-            ]
-        }
 
     def _determine_update_areas(self, changed_files: List[str]) -> List[str]:
         """Determine which knowledge areas need updating based on changed files"""

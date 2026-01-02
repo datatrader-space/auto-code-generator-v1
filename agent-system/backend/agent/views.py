@@ -131,6 +131,47 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         repository.save(update_fields=["clone_path", "last_commit_sha"])
         return repository.clone_path
 
+    @decorators.action(detail=True, methods=['get'])
+    def requirements(self, request, pk=None, system_pk=None):
+        """Get contents of requirements/spec files from the repository"""
+        repository = self.get_object()
+        
+        if not repository.clone_path or not os.path.exists(repository.clone_path):
+            return Response({'error': 'Repository not cloned'}, status=400)
+
+        root = Path(repository.clone_path)
+        candidates = [
+            'requirements.md', 'REQUIREMENTS.md',
+            'spec.md', 'SPEC.md', 'specs.md', 
+            'PRD.md', 'prd.md',
+            'README.md', 'readme.md'
+        ]
+        
+        found_file = None
+        for fname in candidates:
+            fpath = root / fname
+            if fpath.exists() and fpath.is_file():
+                found_file = fpath
+                break
+        
+        if not found_file:
+            # Glob search as fallback
+            match = next(root.glob('*req*.md'), None) or next(root.glob('*spec*.md'), None)
+            if match:
+                found_file = match
+                
+        if not found_file:
+            return Response({'content': '# No requirements file found\n\nPlease add `requirements.md`, `spec.md`, or `PRD.md` to the root of your repository.'})
+            
+        try:
+            content = found_file.read_text(encoding='utf-8', errors='ignore')
+            return Response({
+                'filename': found_file.name,
+                'content': content
+            })
+        except Exception as e:
+            return Response({'error': f"Failed to read file: {e}"}, status=500)
+
     @decorators.action(detail=True, methods=['post'])
     def analyze(self, request, pk=None, system_pk=None):
         repository = self.get_object()
@@ -626,11 +667,9 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         crs_summary = get_crs_summary(repository)
 
         if crs_summary.get('status') != 'ready':
-            return Response({
-                'error': 'CRS must be ready before knowledge extraction',
-                'crs_status': crs_summary.get('status'),
-                'message': 'Please run CRS pipeline first'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning(f"Starting knowledge extraction for repo {repository.id} even though CRS status is {crs_summary.get('status')}")
+            # we allow it to proceed, as KnowledgeAgent now has fallbacks for direct file reading
+
 
         force = request.data.get('force', False)
 

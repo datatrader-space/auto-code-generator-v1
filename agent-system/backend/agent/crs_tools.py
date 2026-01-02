@@ -130,6 +130,17 @@ You MUST output tool calls in this EXACT format:
 → Use CRS_RELATIONSHIPS
 
 **Always check CRS_STATUS first if data availability is uncertain**
+
+### 7. READ_REQUIREMENTS
+- **Purpose**: Read project requirements, specs, or PRD documents
+- **Parameters**: None
+- **Returns**: Content of requirements.md, specifications.md, etc.
+
+### 8. READ_DOCS
+- **Purpose**: Read generated documentation or usage guides
+- **Parameters**:
+  - `doc_type` (optional): "usage_guide" | "api_reference" | "summary"
+- **Returns**: Relevant documentation content
 """
 
     def parse_tool_calls(self, llm_response: str) -> List[Dict[str, Any]]:
@@ -232,6 +243,12 @@ You MUST output tool calls in this EXACT format:
                     start_line=int(parameters.get('start_line', '1')),
                     end_line=int(parameters.get('end_line', '100'))
                 )
+
+            elif tool_name == 'READ_REQUIREMENTS':
+                return self._read_requirements()
+
+            elif tool_name == 'READ_DOCS':
+                return self._read_docs(parameters.get('doc_type', 'summary'))
 
             else:
                 return f"❌ Unknown tool: {tool_name}"
@@ -583,3 +600,51 @@ You MUST output tool calls in this EXACT format:
         except Exception as e:
             logger.error(f"Read file error: {e}", exc_info=True)
             return f"❌ Error reading file: {str(e)}"
+
+    def _read_requirements(self) -> str:
+        """Find and read requirements/spec files"""
+        try:
+            if not self.repository.clone_path:
+                return "❌ Repository not cloned"
+
+            root = Path(self.repository.clone_path)
+            candidates = [
+                'requirements.md', 'REQUIREMENTS.md',
+                'spec.md', 'SPEC.md', 'specs.md',
+                'PRD.md', 'prd.md',
+                'README.md', 'readme.md' # Fallback
+            ]
+            
+            # Find first match
+            found_file = None
+            for fname in candidates:
+                fpath = root / fname
+                if fpath.exists() and fpath.is_file():
+                    found_file = fpath
+                    break
+            
+            if not found_file:
+                 # Try globbing
+                 match = next(root.glob('*req*.md'), None) or next(root.glob('*spec*.md'), None)
+                 if match:
+                     found_file = match
+
+            if not found_file:
+                return "❌ No requirements or specification files found in repository root."
+
+            content = found_file.read_text(encoding='utf-8', errors='ignore')
+            # Truncate if too huge
+            if len(content) > 20000:
+                content = content[:20000] + "\n... (truncated)"
+
+            return f"📄 **Requirements ({found_file.name})**\n\n{content}"
+
+        except Exception as e:
+            logger.error(f"Read requirements error: {e}")
+            return f"❌ Error reading requirements: {e}"
+
+    def _read_docs(self, doc_type: str) -> str:
+        """Read generated documentation"""
+        # For now, just a placeholder or list standard docs if they exist
+        # In future, this connects to the Knowledge Agent's generated docs
+        return "ℹ️ Generated documentation integration pending. Please read source files directly."

@@ -18,6 +18,8 @@ from agent.knowledge.crs_documentation import (
 )
 from llm.router import get_llm_router
 from django.contrib.auth import get_user_model
+from agent.services.agent_runner import AgentRunner
+from agent.services.knowledge_agent import RepositoryKnowledgeAgent
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -540,7 +542,34 @@ class RepositoryChatConsumer(BaseChatConsumer):
             await self.close()
             return
 
+        # Initialize sub-agents
+        self._agent_runner = None
+        self._knowledge_agent = None
+
         await super().connect()
+
+    @property
+    def agent_runner(self):
+        """Lazy-load Agent Runner"""
+        if self._agent_runner is None:
+            from asgiref.sync import async_to_sync
+            
+            def socket_callback(event):
+                """Bridge synchronous agent execution to asynchronous WebSocket consumer"""
+                async_to_sync(self.send_json)(event)
+
+            self._agent_runner = AgentRunner(
+                repository=self.repository,
+                socket_callback=socket_callback
+            )
+        return self._agent_runner
+
+    @property
+    def knowledge_agent(self):
+        """Lazy-load Knowledge Agent"""
+        if self._knowledge_agent is None:
+            self._knowledge_agent = RepositoryKnowledgeAgent(self.repository)
+        return self._knowledge_agent
 
     @database_sync_to_async
     def get_repository(self):
@@ -592,7 +621,9 @@ class RepositoryChatConsumer(BaseChatConsumer):
         )
 
     async def handle_chat_message(self, data):
-        """Handle repository chat message"""
+        """
+        Handle repository chat message - Super Agent Router
+        """
         user_message = data.get('message', '').strip()
         conversation_id = data.get('conversation_id')
         model_id = data.get('model_id')
@@ -624,19 +655,91 @@ class RepositoryChatConsumer(BaseChatConsumer):
         # Save user message
         await self.save_user_message(conversation, user_message)
 
+        # --- INTENT CLASSIFICATION ---
+        # Determine if this is a conversational request or an automated task
+        intent = await self._classify_intent(user_message)
+        logger.info(f"Classified intent for message: {intent}")
+
+        if intent == 'TASK':
+            await self._handle_task_request(user_message, conversation)
+        else:
+            await self._handle_chat_request(user_message, conversation)
+
+    async def _handle_chat_request(self, user_message, conversation):
+        """Handle standard conversational (RAG) request"""
         # Get CRS context
         context = await self.get_crs_context(user_message)
 
         # Stream LLM response
         await self.stream_llm_response(user_message, context, conversation)
 
-    @database_sync_to_async
-    def get_crs_context(self, query):
-        """
-        Get CRS context - tool-first approach
+    async def _handle_task_request(self, user_message, conversation):
+        """Handle autonomous task request via Agent Runner"""
+        try:
+            await self.send_json({
+                'type': 'agent_event',
+                'event': 'session_start',
+                'data': {'status': 'planning', 'message': 'Handing over to Agent Runner...'}
+            })
+            
+            # Execute Agent Runner in a thread (since it is synchronous)
+            # We use the lazy-loaded self.agent_runner which has the socket_callback wired up
+            await sync_to_async(self.agent_runner.run_session)(user_message)
+            
+            await self.send_json({
+                'type': 'agent_event',
+                'event': 'session_complete',
+                'data': {'status': 'completed', 'message': 'Agent Runner finished.'}
+            })
 
-        No longer returns search blobs - tools handle data retrieval
-        Just checks if CRS is ready
+        except Exception as e:
+            logger.error(f"Agent Runner Execution Error: {e}", exc_info=True)
+            await self.send_json({
+                'type': 'error',
+                'error': f"Agent Runner failed: {str(e)}"
+            })
+
+    async def _classify_intent(self, user_message):
+        """
+        Classify user intent: 'CHAT' vs 'TASK'
+        
+        Simple heuristic + fast LLM check.
+        """
+        # Fast heuristics
+        lower_msg = user_message.lower()
+        if any(w in lower_msg for w in ['create', 'implement', 'refactor', 'fix', 'change', 'update', 'delete', 'add']):
+            # Likely a task, but verify with LLM to avoid false positives on "How do I create..."
+            # For now, let's trust the router if configured, otherwise default to CHAT if ambiguous
+            pass
+
+        try:
+            # Use small/fast model for classification
+            router = get_llm_router()
+            
+            prompt = f"""You are an Intent Classifier.
+user_message: "{user_message}"
+
+Classify this message into one of two categories:
+1. CHAT: The user is asking a question, asking for explanation, or general conversation.
+2. TASK: The user is explicitly asking for files to be created, modified, code to be written/refactored, or an action to be performed on the codebase.
+
+Output ONLY the JSON: {{"intent": "CHAT" | "TASK"}}
+"""
+            response = router.query(prompt, system_prompt="You are a classifier. JSON only.")
+            
+            # Basic parsing
+            if '"intent": "TASK"' in response or "'intent': 'TASK'" in response:
+                return 'TASK'
+            return 'CHAT'
+
+        except Exception as e:
+            logger.warning(f"Intent classification failed: {e}. Defaulting to CHAT.")
+            return 'CHAT'
+
+    async def get_crs_context(self, query):
+        """
+        Get CRS context - tool-first approach (Enhanced for Super Agent)
+        Now explicitly checks for RepositoryKnowledgeAgent readiness.
         """
         from agent.services.crs_runner import get_crs_summary
 
@@ -1475,10 +1578,14 @@ class AgentRunnerConsumer(AsyncWebsocketConsumer):
             session_id = f"session_{uuid.uuid4().hex[:12]}"
             
             # Create agent runner with socket callback
+            # Create agent runner with socket callback
+            from asgiref.sync import async_to_sync
+            
             def socket_callback(event):
                 """Callback to send events through WebSocket"""
-                import asyncio
-                asyncio.create_task(self.send_json(event))
+                # Since AgentRunner runs in a sync thread (via sync_to_async),
+                # we need to bridge back to the async consumer to send the message.
+                async_to_sync(self.send_json)(event)
             
             agent_runner = AgentRunner(
                 repository=repository,
