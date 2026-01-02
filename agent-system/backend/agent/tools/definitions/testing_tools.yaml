@@ -1,0 +1,76 @@
+tool:
+  name: RUN_TESTS
+  category: testing
+  version: "1.0"
+  description: Run test suite with smart framework detection
+
+  parameters:
+    - name: framework
+      type: choice
+      choices: [pytest, unittest, jest, vitest, cargo, go]
+      required: false
+      description: "Test framework to use (auto-detected if not specified)"
+
+    - name: path
+      type: path
+      required: false
+      default: "tests/"
+      description: "Path to test directory or file"
+
+    - name: pattern
+      type: string
+      required: false
+      description: "Test name pattern (e.g., test_user*)"
+
+    - name: verbose
+      type: bool
+      default: false
+      description: "Enable verbose output"
+
+    - name: coverage
+      type: bool
+      default: false
+      description: "Generate coverage report"
+
+  execution:
+    type: smart_command
+    detect_from_files:
+      - pattern: "pytest.ini"
+        command: |
+          pytest {{ path }}
+          {%- if pattern %} -k {{ pattern }} {% endif %}
+          {%- if verbose %} -v {% endif %}
+          {%- if coverage %} --cov={{ path }} --cov-report=html {% endif %}
+
+      - pattern: "package.json"
+        command: |
+          npm test {{ path }}
+          {%- if pattern %} -- --testNamePattern={{ pattern }} {% endif %}
+          {%- if coverage %} -- --coverage {% endif %}
+
+      - pattern: "Cargo.toml"
+        command: |
+          cargo test
+          {%- if pattern %} {{ pattern }} {% endif %}
+          {%- if verbose %} -- --nocapture {% endif %}
+
+      - pattern: "go.mod"
+        command: |
+          go test ./...
+          {%- if verbose %} -v {% endif %}
+          {%- if pattern %} -run {{ pattern }} {% endif %}
+
+    timeout: 300
+
+  examples:
+    - description: "Run all tests"
+      parameters:
+        path: "tests/"
+        verbose: true
+
+    - description: "Run specific test with coverage"
+      parameters:
+        pattern: "test_user_auth"
+        coverage: true
+
+  tags: [testing, ci, quality]

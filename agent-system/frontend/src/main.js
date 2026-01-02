@@ -11,6 +11,7 @@ import RepositoryPage from './views/RepositoryPage.vue'
 import Login from './views/Login.vue'
 import LLMSettings from './views/LLMSettings.vue'
 import Benchmarks from './views/Benchmarks.vue'
+import ToolRegistry from './views/ToolRegistry.vue'
 
 // Create router
 const router = createRouter({
@@ -50,6 +51,12 @@ const router = createRouter({
       path: '/benchmarks',
       name: 'benchmarks',
       component: Benchmarks,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/tools',
+      name: 'tools',
+      component: ToolRegistry,
       meta: { requiresAuth: true }
     }
   ]
