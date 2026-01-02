@@ -9,6 +9,7 @@ import SystemList from './views/SystemList.vue'
 import SystemDetail from './views/SystemDetail.vue'
 import Login from './views/Login.vue'
 import LLMSettings from './views/LLMSettings.vue'
+import Benchmarks from './views/Benchmarks.vue'
 
 // Create router
 const router = createRouter({
@@ -36,6 +37,12 @@ const router = createRouter({
       path: '/ai-settings',
       name: 'ai-settings',
       component: LLMSettings,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/benchmarks',
+      name: 'benchmarks',
+      component: Benchmarks,
       meta: { requiresAuth: true }
     }
   ]
