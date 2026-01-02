@@ -46,8 +46,20 @@ class RepositoryKnowledgeAgent:
         """Lazy-load WorkspaceFS"""
         if self._fs is None:
             from core.fs import WorkspaceFS
-            config_path = os.path.join(self.repository.crs_workspace_path, "config.json")
-            self._fs = WorkspaceFS(config_path=config_path)
+            from pathlib import Path
+            from django.conf import settings
+            
+            # Compute CRS workspace path using same logic as crs_runner
+            repo_root = Path(settings.BASE_DIR).parents[1]
+            crs_workspace_path = (
+                repo_root / "crs_workspaces"
+                / str(self.repository.system.user_id)
+                / str(self.repository.system_id)
+                / f"{self.repository.name}_crs"
+            )
+            config_path = crs_workspace_path / "config.json"
+            
+            self._fs = WorkspaceFS(config_path=str(config_path))
         return self._fs
 
     @property

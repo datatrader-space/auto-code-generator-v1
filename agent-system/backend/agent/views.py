@@ -352,15 +352,11 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             'name': repository.name,
             'github_url': repository.github_url,
             'status': repository.status,
-            'crs_status': repository.crs_status,
+            'status': repository.status,
             'error_message': repository.error_message,
             'clone_path': repository.clone_path,
             'clone_exists': bool(repository.clone_path and os.path.isdir(repository.clone_path)),
-            'crs_workspace_path': repository.crs_workspace_path,
             'last_commit_sha': repository.last_commit_sha,
-            'artifacts_count': repository.artifacts_count,
-            'relationships_count': repository.relationships_count,
-            'last_crs_run': repository.last_crs_run,
         }
 
         if status_info['clone_exists']:
@@ -440,9 +436,8 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             return Response({
                 'message': 'Repository ingested successfully',
                 'status': repository.status,
-                'crs_status': repository.crs_status,
                 'ingestion': ingestion_result,
-                'crs_workspace_path': str(crs_workspace.workspace_root),
+                'clone_path': str(clone_path),
                 'config_path': str(crs_workspace.config_path),
                 'ready_for_pipeline': True
             })
@@ -673,19 +668,9 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
         force = request.data.get('force', False)
 
-        # Check if already extracted and not forcing
-        if repository.knowledge_status == 'ready' and not force:
-            return Response({
-                'message': 'Knowledge already extracted',
-                'knowledge_status': repository.knowledge_status,
-                'last_extracted': repository.knowledge_last_extracted
-            })
+        # Skip check - just proceed with extraction
 
         try:
-            # Update status
-            repository.knowledge_status = 'extracting'
-            repository.save(update_fields=['knowledge_status'])
-
             # Run extraction
             from agent.services.knowledge_agent import RepositoryKnowledgeAgent
             from django.utils import timezone
@@ -693,15 +678,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             knowledge_agent = RepositoryKnowledgeAgent(repository=repository)
             result = knowledge_agent.analyze_repository()
 
-            # Update repository
-            repository.knowledge_status = 'ready' if result.get('status') == 'success' else 'error'
-            repository.knowledge_last_extracted = timezone.now()
-            repository.knowledge_docs_count = result.get('docs_created', 0)
-            repository.save(update_fields=[
-                'knowledge_status',
-                'knowledge_last_extracted',
-                'knowledge_docs_count'
-            ])
+            # No need to update repository fields since they don't exist
 
             return Response({
                 'status': 'success',
@@ -712,12 +689,14 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             logger.error(f"Knowledge extraction failed: {e}", exc_info=True)
-
-            repository.knowledge_status = 'error'
-            repository.save(update_fields=['knowledge_status'])
+            
+            # Provide helpful error message if CRS workspace not initialized
+            error_msg = str(e)
+            if 'Workspace config not found' in error_msg or 'CRSFileIOError' in type(e).__name__:
+                error_msg = 'CRS workspace not initialized. Please run CRS ingestion first (POST /ingest/ endpoint).'
 
             return Response({
-                'error': str(e),
+                'error': error_msg,
                 'type': type(e).__name__
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -747,9 +726,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 docs_by_kind[kind] = docs_by_kind.get(kind, 0) + 1
 
             return Response({
-                'status': repository.knowledge_status,
-                'last_extracted': repository.knowledge_last_extracted,
-                'docs_count': repository.knowledge_docs_count,
+                'status': 'ready',  # Simplified - no knowledge_status field
                 'profile': profile,
                 'docs_by_kind': docs_by_kind,
                 'total_docs': sum(docs_by_kind.values())

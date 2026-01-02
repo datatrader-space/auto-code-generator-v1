@@ -716,19 +716,22 @@ class RepositoryChatConsumer(BaseChatConsumer):
             # Use small/fast model for classification
             router = get_llm_router()
             
-            prompt = f"""You are an Intent Classifier.
-user_message: "{user_message}"
-
-Classify this message into one of two categories:
+            messages = [
+                {"role": "system", "content": "You are a classifier. Output ONLY valid JSON."},
+                {"role": "user", "content": f"""Classify this message into one of two categories:
 1. CHAT: The user is asking a question, asking for explanation, or general conversation.
 2. TASK: The user is explicitly asking for files to be created, modified, code to be written/refactored, or an action to be performed on the codebase.
 
-Output ONLY the JSON: {{"intent": "CHAT" | "TASK"}}
-"""
-            response = router.query(prompt, system_prompt="You are a classifier. JSON only.")
+User message: "{user_message}"
+
+Output ONLY the JSON: {{"intent": "CHAT" | "TASK"}}"""}
+            ]
+            
+            response = router.query(messages, json_mode=True)
+            content = response.get('content', '')
             
             # Basic parsing
-            if '"intent": "TASK"' in response or "'intent': 'TASK'" in response:
+            if '"intent": "TASK"' in content or "'intent': 'TASK'" in content:
                 return 'TASK'
             return 'CHAT'
 
@@ -1424,17 +1427,7 @@ class KnowledgeConsumer(AsyncWebsocketConsumer):
                 })
                 return
             
-            # Check if already extracting
-            if repository.knowledge_status == 'extracting' and not force:
-                await self.send_json({
-                    'type': 'error',
-                    'error': 'Knowledge extraction already in progress'
-                })
-                return
-            
-            # Update status
-            repository.knowledge_status = 'extracting'
-            await sync_to_async(repository.save)(update_fields=['knowledge_status'])
+            # Skip status check - fields don't exist
             
             # Create agent with socket callback
             def socket_callback(event):
@@ -1450,15 +1443,7 @@ class KnowledgeConsumer(AsyncWebsocketConsumer):
             # Run extraction
             result = await sync_to_async(knowledge_agent.analyze_repository)()
             
-            # Update repository
-            repository.knowledge_status = 'ready' if result.get('status') == 'success' else 'error'
-            repository.knowledge_last_extracted = timezone.now()
-            repository.knowledge_docs_count = result.get('docs_created', 0)
-            await sync_to_async(repository.save)(update_fields=[
-                'knowledge_status',
-                'knowledge_last_extracted',
-                'knowledge_docs_count'
-            ])
+            # No need to update repository fields since they don't exist
         
         except Exception as e:
             logger.error(f"Knowledge extraction failed: {e}", exc_info=True)
