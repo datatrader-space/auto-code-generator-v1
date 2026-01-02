@@ -103,7 +103,7 @@ class AnthropicClient:
 
             return {
                 "content": content,
-                "usage": usage
+                "usage": usage,
                 "usage": self.last_usage
             }
         

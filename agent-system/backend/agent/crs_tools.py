@@ -134,51 +134,69 @@ You MUST output tool calls in this EXACT format:
 
     def parse_tool_calls(self, llm_response: str) -> List[Dict[str, Any]]:
         """
-        Parse tool calls from LLM response using strict JSON protocol
-
-        Expected format:
-        ===TOOL_CALLS===
-        [{"name":"LIST_ARTIFACTS","parameters":{"kind":"django_model"}}]
-        ===END_TOOL_CALLS===
+        Parse tool calls from LLM response using strict JSON protocol OR markdown blocks
+        
+        Supported formats:
+        1. Strict: ===TOOL_CALLS=== [...] ===END_TOOL_CALLS===
+        2. Markdown: ```json [...] ``` or ```json {...} ```
         """
-        # Look for delimited JSON block
+        tools = []
+        
+        # 1. Try strict parsing first
         pattern = r'===TOOL_CALLS===\s*(\[.*?\])\s*===END_TOOL_CALLS==='
         match = re.search(pattern, llm_response, re.DOTALL)
 
-        if not match:
-            logger.debug("No tool calls found in response (no ===TOOL_CALLS=== block)")
+        if match:
+            json_str = match.group(1).strip()
+            tools = self._parse_json_safe(json_str)
+        else:
+            # 2. Try markdown code blocks
+            # Look for JSON blocks
+            md_pattern = r'```json\s*(.*?)\s*```'
+            matches = re.findall(md_pattern, llm_response, re.DOTALL)
+            
+            for m in matches:
+                parsed_items = self._parse_json_safe(m)
+                if parsed_items:
+                    tools.extend(parsed_items)
+
+        if not tools:
+            logger.debug("No tool calls found in response")
             return []
 
-        json_str = match.group(1).strip()
+        # Validate structure
+        validated = []
+        for tool in tools:
+            if not isinstance(tool, dict):
+                continue
 
+            if 'name' not in tool:
+                continue
+
+            # Basic heuristic to avoid confusing normal JSON with tool calls
+            # Tool calls usually have "name" (req) and "parameters" (opt)
+            # If it has unexpected keys like "file_path" or "type" it might just be data
+            
+            validated.append({
+                'name': tool['name'].upper(),
+                'parameters': tool.get('parameters', {})
+            })
+
+        logger.info(f"Parsed {len(validated)} valid tool calls: {[t['name'] for t in validated]}")
+        return validated
+
+    def _parse_json_safe(self, json_str: str) -> List[Dict[str, Any]]:
+        """Helper to parse JSON string into a list of dicts"""
         try:
-            tools = json.loads(json_str)
-
-            if not isinstance(tools, list):
-                logger.error(f"Tool calls must be a JSON array, got: {type(tools)}")
-                return []
-
-            # Validate structure
-            validated = []
-            for tool in tools:
-                if not isinstance(tool, dict):
-                    logger.warning(f"Skipping non-dict tool call: {tool}")
-                    continue
-
-                if 'name' not in tool:
-                    logger.warning(f"Skipping tool call without 'name': {tool}")
-                    continue
-
-                validated.append({
-                    'name': tool['name'].upper(),
-                    'parameters': tool.get('parameters', {})
-                })
-
-            logger.info(f"Parsed {len(validated)} valid tool calls: {[t['name'] for t in validated]}")
-            return validated
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse tool calls JSON: {e}\nJSON string: {json_str}")
+            data = json.loads(json_str)
+            
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                # Handle single object case
+                return [data]
+            return []
+        except json.JSONDecodeError:
             return []
 
     def execute_tool(self, tool_name: str, parameters: Dict[str, str]) -> str:

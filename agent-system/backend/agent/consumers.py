@@ -105,6 +105,8 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             ('api view', 'drf_apiview'),
             ('apiview', 'drf_apiview'),
             ('url', 'url_pattern'),
+            ('route', 'url_pattern'),
+            ('endpoint', 'url_pattern'),
         ]
 
         # Check for inventory keywords
@@ -162,12 +164,19 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 })
 
                 # Let LLM format the answer
+                from llm.router import LLMConfig
                 router = await sync_to_async(get_llm_router)()
-                config = {
-                    'provider': conversation.model_provider or 'local'
-                }
+                
+                provider_type = conversation.model_provider or 'ollama'
+                config = LLMConfig(
+                    provider=provider_type,
+                    model=None, #/default
+                    base_url='http://localhost:11434', # Prevent NoneType error in Ollama client
+                    max_tokens=4000
+                )
+                
                 client = await sync_to_async(router.client_for_config)(config)
-                model_info = {'provider': config['provider'], 'model': config.get('model_name')}
+                model_info = {'provider': provider_type, 'model': None}
 
                 # Simple prompt for formatting
                 format_messages = [
@@ -209,7 +218,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 return
 
             except Exception as e:
-                await self.create_llm_request_log(
+                """ await self.create_llm_request_log(
                     conversation=conversation,
                     model_info=model_info,
                     request_type='stream',
@@ -217,7 +226,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                     latency_ms=self._calculate_latency_ms(request_started),
                     usage=last_usage,
                     error=str(e)
-                )
+                ) """
                 logger.error(f"Server-side inventory routing failed: {e}")
                 # Fall through to normal tool loop
             finally:
@@ -229,18 +238,17 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
 
         # Get LLM router and proper client
         router = await sync_to_async(get_llm_router)()
-        llm_config = await self.get_llm_config(conversation)
 
         # Get LLM config (handles model selection)
-      
+        llm_config = await self.get_llm_config(conversation)
 
         if llm_config:
             config = llm_config['config']
             client = await sync_to_async(router.client_for_config)(config)
-            model_info = llm_config.get('model_info', {'provider': 'local'})
+            model_info = llm_config.get('model_info', {'provider': 'ollama'})
         else:
             # Fallback to basic config
-            config = {'provider': conversation.model_provider or 'local'}
+            config = {'provider': conversation.model_provider or 'ollama'}
             client = await sync_to_async(router.client_for_config)(config)
             model_info = {'provider': config['provider']}
 
@@ -250,11 +258,6 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             'typing': True
         })
 
-        full_response = ""
-        model_info = {}
-        request_started = time.monotonic()
-        usage = None
-        error_message = None
         final_answer = ""  # Only the actual answer, not tool dumps
         debug_trace = []   # Tool calls + results for logging
         max_tool_iterations = 3  # Prevent infinite loops
@@ -265,30 +268,24 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             if llm_config:
                 config = llm_config['config']
                 client = router.client_for_config(config)
-                model_info = {
-                    'provider': llm_config['provider'],
-                    'model': llm_config['model']
-                }
+                # Removed redundant model_info block
             else:
-                client = router.local_client if conversation.model_provider == 'local' else router.cloud_client
-                model_info = {
-                    'provider': conversation.model_provider,
-                    'model': getattr(router.local_config if conversation.model_provider == 'local' else router.cloud_config, 'model', None)
-                }
-
-            # Get all chunks from the generator (sync operation converted to async)
-            chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
-            usage = getattr(client, 'last_usage', None)
-
-            # Iterate over chunks
-            for text_chunk in chunks:
-                full_response += text_chunk
-        
-            client = router.local_client if model_info['provider'] == 'local' else router.cloud_client
+                 # Standard router logic handled above
+                 pass
+            print(model_info)
+            # Removed hardcoded client overwrite logic
+            # client = router.local_client if model_info['provider'] == 'ollama' else router.cloud_client
 
             # Tool-calling loop
             for iteration in range(max_tool_iterations):
                 logger.info(f"Tool iteration {iteration + 1}/{max_tool_iterations}")
+
+                # FIX: Re-inject system reminder if history is getting long to prevent context drift
+                if iteration > 0:
+                     messages.append({
+                        'role': 'system', 
+                        'content': f"REMINDER: You are the code repository assistant. You just received tool results. Use them to answer the user's question: '{user_message}'.\n\nDO NOT simulate a conversation. DO NOT generate 'User:' or 'Assistant:' lines. Just provide the answer."
+                     })
 
                 # Get LLM response (still buffered for now, TODO: fix streaming)
                 chunks = await sync_to_async(lambda: list(client.query_stream(messages)))()
@@ -303,6 +300,8 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                         'type': 'assistant_message_chunk',
                         'chunk': text_chunk
                     })
+                
+                logger.info(f"LLM Response (Iteration {iteration+1}): {iteration_response[:200]}...")
 
                 # Check for tool calls
                 tool_calls = crs_tools.parse_tool_calls(iteration_response)
@@ -379,8 +378,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             logger.info(f"Tool trace: {' -> '.join(debug_trace)}")
 
         except Exception as e:
-            error_message = str(e)
-            await self.create_llm_request_log(
+            """  await self.create_llm_request_log(
                 conversation=conversation,
                 model_info=model_info,
                 request_type='stream',
@@ -388,7 +386,7 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 latency_ms=self._calculate_latency_ms(request_started),
                 usage=last_usage,
                 error=str(e)
-            )
+            ) """
             logger.error(f"LLM streaming error: {e}", exc_info=True)
             await self.send_json({
                 'type': 'error',
@@ -396,13 +394,6 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             })
 
         finally:
-            await self.save_llm_request_log(
-                conversation=conversation,
-                model_info=model_info,
-                started_at=request_started,
-                usage=usage,
-                error_message=error_message
-            )
             # Stop typing indicator
             await self.send_json({
                 'type': 'assistant_typing',
@@ -453,6 +444,8 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
         token_counts = self._extract_token_counts(usage)
         provider = model_info.get('provider') or 'unknown'
         model = model_info.get('model') or ''
+        print(model_info)
+        return True
         return LLMRequestLog.objects.create(
             user=conversation.user,
             conversation=conversation,
@@ -522,36 +515,6 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             'model': model.model_id,
             'config': config
         }
-
-    @database_sync_to_async
-    def save_llm_request_log(self, conversation, model_info, started_at, usage, error_message):
-        latency_ms = int((time.monotonic() - started_at) * 1000) if started_at else None
-        prompt_tokens = None
-        completion_tokens = None
-        total_tokens = None
-
-        if isinstance(usage, dict):
-            prompt_tokens = usage.get('prompt_tokens') or usage.get('input_tokens')
-            completion_tokens = usage.get('completion_tokens') or usage.get('output_tokens')
-            total_tokens = usage.get('total_tokens')
-            if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
-                total_tokens = prompt_tokens + completion_tokens
-
-        LLMRequestLog.objects.create(
-            user=conversation.user,
-            conversation=conversation,
-            llm_model=conversation.llm_model,
-            provider_type=model_info.get('provider', ''),
-            model_id=model_info.get('model', ''),
-            request_type='stream',
-            status='error' if error_message else 'success',
-            latency_ms=latency_ms,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
-            error_message=error_message or '',
-            metadata={'usage': usage} if usage else {}
-        )
 
     async def build_llm_messages(self, conversation, user_message, context):
         """
@@ -681,8 +644,11 @@ class RepositoryChatConsumer(BaseChatConsumer):
             summary = get_crs_summary(self.repository)
 
             if summary.get('status') != 'ready':
+                # FIX: Do not block tools. Return partial context.
                 return {
-                    'status_message': f"CRS status: {summary.get('status', 'unknown')}. Analysis must complete first."
+                    'crs_ready': False,
+                    'status_message': f"Analysis incomplete ({summary.get('status', 'unknown')}). Semantic Search unavailable, but File Access is open.",
+                    'artifact_count': 0
                 }
 
             # CRS is ready - return minimal context
@@ -694,8 +660,11 @@ class RepositoryChatConsumer(BaseChatConsumer):
 
         except Exception as e:
             logger.warning(f"CRS context error: {e}")
+            # Even on error, allow file access if repo exists
             return {
-                'status_message': f"CRS not available: {str(e)}"
+                'crs_ready': False,
+                'status_message': f"CRS unavailable: {str(e)}. File Access only.",
+                'artifact_count': 0
             }
 
     async def build_llm_messages(self, conversation, user_message, context):
@@ -769,17 +738,28 @@ Examples of inventory questions:
 Now answer the user's question using the appropriate tools."""
 
         if status_message:
+            # FIX: Still provide tool access, but warn about search limitations
             system_prompt = f"""You are analyzing a code repository.
 
 CRS Status: {status_message}
 
-The CRS system is not ready yet. Please explain to the user that:
-1. CRS analysis must be run on this repository first
-2. They should wait for CRS to complete, then try again
-3. CRS provides structured code knowledge (blueprints, artifacts, relationships)
+# LIMITED MODE
+- Semantic Search (SEARCH_CRS, CRS_RELATIONSHIPS) is unavailable.
+- File Access (READ_FILE, LIST_ARTIFACTS) is AVAILABLE.
 
-Keep your response brief and helpful."""
+Please:
+1. Use `LIST_ARTIFACTS` to find files/models (best effort).
+2. Use `READ_FILE` to read code directly.
+3. Determine if you can answer based on file contents.
 
+---
+
+{tool_definitions}
+
+---
+
+Now answer the user's question using the available tools."""
+        
         messages = [
             {
                 'role': 'system',

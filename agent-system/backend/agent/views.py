@@ -1,29 +1,34 @@
-from django.shortcuts import render
-
-# Create your views here.
-# agent/views.py
 """
 Django REST Framework Views for Agent API
 """
 
-from rest_framework import viewsets, status, decorators
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
-from django.shortcuts import get_object_or_404
+import logging
+import os
+import time
+from datetime import timedelta
+from pathlib import Path
+
+from asgiref.sync import sync_to_async
+from channels.db import database_sync_to_async  # (only if you actually use it here; otherwise remove)
+from django.conf import settings
 from django.db import transaction
-from django.db.models import Avg, Count
 from django.db.models import Avg, Count, Sum, Q
 from django.db.models.functions import TruncHour, Coalesce
-from django.conf import settings
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from pathlib import Path
-from datetime import timedelta
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import viewsets, status, decorators
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from agent.models import (
     System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory,
-    ChatConversation, ChatMessage, LLMProvider, LLMModel, LLMRequestLog
+    ChatConversation, ChatMessage,
+    LLMProvider, LLMModel, LLMRequestLog,
+    SystemDocumentation,
 )
 from agent.serializers import (
     SystemListSerializer, SystemDetailSerializer,
@@ -31,71 +36,52 @@ from agent.serializers import (
     RepositoryQuestionSerializer, AnswerQuestionsSerializer,
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
-   
-    AnalyzeRepositorySerializer, LLMHealthSerializer, LLMStatsSerializer, ChatConversationListSerializer,
-    RepositoryReasoningTraceSerializer, SystemDocumentationSerializer, ChatConversationSerializer,
-    LLMProviderSerializer, LLMModelSerializer
+    AnalyzeRepositorySerializer, LLMHealthSerializer, LLMStatsSerializer,
+    ChatConversationListSerializer, ChatConversationSerializer,
+    SystemDocumentationSerializer,
+    LLMProviderSerializer, LLMModelSerializer,
 )
-from agent.services.repo_analyzer import RepositoryAnalyzer
-from agent.services.question_generator import QuestionGenerator
-from agent.services.knowledge_builder import KnowledgeBuilder
 from agent.services.github_client import GitHubClient
+from agent.services.knowledge_builder import KnowledgeBuilder
+from agent.services.question_generator import QuestionGenerator
+from agent.services.repo_analyzer import RepositoryAnalyzer
 from agent.services.crs_runner import (
     run_crs_pipeline, load_crs_payload, get_crs_summary,
     run_crs_step, get_crs_step_status
 )
 from core.events import get_broadcaster
 from llm.router import get_llm_router
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-import logging
-import os
 
 logger = logging.getLogger(__name__)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class SystemViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing systems
-    
-    list: Get all systems for current user
-    retrieve: Get single system with repositories
-    create: Create new system
-    update: Update system
-    destroy: Delete system
     """
-    
+
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return System.objects.filter(user=self.request.user).prefetch_related('repositories')
-    
+
     def get_serializer_class(self):
         if self.action == 'list':
             return SystemListSerializer
         return SystemDetailSerializer
-    
+
     def perform_create(self, serializer):
-       
         serializer.save(user=self.request.user)
 
 
 class RepositoryViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing repositories
-    
-    list: Get all repositories in a system
-    retrieve: Get single repository with details
-    create: Add repository to system
-    update: Update repository
-    destroy: Remove repository
-    analyze: Trigger LLM analysis
-    questions: Get questions for repository
-    submit_answers: Submit answers to questions
     """
-    
+
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         system_id = self.kwargs.get('system_pk')
         if system_id:
@@ -103,29 +89,22 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 system_id=system_id,
                 system__user=self.request.user
             ).select_related('system')
-        return Repository.objects.filter(system__user=self.request.user)
-    
+        return Repository.objects.filter(system__user=self.request.user).select_related('system')
+
     def get_serializer_class(self):
         if self.action == 'create':
             return RepositoryCreateSerializer
-        elif self.action == 'list':
+        if self.action == 'list':
             return RepositoryListSerializer
         return RepositoryDetailSerializer
-    
+
     def create(self, request, system_pk=None):
-        """Create repository in a system"""
-        system = get_object_or_404(
-            System,
-            id=system_pk,
-            user=request.user
-        )
-        
+        system = get_object_or_404(System, id=system_pk, user=request.user)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
         repository = serializer.save(system=system)
-        
-        # Return full detail
+
         detail_serializer = RepositoryDetailSerializer(repository)
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -151,69 +130,52 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         repository.last_commit_sha = clone_result.get("commit_sha", "")
         repository.save(update_fields=["clone_path", "last_commit_sha"])
         return repository.clone_path
-    
+
     @decorators.action(detail=True, methods=['post'])
     def analyze(self, request, pk=None, system_pk=None):
-        """
-        Trigger LLM analysis of repository
-        
-        POST /api/systems/{system_id}/repositories/{repo_id}/analyze/
-        Body: {"force": false}
-        """
         repository = self.get_object()
-        
+
         serializer = AnalyzeRepositorySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         force = serializer.validated_data.get('force', False)
-        
-        # Check if already analyzed
+
         if repository.status in ['questions_generated', 'questions_answered', 'ready'] and not force:
             return Response({
                 'message': 'Repository already analyzed',
                 'status': repository.status,
                 'analysis': repository.analysis
             })
-        
-        try:
-            # Update status
-            repository.status = 'analyzing'
-            repository.save()
 
-            # Ensure repository clone exists
+        try:
+            repository.status = 'analyzing'
+            repository.save(update_fields=["status"])
+
             self._ensure_repo_clone(repository, request.user)
-            
-            # Analyze
+
             analyzer = RepositoryAnalyzer()
             analysis = analyzer.analyze(
                 repo_path=repository.clone_path,
                 repo_name=repository.name
             )
-            AIOrchestrator().capture_analysis(repository, analysis)
-            
-            # Save analysis
+
             repository.analysis = analysis
             repository.status = 'analyzing'
-            repository.save()
-            
-            # Generate questions
+            repository.save(update_fields=["analysis", "status"])
+
             generator = QuestionGenerator()
-            
-            # Get other repos for cross-repo questions
+
             other_repos = [
-                {'name': r.name, 'paradigm': r.config.get('paradigm', 'unknown')}
+                {'name': r.name, 'paradigm': (r.config or {}).get('paradigm', 'unknown')}
                 for r in repository.system.repositories.exclude(id=repository.id)
             ]
-            
+
             questions = generator.generate_questions(
                 repo_name=repository.name,
                 analysis=analysis,
                 other_repos=other_repos
             )
-            AIOrchestrator().capture_questions(repository, questions)
-            
-            # Save questions
-            repository.questions.all().delete()  # Clear old questions
-            
+
+            repository.questions.all().delete()
             for idx, q in enumerate(questions, 1):
                 RepositoryQuestion.objects.create(
                     repository=repository,
@@ -225,82 +187,58 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                     category=q.category,
                     order=idx
                 )
-            
+
             repository.status = 'questions_generated'
-            repository.save()
-            
+            repository.save(update_fields=["status"])
+
             return Response({
                 'message': 'Analysis complete',
                 'analysis': analysis,
                 'questions_count': len(questions)
             })
-        
+
         except Exception as e:
-            logger.error(f"Analysis failed: {e}", exc_info=True)
+            logger.error("Analysis failed: %s", e, exc_info=True)
             repository.status = 'error'
             repository.error_message = str(e)
-            repository.save()
-            
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
+            repository.save(update_fields=["status", "error_message"])
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @decorators.action(detail=True, methods=['get'])
     def questions(self, request, pk=None, system_pk=None):
-        """
-        Get questions for repository
-        
-        GET /api/systems/{system_id}/repositories/{repo_id}/questions/
-        """
         repository = self.get_object()
         questions = repository.questions.all().order_by('order')
-        
         serializer = RepositoryQuestionSerializer(questions, many=True)
         return Response({
             'count': questions.count(),
             'answered': questions.filter(answer__isnull=False).count(),
             'questions': serializer.data
         })
-    
+
     @decorators.action(detail=True, methods=['post'])
     def submit_answers(self, request, pk=None, system_pk=None):
-        """
-        Submit answers to questions
-        
-        POST /api/systems/{system_id}/repositories/{repo_id}/submit_answers/
-        Body: {"answers": {"question_key": "answer", ...}}
-        """
         repository = self.get_object()
-        
+
         serializer = AnswerQuestionsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
         answers = serializer.validated_data['answers']
-        
+
         try:
             with transaction.atomic():
-                # Save answers
                 for question in repository.questions.all():
                     if question.question_key in answers:
                         question.answer = answers[question.question_key]
-                        question.save()
+                        question.save(update_fields=["answer"])
 
-                # Build knowledge
                 builder = KnowledgeBuilder()
                 config = builder.build_repo_knowledge(repository, answers)
 
-                # Build system knowledge
                 all_repos = list(repository.system.repositories.all())
-                knowledge_items = builder.build_system_knowledge(
-                    repository.system,
-                    all_repos
-                )
+                knowledge_items = builder.build_system_knowledge(repository.system, all_repos)
 
-                # Update system status
                 if repository.system.status == 'initializing':
                     repository.system.status = 'ready'
-                    repository.system.save()
+                    repository.system.save(update_fields=["status"])
 
             repository.status = 'crs_running'
             repository.save(update_fields=["status"])
@@ -315,22 +253,14 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             })
 
         except Exception as e:
-            logger.error(f"Failed to process answers: {e}", exc_info=True)
+            logger.error("Failed to process answers: %s", e, exc_info=True)
             repository.status = 'error'
             repository.error_message = str(e)
             repository.save(update_fields=["status", "error_message"])
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @decorators.action(detail=True, methods=['post'], url_path='clone')
     def clone_repository(self, request, pk=None, system_pk=None):
-        """
-        Clone GitHub repository to local workspace
-
-        POST /api/systems/{system_id}/repositories/{repo_id}/clone/
-        """
         repository = self.get_object()
 
         try:
@@ -345,8 +275,6 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
             clone_path = self._ensure_repo_clone(repository, request.user)
 
-            # Count Python files
-            import os
             py_files = []
             for dirpath, _, filenames in os.walk(clone_path):
                 for fn in filenames:
@@ -365,7 +293,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             })
 
         except Exception as e:
-            logger.error(f"Clone failed: {e}", exc_info=True)
+            logger.error("Clone failed: %s", e, exc_info=True)
             repository.status = 'error'
             repository.error_message = str(e)
             repository.save(update_fields=["status", "error_message"])
@@ -376,11 +304,6 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
     @decorators.action(detail=True, methods=['get'], url_path='status')
     def repo_status(self, request, pk=None, system_pk=None):
-        """
-        Get detailed repository status
-
-        GET /api/systems/{system_id}/repositories/{repo_id}/status/
-        """
         repository = self.get_object()
 
         status_info = {
@@ -399,28 +322,23 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             'last_crs_run': repository.last_crs_run,
         }
 
-        # Check Python files if cloned
         if status_info['clone_exists']:
-            py_files = []
-            for dirpath, _, filenames in os.walk(repository.clone_path):
-                for fn in filenames:
-                    if fn.endswith(".py"):
-                        py_files.append(fn)
-            status_info['python_files_count'] = len(py_files)
-            status_info['ready_for_crs'] = len(py_files) > 0
+            py_count = 0
+            for _, _, filenames in os.walk(repository.clone_path):
+                py_count += sum(1 for fn in filenames if fn.endswith(".py"))
+            status_info['python_files_count'] = py_count
+            status_info['ready_for_crs'] = py_count > 0
         else:
             status_info['python_files_count'] = 0
             status_info['ready_for_crs'] = False
 
         return Response(status_info)
 
+    # ---- FIXED: this was overwriting your /crs/ingest endpoint before ----
     @decorators.action(detail=True, methods=['post'], url_path='ingest')
-    def ingest_repository(self, request, pk=None, system_pk=None):
+    def ingest_repository_setup(self, request, pk=None, system_pk=None):
         """
-        Complete repository ingestion: Clone + CRS setup
-
-        This endpoint combines cloning and initial CRS workspace setup in one call.
-        Use this when adding a new repository to ensure it's ready for CRS analysis.
+        Clone + create CRS workspace config (does NOT run pipeline)
 
         POST /api/systems/{system_id}/repositories/{repo_id}/ingest/
         Body: {"force_reclone": false}
@@ -428,9 +346,8 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         repository = self.get_object()
 
         try:
-            force_reclone = request.data.get('force_reclone', False)
+            force_reclone = bool(request.data.get('force_reclone', False))
 
-            # Step 1: Ensure repository is cloned
             if not request.user.github_token:
                 return Response({
                     'error': 'GitHub token not configured',
@@ -445,7 +362,6 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
                 clone_path = self._ensure_repo_clone(repository, request.user)
 
-                # Count Python files
                 py_files = []
                 for dirpath, _, filenames in os.walk(clone_path):
                     for fn in filenames:
@@ -473,7 +389,6 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                     'message': 'Repository already cloned'
                 }
 
-            # Step 2: Build CRS workspace (creates config.json, validates paths)
             from agent.services.crs_runner import _build_crs_workspace
             crs_workspace = _build_crs_workspace(repository)
 
@@ -492,7 +407,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             })
 
         except Exception as e:
-            logger.error(f"Ingestion failed: {e}", exc_info=True)
+            logger.error("Ingestion failed: %s", e, exc_info=True)
             repository.status = 'error'
             repository.error_message = str(e)
             repository.save(update_fields=["status", "error_message"])
@@ -503,14 +418,9 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
     @decorators.action(detail=True, methods=['post'], url_path='crs/run')
     def run_crs(self, request, pk=None, system_pk=None):
-        """
-        Run CRS pipeline on repository
-
-        POST /api/systems/{system_id}/repositories/{repo_id}/crs/run/
-        """
         repository = self.get_object()
+
         try:
-            # Ensure clone exists first
             if not repository.clone_path or not os.path.isdir(repository.clone_path):
                 return Response({
                     'error': 'Repository not cloned',
@@ -522,22 +432,18 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
             crs_summary = run_crs_pipeline(repository)
 
-            return Response({
-                'message': 'CRS pipeline complete',
-                'crs': crs_summary
-            })
+            return Response({'message': 'CRS pipeline complete', 'crs': crs_summary})
+
         except Exception as e:
-            logger.error(f"CRS pipeline failed: {e}", exc_info=True)
+            logger.error("CRS pipeline failed: %s", e, exc_info=True)
             repository.status = 'error'
             repository.error_message = str(e)
             repository.save(update_fields=["status", "error_message"])
-            return Response(
-                {'error': str(e), 'type': type(e).__name__},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({'error': str(e), 'type': type(e).__name__}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    # ---- FIXED: unique name + url path stays crs/ingest ----
     @decorators.action(detail=True, methods=['post'], url_path='crs/ingest')
-    def ingest_repository(self, request, pk=None, system_pk=None):
+    def crs_ingest(self, request, pk=None, system_pk=None):
         """
         Full ingestion: Clone repository and run CRS pipeline
 
@@ -552,13 +458,11 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                     'message': 'Please connect your GitHub account first'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Step 1: Clone
             repository.status = 'cloning'
             repository.save(update_fields=["status"])
 
             clone_path = self._ensure_repo_clone(repository, request.user)
 
-            # Count Python files
             py_files = []
             for dirpath, _, filenames in os.walk(clone_path):
                 for fn in filenames:
@@ -571,11 +475,10 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 repository.save(update_fields=["status", "error_message"])
                 return Response({
                     'error': 'No Python files found',
-                    'message': f'Repository was cloned but contains no .py files',
+                    'message': 'Repository was cloned but contains no .py files',
                     'clone_path': clone_path
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Step 2: Run CRS
             repository.status = 'crs_running'
             repository.save(update_fields=["status"])
 
@@ -592,20 +495,16 @@ class RepositoryViewSet(viewsets.ModelViewSet):
             })
 
         except Exception as e:
-            logger.error(f"Ingestion failed: {e}", exc_info=True)
+            logger.error("CRS ingest failed: %s", e, exc_info=True)
             repository.status = 'error'
             repository.error_message = str(e)
             repository.save(update_fields=["status", "error_message"])
-            return Response(
-                {'error': str(e), 'type': type(e).__name__},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({'error': str(e), 'type': type(e).__name__}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @decorators.action(detail=True, methods=['get'], url_path='crs/summary')
     def crs_summary(self, request, pk=None, system_pk=None):
         repository = self.get_object()
-        summary = get_crs_summary(repository)
-        return Response(summary)
+        return Response(get_crs_summary(repository))
 
     @decorators.action(detail=True, methods=['get'], url_path='crs/blueprints')
     def crs_blueprints(self, request, pk=None, system_pk=None):
@@ -628,89 +527,47 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         repository = self.get_object()
         payload = load_crs_payload(repository, "relationships")
         if not payload:
-            return Response({'error': 'Artifacts not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Relationships not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(payload)
 
     @decorators.action(detail=True, methods=['post'], url_path='crs/steps/(?P<step_name>[^/.]+)/run')
     def run_crs_step_endpoint(self, request, pk=None, system_pk=None, step_name=None):
-        """
-        Run individual CRS pipeline step with real-time events
-
-        POST /api/systems/{system_id}/repositories/{repo_id}/crs/steps/{step_name}/run/
-        Body: {"force": false}
-
-        Steps: blueprints, artifacts, relationships, impact, verification_{suite_id}
-        """
         repository = self.get_object()
 
         try:
-            force = request.data.get('force', False)
+            force = bool(request.data.get('force', False))
 
-            # Validate repository is ready
             if not repository.clone_path or not os.path.isdir(repository.clone_path):
                 return Response({
                     'error': 'Repository not cloned',
                     'message': 'Please clone the repository first'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Run the step
             result = run_crs_step(repository, step_name, force=force)
-
-            return Response({
-                'message': f'Step {step_name} completed',
-                'result': result
-            })
+            return Response({'message': f'Step {step_name} completed', 'result': result})
 
         except ValueError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"Step {step_name} failed: {e}", exc_info=True)
-            return Response(
-                {'error': str(e), 'type': type(e).__name__},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error("Step %s failed: %s", step_name, e, exc_info=True)
+            return Response({'error': str(e), 'type': type(e).__name__}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @decorators.action(detail=True, methods=['get'], url_path='crs/steps/status')
     def crs_steps_status(self, request, pk=None, system_pk=None):
-        """
-        Get status of all CRS pipeline steps
-
-        GET /api/systems/{system_id}/repositories/{repo_id}/crs/steps/status/
-
-        Returns which steps need to run and current state
-        """
         repository = self.get_object()
-
         try:
-            status_info = get_crs_step_status(repository)
-            return Response(status_info)
+            return Response(get_crs_step_status(repository))
         except Exception as e:
-            logger.error(f"Failed to get step status: {e}", exc_info=True)
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error("Failed to get step status: %s", e, exc_info=True)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @decorators.action(detail=True, methods=['get'], url_path='crs/events')
     def crs_events_stream(self, request, pk=None, system_pk=None):
-        """
-        Server-Sent Events stream for CRS pipeline events
-
-        GET /api/systems/{system_id}/repositories/{repo_id}/crs/events/
-        Query params: ?since=<timestamp>
-
-        Streams real-time events during CRS execution
-        """
         from django.http import StreamingHttpResponse
-        import time
 
         repository = self.get_object()
         broadcaster = get_broadcaster()
 
-        # Get since parameter for resuming stream
         since = request.GET.get('since')
         if since:
             try:
@@ -719,33 +576,22 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 since = None
 
         def event_stream():
-            """Generate SSE event stream"""
-            # Send initial events if resuming
             if since is not None:
                 past_events = broadcaster.get_events(repository.id, since=since)
                 for event in past_events:
                     yield event.to_sse().encode('utf-8')
 
-            # Stream new events
             last_check = time.time()
             while True:
-                # Get new events since last check
                 new_events = broadcaster.get_events(repository.id, since=last_check)
                 for event in new_events:
                     yield event.to_sse().encode('utf-8')
 
                 last_check = time.time()
-
-                # Send keepalive comment every 30 seconds
                 yield b": keepalive\n\n"
-
-                # Small delay to avoid busy loop
                 time.sleep(0.5)
 
-        response = StreamingHttpResponse(
-            event_stream(),
-            content_type='text/event-stream'
-        )
+        response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
         response['Cache-Control'] = 'no-cache'
         response['X-Accel-Buffering'] = 'no'
         response['Access-Control-Allow-Origin'] = '*'
@@ -988,258 +834,159 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
 
 class SystemKnowledgeViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    API endpoint for viewing system knowledge
-    
-    list: Get all knowledge for a system
-    retrieve: Get single knowledge item
-    """
-    
     permission_classes = [IsAuthenticated]
     serializer_class = SystemKnowledgeSerializer
-    
+
     def get_queryset(self):
         system_id = self.kwargs.get('system_pk')
-        return SystemKnowledge.objects.filter(
-            system_id=system_id,
-            system__user=self.request.user
-        )
+        return SystemKnowledge.objects.filter(system_id=system_id, system__user=self.request.user)
 
 
 class SystemDocumentationViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    API endpoint for viewing system documentation
-    """
-
     permission_classes = [IsAuthenticated]
     serializer_class = SystemDocumentationSerializer
 
     def get_queryset(self):
         system_id = self.kwargs.get('system_pk')
-        return SystemDocumentation.objects.filter(
-            system_id=system_id,
-            system__user=self.request.user
-        )
+        return SystemDocumentation.objects.filter(system_id=system_id, system__user=self.request.user)
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for managing tasks
-    
-    list: Get all tasks for a system
-    retrieve: Get single task
-    create: Create new task
-    approve: Approve task
-    reject: Reject task
-    """
-    
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         system_id = self.kwargs.get('system_pk')
         if system_id:
-            return Task.objects.filter(
-                system_id=system_id,
-                system__user=self.request.user
-            ).prefetch_related('affected_repos')
+            return Task.objects.filter(system_id=system_id, system__user=self.request.user).prefetch_related('affected_repos')
         return Task.objects.filter(user=self.request.user)
-    
+
     def get_serializer_class(self):
         if self.action == 'create':
             return TaskCreateSerializer
-        elif self.action == 'list':
+        if self.action == 'list':
             return TaskListSerializer
         return TaskDetailSerializer
-    
+
     def create(self, request, system_pk=None):
-        """Create a new task"""
-        system = get_object_or_404(
-            System,
-            id=system_pk,
-            user=request.user
-        )
-        
+        system = get_object_or_404(System, id=system_pk, user=request.user)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        task = serializer.save(
-            system=system,
-            user=request.user,
-            status='pending'
-        )
-        
-        # Return full detail
+
+        task = serializer.save(system=system, user=request.user, status='pending')
+
         detail_serializer = TaskDetailSerializer(task)
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
-    
+
     @decorators.action(detail=True, methods=['post'])
     def approve(self, request, pk=None, system_pk=None):
-        """Approve a task"""
         task = self.get_object()
-        
+
         if task.status != 'awaiting_approval':
-            return Response(
-                {'error': 'Task is not awaiting approval'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({'error': 'Task is not awaiting approval'}, status=status.HTTP_400_BAD_REQUEST)
+
         task.approved = True
         task.status = 'executing'
         task.approval_notes = request.data.get('notes', '')
-        task.save()
-        
-        # TODO: Trigger task execution
-        
+        task.save(update_fields=["approved", "status", "approval_notes", "updated_at"])
+
         serializer = TaskDetailSerializer(task)
         return Response(serializer.data)
-    
+
     @decorators.action(detail=True, methods=['post'])
     def reject(self, request, pk=None, system_pk=None):
-        """Reject a task"""
         task = self.get_object()
-        
+
         if task.status != 'awaiting_approval':
-            return Response(
-                {'error': 'Task is not awaiting approval'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({'error': 'Task is not awaiting approval'}, status=status.HTTP_400_BAD_REQUEST)
+
         task.approved = False
         task.status = 'cancelled'
         task.approval_notes = request.data.get('notes', '')
-        task.save()
-        
+        task.save(update_fields=["approved", "status", "approval_notes", "updated_at"])
+
         serializer = TaskDetailSerializer(task)
         return Response(serializer.data)
 
 
 class AgentMemoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    API endpoint for viewing agent memory
-    
-    list: Get all memories for a system
-    retrieve: Get single memory
-    """
-    
     permission_classes = [IsAuthenticated]
     serializer_class = AgentMemorySerializer
-    
+
     def get_queryset(self):
         system_id = self.kwargs.get('system_pk')
-        return AgentMemory.objects.filter(
-            system_id=system_id,
-            system__user=self.request.user
-        ).order_by('-created_at')
+        return AgentMemory.objects.filter(system_id=system_id, system__user=self.request.user).order_by('-created_at')
 
 
 @decorators.api_view(['GET'])
 @decorators.permission_classes([IsAuthenticated])
 def llm_health(request):
-    """
-    Check LLM health status
-    
-    GET /api/llm/health/
-    """
     try:
         llm = get_llm_router()
         health = llm.health_check()
-        
         serializer = LLMHealthSerializer(health)
         return Response(serializer.data)
-    
     except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @decorators.api_view(['GET'])
 @decorators.permission_classes([IsAuthenticated])
 def llm_stats(request):
     """
-    LLM usage statistics for current user
+    GET /api/llm/stats/
+    Returns aggregate LLM usage stats for the current user.
     """
     user = request.user
     now = timezone.now()
-    window_start = now - timezone.timedelta(hours=24)
+    window_start = now - timedelta(hours=24)
 
-    base_qs = LLMRequestLog.objects.filter(user=user)
-    window_qs = base_qs.filter(created_at__gte=window_start)
+    logs = LLMRequestLog.objects.filter(user=user)
+    window_logs = logs.filter(created_at__gte=window_start)
 
-    totals = base_qs.aggregate(
-        total_requests=Count('id'),
-        avg_latency_ms=Avg('latency_ms'),
-    )
-    window_totals = window_qs.aggregate(
-        requests_24h=Count('id'),
-        avg_latency_ms_24h=Avg('latency_ms'),
-    )
-
-    error_count = base_qs.filter(status='error').count()
-    error_rate = (error_count / totals['total_requests']) if totals['total_requests'] else 0
-
-    by_provider = list(
-        base_qs.values('provider_type')
-        .annotate(
-            requests=Count('id'),
-            avg_latency_ms=Avg('latency_ms')
-        )
-        .order_by('-requests')
-    )
-
-    by_model = list(
-        base_qs.values('provider_type', 'model_id')
-        .annotate(
-            requests=Count('id'),
-            avg_latency_ms=Avg('latency_ms')
-        )
-        .order_by('-requests')[:10]
-    )
-
-    return Response({
-        'total_requests': totals['total_requests'] or 0,
-        'avg_latency_ms': int(totals['avg_latency_ms']) if totals['avg_latency_ms'] else None,
-        'error_rate': round(error_rate, 4),
-        'requests_24h': window_totals['requests_24h'] or 0,
-        'avg_latency_ms_24h': int(window_totals['avg_latency_ms_24h']) if window_totals['avg_latency_ms_24h'] else None,
-        'by_provider': by_provider,
-        'by_model': by_model
-    })
-    LLM stats endpoint
-
-    GET /api/llm/stats/
-    """
-    logs = LLMRequestLog.objects.filter(user=request.user)
     total_requests = logs.count()
     error_count = logs.filter(status='error').count()
-    error_rate = error_count / total_requests if total_requests else 0
-    avg_latency = logs.aggregate(avg=Avg('latency_ms')).get('avg')
+    error_rate = (error_count / total_requests) if total_requests else 0
 
-    provider_stats = list(
-        logs.values('provider', 'model')
+    avg_latency = logs.aggregate(avg=Avg('latency_ms')).get('avg')
+    avg_latency_24h = window_logs.aggregate(avg=Avg('latency_ms')).get('avg')
+
+    # If your model uses provider_type/model_id, keep these:
+    provider_breakdown = list(
+        logs.values('provider_type')
         .annotate(
             total_requests=Count('id'),
+            avg_latency_ms=Avg('latency_ms'),
             prompt_tokens=Coalesce(Sum('prompt_tokens'), 0),
             completion_tokens=Coalesce(Sum('completion_tokens'), 0),
             total_tokens=Coalesce(Sum('total_tokens'), 0),
-            avg_latency_ms=Avg('latency_ms')
         )
         .order_by('-total_requests')
     )
 
+    model_breakdown = list(
+        logs.values('provider_type', 'model_id')
+        .annotate(
+            total_requests=Count('id'),
+            avg_latency_ms=Avg('latency_ms'),
+            prompt_tokens=Coalesce(Sum('prompt_tokens'), 0),
+            completion_tokens=Coalesce(Sum('completion_tokens'), 0),
+            total_tokens=Coalesce(Sum('total_tokens'), 0),
+        )
+        .order_by('-total_requests')[:10]
+    )
+
     top_provider_model = None
-    if provider_stats:
-        top = provider_stats[0]
+    if model_breakdown:
+        top = model_breakdown[0]
         top_provider_model = {
-            'provider': top.get('provider'),
-            'model': top.get('model'),
-            'total_requests': top.get('total_requests')
+            'provider': top.get('provider_type'),
+            'model': top.get('model_id'),
+            'total_requests': top.get('total_requests'),
         }
 
-    since = timezone.now() - timedelta(hours=24)
     trend_rows = (
-        logs.filter(created_at__gte=since)
+        window_logs
         .annotate(hour=TruncHour('created_at'))
         .values('hour')
         .annotate(
@@ -1259,12 +1006,12 @@ def llm_stats(request):
 
     recent_requests = [
         {
-            'provider': log.provider,
-            'model': log.model,
+            'provider': getattr(log, 'provider_type', None) or getattr(log, 'provider', None),
+            'model': getattr(log, 'model_id', None) or getattr(log, 'model', None),
             'status': log.status,
             'latency_ms': log.latency_ms,
             'total_tokens': log.total_tokens,
-            'request_type': log.request_type,
+            'request_type': getattr(log, 'request_type', None),
             'created_at': log.created_at.isoformat()
         }
         for log in logs.order_by('-created_at')[:15]
@@ -1272,12 +1019,16 @@ def llm_stats(request):
 
     payload = {
         'total_requests': total_requests,
-        'error_rate': error_rate,
-        'avg_latency_ms': avg_latency,
+        'error_rate': round(error_rate, 4),
+        'avg_latency_ms': (int(avg_latency) if avg_latency is not None else None),
+        'requests_24h': window_logs.count(),
+        'avg_latency_ms_24h': (int(avg_latency_24h) if avg_latency_24h is not None else None),
         'top_provider_model': top_provider_model,
-        'tokens_by_provider_model': provider_stats,
+        'tokens_by_provider_model': model_breakdown,
+        'by_provider': provider_breakdown,
+        'by_model': model_breakdown,
         'last_24h_trend': last_24h_trend,
-        'recent_requests': recent_requests
+        'recent_requests': recent_requests,
     }
 
     serializer = LLMStatsSerializer(payload)
@@ -1286,11 +1037,6 @@ def llm_stats(request):
 
 @decorators.api_view(['GET'])
 def api_root(request):
-    """
-    API root endpoint
-    
-    GET /api/
-    """
     return Response({
         'version': '1.0',
         'endpoints': {
@@ -1304,49 +1050,35 @@ def api_root(request):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ChatConversationViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for chat conversations
-    
-    list: Get all conversations (filtered by type, system, or repository)
-    retrieve: Get single conversation with full message history
-    create: Create new conversation
-    destroy: Delete conversation
-    """
-    
     queryset = ChatConversation.objects.all()
-    
+
     def get_serializer_class(self):
         if self.action == 'list':
             return ChatConversationListSerializer
         return ChatConversationSerializer
-    
+
     def get_queryset(self):
-        queryset = ChatConversation.objects.all().order_by('-updated_at')
-        
-        # Filter by conversation type
+        qs = ChatConversation.objects.all().order_by('-updated_at')
+
         conv_type = self.request.query_params.get('type')
         if conv_type:
-            queryset = queryset.filter(conversation_type=conv_type)
-        
-        # Filter by system
+            qs = qs.filter(conversation_type=conv_type)
+
         system_id = self.request.query_params.get('system')
         if system_id:
-            queryset = queryset.filter(system_id=system_id)
-        
-        # Filter by repository
+            qs = qs.filter(system_id=system_id)
+
         repository_id = self.request.query_params.get('repository')
         if repository_id:
-            queryset = queryset.filter(repository_id=repository_id)
-        
-        return queryset.select_related('system', 'repository', 'user', 'llm_model', 'llm_model__provider').prefetch_related('messages')
+            qs = qs.filter(repository_id=repository_id)
+
+        return qs.select_related(
+            'system', 'repository', 'user', 'llm_model', 'llm_model__provider'
+        ).prefetch_related('messages')
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LLMProviderViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for managing LLM providers
-    """
-
     serializer_class = LLMProviderSerializer
     permission_classes = [IsAuthenticated]
 
@@ -1390,33 +1122,25 @@ class LLMProviderViewSet(viewsets.ModelViewSet):
                     obj.save(update_fields=['name', 'is_active'])
                     updated += 1
 
-        return Response({
-            'synced': len(models),
-            'created': created,
-            'updated': updated
-        })
+        return Response({'synced': len(models), 'created': created, 'updated': updated})
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LLMModelViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for managing LLM models
-    """
-
     serializer_class = LLMModelSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = LLMModel.objects.select_related('provider').filter(provider__user=self.request.user)
+        qs = LLMModel.objects.select_related('provider').filter(provider__user=self.request.user)
 
         provider_id = self.request.query_params.get('provider')
         provider_type = self.request.query_params.get('provider_type')
         if provider_id:
-            queryset = queryset.filter(provider_id=provider_id)
+            qs = qs.filter(provider_id=provider_id)
         if provider_type:
-            queryset = queryset.filter(provider__provider_type=provider_type)
+            qs = qs.filter(provider__provider_type=provider_type)
 
-        return queryset.order_by('name')
+        return qs.order_by('name')
 
     def perform_create(self, serializer):
         provider = serializer.validated_data.get('provider')

@@ -88,7 +88,7 @@ class OllamaClient:
 
             return {
                 "content": data.get("response", ""),
-                "usage": usage
+                "usage": usage,
                 "usage": self.last_usage
             }
 
