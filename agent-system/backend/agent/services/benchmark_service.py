@@ -17,8 +17,10 @@ _crs_dir = Path(settings.BASE_DIR).parent / "crs"
 if str(_crs_dir) not in sys.path:
     sys.path.insert(0, str(_crs_dir))
 
+
 from core.benchmark_runner import BenchmarkResult, BenchmarkRunner, BenchmarkTask
 from core.fs import WorkspaceFS
+from agent.services.agent_runner import AgentRunner
 
 
 @dataclass
@@ -193,40 +195,55 @@ def _execute_task_suite(
     tasks: List[BenchmarkTask],
 ) -> List[BenchmarkResult]:
     results = []
+    
+    # Reconstruct model config for AgentRunner
     model_id = model.get("id")
-    llm_model = None
+    model_config = None
     if model_id:
         llm_model = LLMModel.objects.select_related("provider").filter(id=model_id).first()
+        if llm_model:
+            model_config = _build_model_config(llm_model)
 
     for task in tasks:
         start_time = time.monotonic()
         error = None
-        answer = None
-        citations: List[str] = []
-        trace = {
-            "trace_id": f"benchmark-{uuid.uuid4().hex[:12]}",
-            "mode": mode,
-        }
-
+        
+        # AgentRunner Session
+        session_id = f"benchmark-{uuid.uuid4().hex[:12]}"
+        
+        # We need options to be passed to results
+        trace_path = ""
+        patches = []
+        
         try:
             repository = _get_repository_for_task(task)
             if not repository:
                 raise ValueError("Repository not found for benchmark task.")
 
-            response = _run_read_task(
-                repository=repository,
-                task=task,
+            runner = AgentRunner(repository)
+            
+            # Execute Agent
+            # Note: AgentRunner.execute expects a 'request' string. 
+            # We use task.prompt as the request.
+            exec_result = runner.execute(
+                session_id=session_id,
+                request=task.prompt,
                 mode=mode,
-                llm_model=llm_model,
+                model_config=model_config
             )
-            answer = response.get("answer")
-            citations = response.get("citations", [])
-            trace.update(response.get("trace", {}))
+            
+            success = exec_result.get('status') == 'success'
+            trace_path = exec_result.get('trace_path', "")
+            patches = exec_result.get('patches_applied', [])
+            
+            if exec_result.get('status') == 'error':
+                error = exec_result.get('error')
+
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
+            success = False
 
         latency_ms = int((time.monotonic() - start_time) * 1000)
-        success = error is None and bool(answer)
 
         results.append(
             BenchmarkResult(
@@ -235,16 +252,31 @@ def _execute_task_suite(
                 latency_ms=latency_ms,
                 error=error,
                 details={
-                    "answer": answer,
-                    "citations": citations,
-                    "trace": trace,
+                    "trace_path": trace_path,
+                    "patches_applied": patches,
                     "mode": mode,
                     "model_id": model.get("model_id") or model.get("id"),
+                    "session_id": session_id
                 },
             )
         )
 
     return results
+
+
+def _build_model_config(llm_model: LLMModel) -> Dict[str, Any]:
+    if not llm_model or not llm_model.provider:
+        return {}
+        
+    provider = llm_model.provider
+    return {
+        "provider": provider.provider_type,
+        "model": llm_model.model_id,
+        "base_url": provider.base_url or None,
+        "api_key": provider.api_key or None,
+        "max_tokens": llm_model.metadata.get("max_tokens") or provider.metadata.get("max_tokens") or 4000,
+        "temperature": llm_model.metadata.get("temperature") or provider.metadata.get("temperature") or 0.7,
+    }
 
 
 def _get_repository_for_task(task: BenchmarkTask) -> Optional[Repository]:

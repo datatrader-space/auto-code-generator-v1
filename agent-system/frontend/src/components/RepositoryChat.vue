@@ -1,7 +1,7 @@
 <template>
   <div class="repository-chat">
     <!-- Chat Header -->
-    <div class="chat-header">
+    <div v-if="!hideHeader" class="chat-header">
       <div class="flex items-center justify-between">
         <div>
           <h3 class="font-semibold text-gray-900">{{ repository.name }}</h3>
@@ -144,15 +144,31 @@
 
     <!-- Input Container -->
     <div class="input-container">
+      <!-- Model Selector -->
+      <div class="flex items-center justify-between mb-2 px-1">
+        <div class="flex items-center gap-2">
+          <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+          <select 
+            v-model="selectedModelId" 
+            class="text-xs border-none bg-transparent font-medium text-gray-600 hover:text-gray-900 focus:ring-0 cursor-pointer transition-colors outline-none pr-2 py-0"
+          >
+              <option :value="null">Default Model</option>
+              <option v-for="model in activeModels" :key="model.id" :value="model.id">
+                  {{ model.provider_name }} • {{ model.name }}
+              </option>
+          </select>
+        </div>
+      </div>
+
       <form @submit.prevent="sendMessage" class="flex gap-2">
         <textarea
           ref="messageInput"
           v-model="currentMessage"
           @keydown.enter.exact.prevent="sendMessage"
           @keydown.enter.shift.exact="currentMessage += '\n'"
-          placeholder="Ask about this repository... (Shift+Enter for new line)"
-          class="message-input"
-          rows="1"
+          placeholder="Ask a question..."
+          class="message-input shadow-sm bg-white"
+          rows="3"
           :disabled="!connected || isTyping"
         ></textarea>
         <button
@@ -175,6 +191,20 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import api from '../services/api'
+import { Marked } from 'marked'
+import { markedHighlight } from 'marked-highlight'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/atom-one-dark.css'
+
+const marked = new Marked(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext'
+      return hljs.highlight(code, { language }).value
+    }
+  })
+)
 
 const props = defineProps({
   repository: {
@@ -184,6 +214,10 @@ const props = defineProps({
   systemId: {
     type: Number,
     required: true
+  },
+  hideHeader: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -471,18 +505,8 @@ const scrollToBottom = async () => {
 }
 
 const formatMessage = (content) => {
-  // Basic markdown-like formatting
-  let formatted = content
-    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br>')
-
-  // Code blocks
-  formatted = formatted.replace(/```(\w+)?\n([\s\S]+?)```/g, (match, lang, code) => {
-    return `<pre class="code-block"><code class="language-${lang || 'text'}">${code.trim()}</code></pre>`
-  })
-
-  return formatted
+  if (!content) return ''
+  return marked.parse(content)
 }
 
 const activeModels = computed(() => models.value.filter((model) => model.is_active))
@@ -519,8 +543,7 @@ watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) 
 
 <style scoped>
 .repository-chat {
-  @apply flex flex-col h-full bg-white rounded-lg border;
-  height: 600px;
+  @apply flex flex-col h-full bg-white;
 }
 
 .chat-header {
@@ -551,18 +574,82 @@ watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) 
   @apply max-w-[80%] rounded-lg px-4 py-2;
 }
 
+/* Message Bubbles */
 .user-message .message-bubble {
-  @apply bg-blue-600 text-white;
+  @apply bg-zinc-800 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-sm;
 }
 
 .assistant-message .message-bubble {
-  @apply bg-gray-100 text-gray-900;
+  @apply bg-transparent text-gray-800 p-0 max-w-full;
 }
 
 .assistant-avatar {
-  @apply w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0;
+  @apply w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0 mt-1;
 }
 
+/* Markdown Content Styling */
+:deep(.message-bubble p) {
+  @apply mb-3 last:mb-0 leading-relaxed;
+}
+
+:deep(.message-bubble ul) {
+  @apply mb-3 pl-5 list-disc space-y-1;
+}
+
+:deep(.message-bubble ol) {
+  @apply mb-3 pl-5 list-decimal space-y-1;
+}
+
+:deep(.message-bubble h1),
+:deep(.message-bubble h2),
+:deep(.message-bubble h3) {
+  @apply font-bold text-gray-900 mt-4 mb-2;
+}
+
+:deep(.message-bubble h1) { @apply text-xl; }
+:deep(.message-bubble h2) { @apply text-lg; }
+:deep(.message-bubble h3) { @apply text-base; }
+
+:deep(.message-bubble a) {
+  @apply text-blue-600 hover:underline;
+}
+
+:deep(.message-bubble blockquote) {
+  @apply border-l-4 border-gray-300 pl-4 italic text-gray-600 my-3;
+}
+
+:deep(.message-bubble table) {
+  @apply w-full border-collapse border border-gray-200 mb-4 text-sm;
+}
+
+:deep(.message-bubble th),
+:deep(.message-bubble td) {
+  @apply border border-gray-200 px-3 py-2 text-left;
+}
+
+:deep(.message-bubble th) {
+  @apply bg-gray-50 font-semibold text-gray-700;
+}
+
+/* Code Formatting */
+:deep(code) {
+  @apply font-mono text-sm bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded;
+}
+
+:deep(pre) {
+  @apply bg-[#282c34] text-gray-100 rounded-lg overflow-x-auto my-3 p-0;
+}
+
+:deep(pre code) {
+  @apply block p-4 bg-transparent text-inherit overflow-x-auto;
+}
+
+/* Tool Styling */
+.tool-result-item {
+  @apply bg-gray-50 border border-gray-200 rounded-lg p-3 my-2 text-xs font-mono overflow-hidden;
+}
+
+/* Restored Input Styles */
 .typing-indicator {
   @apply flex gap-1 px-4 py-3 bg-gray-100 rounded-lg;
 }
@@ -584,8 +671,8 @@ watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) 
 }
 
 .message-input {
-  @apply flex-1 px-3 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
-  max-height: 120px;
+  @apply flex-1 px-3 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white;
+  max-height: 200px;
 }
 
 .send-button {
@@ -596,38 +683,4 @@ watch(() => props.repository.id, async (nextRepositoryId, previousRepositoryId) 
   @apply text-center;
 }
 
-/* Code formatting */
-:deep(.inline-code) {
-  @apply bg-gray-800 text-gray-100 px-1 py-0.5 rounded text-sm font-mono;
-}
-
-:deep(.code-block) {
-  @apply bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto my-2;
-}
-
-:deep(.code-block code) {
-  @apply font-mono text-sm;
-}
-
-:deep(strong) {
-  @apply font-semibold;
-}
-
-/* Trace and tool results */
-.trace-details summary,
-.tool-results-details summary {
-  @apply text-xs px-2 py-1 bg-gray-50 rounded inline-block;
-}
-
-.trace-content {
-  @apply pl-2 border-l-2 border-gray-300;
-}
-
-.tool-result-item {
-  @apply bg-white border border-gray-200 rounded p-2;
-}
-
-.tool-result-item pre {
-  @apply max-h-40 overflow-y-auto;
-}
 </style>

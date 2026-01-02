@@ -24,16 +24,24 @@
             </div>
           </div>
           
-          <span
-            class="px-3 py-1 text-sm font-medium rounded-full"
-            :class="{
-              'bg-green-100 text-green-800': system.status === 'ready',
-              'bg-yellow-100 text-yellow-800': system.status === 'initializing',
-              'bg-red-100 text-red-800': system.status === 'error'
-            }"
-          >
-            {{ system.status }}
-          </span>
+          <div class="flex items-center gap-3">
+            <router-link 
+              to="/benchmarks"
+              class="px-3 py-1 text-sm font-medium bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200 transition-colors"
+            >
+              Benchmarks
+            </router-link>
+            <span
+              class="px-3 py-1 text-sm font-medium rounded-full"
+              :class="{
+                'bg-green-100 text-green-800': system.status === 'ready',
+                'bg-yellow-100 text-yellow-800': system.status === 'initializing',
+                'bg-red-100 text-red-800': system.status === 'error'
+              }"
+            >
+              {{ system.status }}
+            </span>
+          </div>
         </div>
       </div>
       
@@ -251,6 +259,183 @@
           >
             Add Your First Repository
           </button>
+        </div>
+      </div>
+      
+      <!-- Repository Detail Panel (Inline) -->
+      <div v-if="showRepositoryPanel && selectedRepo" class="mt-8 bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b flex items-center justify-between bg-gray-50">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">{{ selectedRepo.name }}</h3>
+            <p class="text-sm text-gray-500 mt-1">{{ selectedRepo.github_url }}</p>
+          </div>
+          <button
+            @click="closeRepositoryPanel"
+            class="text-gray-500 hover:text-gray-700 text-xl font-bold px-3 py-1 rounded hover:bg-gray-200"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <!-- Repository Tabs -->
+        <div class="border-b px-6">
+          <div class="flex space-x-4 overflow-x-auto">
+            <button
+              @click="repoTab = 'knowledge'"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'knowledge' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              📚 Knowledge
+            </button>
+            <button
+              @click="repoTab = 'docs'"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'docs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              📄 Docs
+            </button>
+            <button
+              @click="repoTab = 'code'"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'code' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              💻 Code
+            </button>
+            <button
+              @click="repoTab = 'chat'"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'chat' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              💬 Chat
+            </button>
+            <button
+              @click="setCrsTabInline('pipeline')"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'pipeline' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              🔄 Pipeline
+            </button>
+            <button
+              @click="setCrsTabInline('trace')"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'trace' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              📊 Trace
+            </button>
+            <button
+              @click="setCrsTabInline('summary')"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'summary' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              📋 Summary
+            </button>
+            <button
+              @click="setCrsTabInline('blueprints')"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'blueprints' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              📐 Blueprints
+            </button>
+            <button
+              @click="setCrsTabInline('artifacts')"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'artifacts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              📦 Artifacts
+            </button>
+            <button
+              @click="setCrsTabInline('relationships')"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              :class="repoTab === 'relationships' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'"
+            >
+              🔗 Relationships
+            </button>
+          </div>
+        </div>
+        
+        <!-- Tab Content -->
+        <div>
+          <RepositoryKnowledge
+            v-if="repoTab === 'knowledge'"
+            :repository-id="selectedRepo.id"
+            :system-id="systemId"
+          />
+          <RepositoryDocs
+            v-else-if="repoTab === 'docs'"
+            :repository="selectedRepo"
+          />
+          <div v-else-if="repoTab === 'code'" style="height: 600px;">
+            <CodeBrowser
+              :repository-id="selectedRepo.id"
+              :system-id="systemId"
+              :artifacts="crsPayloads.artifacts || []"
+            />
+          </div>
+          <div v-else-if="repoTab === 'chat'" class="p-6">
+            <RepositoryChat
+              :repository="selectedRepo"
+              :system-id="systemId"
+            />
+          </div>
+          
+          <!-- CRS Pipeline Tab -->
+          <div v-else-if="repoTab === 'pipeline'">
+            <CRSPipelineDashboard
+              :repository-id="selectedRepo.id"
+              :system-id="systemId"
+            />
+          </div>
+          
+          <!-- Trace Tab -->
+          <div v-else-if="repoTab === 'trace'">
+            <SessionTrace
+              :repository-id="selectedRepo.id"
+            />
+          </div>
+          
+          <!-- Summary Tab -->
+          <div v-else-if="repoTab === 'summary'" class="p-6">
+            <div v-if="crsLoading" class="text-center py-8">
+              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p class="mt-2 text-gray-600">Loading CRS data...</p>
+            </div>
+            <div v-else-if="crsSummary" class="space-y-3 text-sm text-gray-700">
+              <p><strong>Status:</strong> {{ crsSummary.status }}</p>
+              <p><strong>CRS Status:</strong> {{ crsSummary.crs_status }}</p>
+              <p><strong>Last CRS Run:</strong> {{ crsSummary.last_crs_run || '—' }}</p>
+              <p><strong>Blueprint Files:</strong> {{ crsSummary.blueprints_count }}</p>
+              <p><strong>Artifacts:</strong> {{ crsSummary.artifact_items }}</p>
+              <p><strong>Relationships:</strong> {{ crsSummary.relationship_items }}</p>
+            </div>
+            <div v-else class="text-gray-500">No CRS summary available.</div>
+          </div>
+          
+          <!-- Blueprints Tab -->
+          <div v-else-if="repoTab === 'blueprints'">
+            <div v-if="crsLoading" class="text-center py-8">
+              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p class="mt-2 text-gray-600">Loading blueprints...</p>
+            </div>
+            <BlueprintViewer v-else :blueprints="crsPayloads.blueprints || {}" />
+          </div>
+          
+          <!-- Artifacts Tab -->
+          <div v-else-if="repoTab === 'artifacts'">
+            <div v-if="crsLoading" class="text-center py-8">
+              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p class="mt-2 text-gray-600">Loading artifacts...</p>
+            </div>
+            <ArtifactViewer v-else :artifacts="artifactsList" />
+          </div>
+          
+          <!-- Relationships Tab -->
+          <div v-else-if="repoTab === 'relationships'">
+            <div v-if="crsLoading" class="text-center py-8">
+              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p class="mt-2 text-gray-600">Loading relationships...</p>
+            </div>
+            <RelationshipViewer v-else :relationships="crsPayloads.relationships || {}" />
+          </div>
         </div>
       </div>
       
@@ -765,7 +950,7 @@
 
 <script setup>
 import { ref, computed, onMounted, inject, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import CRSPipelineDashboard from '../components/CRSPipelineDashboard.vue'
 import RepositoryChat from '../components/RepositoryChat.vue'
@@ -774,11 +959,15 @@ import ArtifactViewer from '../components/ArtifactViewer.vue'
 import BlueprintViewer from '../components/BlueprintViewer.vue'
 import RelationshipViewer from '../components/RelationshipViewer.vue'
 import SessionTrace from '../components/SessionTrace.vue'
+import RepositoryKnowledge from '../components/RepositoryKnowledge.vue'
+import RepositoryDocs from '../components/RepositoryDocs.vue'
+import CodeBrowser from '../components/CodeBrowser.vue'
 
 const route = useRoute()
+const router = useRouter()
 const notify = inject('notify')
 
-const systemId = route.params.id
+const systemId = parseInt(route.params.id)
 const system = ref(null)
 const repositories = ref([])
 const loading = ref(true)
@@ -787,6 +976,8 @@ const showQuestionsModal = ref(false)
 const showIntentModal = ref(false)
 const showCrsModal = ref(false)
 const showPlannerChat = ref(false)
+const showRepositoryPanel = ref(false)
+const repoTab = ref('knowledge')
 const adding = ref(false)
 const loadingQuestions = ref(false)
 const submitting = ref(false)
@@ -911,6 +1102,19 @@ const addRepository = async () => {
   } finally {
     adding.value = false
   }
+}
+
+// Navigate to repository detail page
+const selectRepository = (repo) => {
+  console.log('Selecting repo:', repo)
+  console.log('System ID:', systemId)
+  if (!repo || !repo.id) {
+    console.error('Repository ID is missing!', repo)
+    notify('Error: Repository ID is missing', 'error')
+    return
+  }
+  // Navigate to dedicated repository page
+  router.push(`/systems/${systemId}/repositories/${repo.id}`)
 }
 
 // Analyze repository
@@ -1069,9 +1273,32 @@ const saveIntentConstraints = async () => {
   }
 }
 
-// Select repository
-const selectRepository = (repo) => {
-  openCrsModal(repo)
+const closeRepositoryPanel = () => {
+  showRepositoryPanel.value = false
+  selectedRepo.value = null
+  repoTab.value = 'knowledge'
+  crsSummary.value = null
+  crsPayloads.value = { blueprints: null, artifacts: null, relationships: null }
+}
+
+const setCrsTabInline = async (tab) => {
+  repoTab.value = tab
+  if (tab === 'summary') {
+    return
+  }
+  await loadCrsPayload(tab)
+}
+
+const loadCrsSummaryForRepo = async (repo) => {
+  try {
+    crsLoading.value = true
+    const response = await api.getCrsSummary(systemId, repo.id)
+    crsSummary.value = response.data
+  } catch (error) {
+    console.error('Failed to load CRS summary:', error)
+  } finally {
+    crsLoading.value = false
+  }
 }
 
 // Load knowledge

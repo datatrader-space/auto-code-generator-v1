@@ -69,6 +69,10 @@
               <div><strong>Status:</strong> {{ selectedSession.status }}</div>
               <div><strong>Duration:</strong> {{ selectedSession.duration_ms }}ms</div>
               <div><strong>Intent:</strong> {{ selectedSession.intent_classified_as || 'N/A' }}</div>
+              <div v-if="selectedSession.conversation_title"><strong>Conversation:</strong> {{ selectedSession.conversation_title }}</div>
+              <div v-if="selectedSession.llm_model_name"><strong>LLM Model:</strong> {{ selectedSession.llm_model_name }}</div>
+              <div><strong>Created:</strong> {{ formatDateTime(selectedSession.created_at) }}</div>
+              <div v-if="selectedSession.completed_at"><strong>Completed:</strong> {{ formatDateTime(selectedSession.completed_at) }}</div>
             </div>
           </div>
 
@@ -76,9 +80,14 @@
             <h4>Request</h4>
             <p class="request-text">{{ selectedSession.user_request }}</p>
           </div>
+          
+          <div v-if="selectedSession.plan" class="detail-section">
+            <h4>Execution Plan</h4>
+            <pre class="plan-text">{{ JSON.stringify(selectedSession.plan, null, 2) }}</pre>
+          </div>
 
           <div v-if="selectedSession.steps && selectedSession.steps.length" class="detail-section">
-            <h4>Execution Steps</h4>
+            <h4>Execution Steps ({{ selectedSession.steps.length }})</h4>
             <div v-for="(step, idx) in selectedSession.steps" :key="idx" class="step-item">
               <span class="step-number">{{ idx + 1 }}</span>
               <span class="step-action">{{ step.action }}</span>
@@ -86,9 +95,14 @@
               <span class="step-duration">{{ step.duration_ms }}ms</span>
             </div>
           </div>
+          
+          <div v-if="selectedSession.final_answer" class="detail-section">
+            <h4>Final Answer</h4>
+            <div class="final-answer-text">{{ selectedSession.final_answer }}</div>
+          </div>
 
           <div v-if="selectedSession.tools_called && selectedSession.tools_called.length" class="detail-section">
-            <h4>Tools Called</h4>
+            <h4>Tools Called ({{ selectedSession.tools_called.length }})</h4>
             <div class="tools-list">
               <span v-for="tool in selectedSession.tools_called" :key="tool" class="tool-badge">
                 {{ tool }}
@@ -97,12 +111,17 @@
           </div>
 
           <div v-if="selectedSession.artifacts_used && selectedSession.artifacts_used.length" class="detail-section">
-            <h4>Artifacts Used</h4>
+            <h4>Artifacts Used ({{ selectedSession.artifacts_used.length }})</h4>
             <div class="artifacts-list">
               <code v-for="artifact in selectedSession.artifacts_used" :key="artifact" class="artifact-item">
                 {{ artifact }}
               </code>
             </div>
+          </div>
+          
+          <div v-if="selectedSession.knowledge_context && Object.keys(selectedSession.knowledge_context).length" class="detail-section">
+            <h4>Knowledge Context</h4>
+            <pre class="context-text">{{ JSON.stringify(selectedSession.knowledge_context, null, 2) }}</pre>
           </div>
 
           <div v-if="selectedSession.error_message" class="detail-section error-section">
@@ -152,6 +171,10 @@ const loadSessions = async () => {
 const viewDetails = async (session) => {
   try {
     const response = await axios.get(`/api/sessions/${session.id}/`)
+    console.log('📊 Session detail response:', response.data)
+    console.log('Steps:', response.data.steps)
+    console.log('Plan:', response.data.plan)
+    console.log('Final Answer:', response.data.final_answer)
     selectedSession.value = response.data
   } catch (error) {
     console.error('Failed to load session details:', error)
@@ -171,6 +194,12 @@ const formatTime = (timestamp) => {
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
   return date.toLocaleDateString()
+}
+
+const formatDateTime = (timestamp) => {
+  if (!timestamp) return 'N/A'
+  const date = new Date(timestamp)
+  return date.toLocaleString()
 }
 
 onMounted(loadSessions)
@@ -486,6 +515,26 @@ setInterval(loadSessions, 10000)
   margin: 0;
   color: #c62828;
   font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.plan-text, .context-text {
+  margin: 0;
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.final-answer-text {
+  background: #e8f5e9;
+  padding: 12px;
+  border-radius: 6px;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
 }

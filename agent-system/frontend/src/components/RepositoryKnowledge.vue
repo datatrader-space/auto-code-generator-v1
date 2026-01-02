@@ -157,7 +157,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '../services/api';
 import RepositoryProfileViewer from './knowledge/RepositoryProfileViewer.vue';
 import DomainModelViewer from './knowledge/DomainModelViewer.vue';
 import ConventionsList from './knowledge/ConventionsList.vue';
@@ -247,9 +247,7 @@ export default {
   methods: {
     async loadKnowledgeSummary() {
       try {
-        const response = await axios.get(
-          `${this.apiBaseUrl}/api/systems/${this.systemId}/repositories/${this.repositoryId}/knowledge/summary/`
-        );
+        const response = await api.getKnowledgeSummary(this.systemId, this.repositoryId);
         this.knowledge = response.data;
 
         // Load all docs if knowledge is ready
@@ -263,9 +261,7 @@ export default {
 
     async loadKnowledgeDocs() {
       try {
-        const response = await axios.get(
-          `${this.apiBaseUrl}/api/systems/${this.systemId}/repositories/${this.repositoryId}/knowledge/docs/`
-        );
+        const response = await api.getKnowledgeDocs(this.systemId, this.repositoryId);
         this.allDocs = response.data.docs;
       } catch (error) {
         console.error('Failed to load knowledge docs:', error);
@@ -277,10 +273,7 @@ export default {
       this.extractionEvents = [];
 
       try {
-        const response = await axios.post(
-          `${this.apiBaseUrl}/api/systems/${this.systemId}/repositories/${this.repositoryId}/knowledge/extract/`,
-          { force: true }
-        );
+        const response = await api.extractKnowledge(this.systemId, this.repositoryId, true);
 
         // Reload knowledge after extraction
         await this.loadKnowledgeSummary();
