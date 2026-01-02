@@ -11,9 +11,11 @@ import json
 import logging
 from pathlib import Path
 
-from agent.tools import get_tool_registry, ToolExecutionContext, ToolPermission
+from agent.tools import get_tool_registry, ToolExecutionContext, ToolPermission, ToolMetadata, ToolParameter
 from agent.models import Repository
 from agent.tools.loaders.yaml_loader import load_yaml_tools
+from agent.tools.builtin.remote_tools import RemoteTool, RemoteToolConfig
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -233,3 +235,240 @@ def _ensure_yaml_tools_loaded(registry):
 
     except Exception as e:
         logger.error(f"Failed to load YAML tools: {e}")
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def register_remote_tool(request):
+    """
+    POST /api/tools/register/remote/
+
+    Register an external HTTP service as a tool
+
+    Body:
+    {
+        "name": "JIRA_CREATE_ISSUE",
+        "category": "jira",
+        "description": "Create a new Jira issue",
+        "version": "1.0.0",
+        "endpoint_url": "https://api.example.com/tools/jira/create",
+        "method": "POST",
+        "timeout": 30,
+        "auth_type": "bearer",  // "bearer", "basic", "api_key", null
+        "auth_config": {
+            "token": "..."  // or {"username": "...", "password": "..."} for basic
+        },
+        "parameters": [
+            {
+                "name": "summary",
+                "type": "string",
+                "required": true,
+                "description": "Issue summary"
+            }
+        ],
+        "permissions": ["network"],
+        "examples": [...],
+        "tags": ["jira", "issue-tracking"]
+    }
+    """
+    try:
+        data = json.loads(request.body)
+
+        # Validate required fields
+        required_fields = ['name', 'category', 'description', 'endpoint_url']
+        for field in required_fields:
+            if field not in data:
+                return JsonResponse({'error': f'Missing required field: {field}'}, status=400)
+
+        # Parse parameters
+        parameters = []
+        for param_data in data.get('parameters', []):
+            parameters.append(ToolParameter(
+                name=param_data['name'],
+                type=param_data.get('type', 'string'),
+                required=param_data.get('required', True),
+                default=param_data.get('default'),
+                description=param_data.get('description', ''),
+                choices=param_data.get('choices')
+            ))
+
+        # Parse permissions
+        permissions = []
+        for perm in data.get('permissions', ['network']):
+            try:
+                permissions.append(ToolPermission(perm))
+            except ValueError:
+                logger.warning(f"Invalid permission: {perm}")
+
+        # Create metadata
+        metadata = ToolMetadata(
+            name=data['name'],
+            category=data['category'],
+            description=data['description'],
+            version=data.get('version', '1.0.0'),
+            parameters=parameters,
+            permissions=permissions,
+            examples=data.get('examples', []),
+            tags=data.get('tags', []),
+            enabled=data.get('enabled', True)
+        )
+
+        # Create remote config
+        config = RemoteToolConfig(
+            endpoint_url=data['endpoint_url'],
+            method=data.get('method', 'POST'),
+            timeout=data.get('timeout', 30),
+            headers=data.get('headers'),
+            auth_type=data.get('auth_type'),
+            auth_config=data.get('auth_config')
+        )
+
+        # Create and register tool
+        tool = RemoteTool(metadata, config)
+        registry = get_tool_registry()
+        registry.register(tool)
+
+        logger.info(f"Registered remote tool: {data['name']}")
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Tool {data['name']} registered successfully",
+            'tool_name': data['name']
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to register remote tool: {e}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_yaml_tool(request):
+    """
+    POST /api/tools/create/yaml/
+
+    Create a new YAML-based tool
+
+    Body:
+    {
+        "name": "CUSTOM_COMMAND",
+        "category": "custom",
+        "description": "Run a custom command",
+        "yaml_definition": "tool:\\n  name: CUSTOM_COMMAND\\n  ..."
+    }
+    """
+    try:
+        data = json.loads(request.body)
+
+        if 'name' not in data or 'yaml_definition' not in data:
+            return JsonResponse({'error': 'Missing name or yaml_definition'}, status=400)
+
+        # Parse YAML
+        try:
+            yaml_data = yaml.safe_load(data['yaml_definition'])
+        except yaml.YAMLError as e:
+            return JsonResponse({'error': f'Invalid YAML: {str(e)}'}, status=400)
+
+        # Save to definitions directory
+        from django.conf import settings
+        definitions_dir = Path(settings.BASE_DIR) / 'agent' / 'tools' / 'definitions'
+        definitions_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = f"{data['name'].lower()}_custom.yaml"
+        filepath = definitions_dir / filename
+
+        with open(filepath, 'w') as f:
+            f.write(data['yaml_definition'])
+
+        logger.info(f"Created YAML tool: {data['name']} at {filepath}")
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Tool {data['name']} created successfully",
+            'file_path': str(filepath)
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to create YAML tool: {e}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_tool(request, tool_name):
+    """
+    POST /api/tools/<tool_name>/update/
+
+    Update tool metadata (enable/disable, etc.)
+
+    Body:
+    {
+        "enabled": false
+    }
+    """
+    try:
+        data = json.loads(request.body)
+        registry = get_tool_registry()
+        _ensure_yaml_tools_loaded(registry)
+
+        tool = registry.get_tool(tool_name)
+        if not tool:
+            return JsonResponse({'error': 'Tool not found'}, status=404)
+
+        metadata = tool.get_metadata()
+
+        # Update enabled status
+        if 'enabled' in data:
+            metadata.enabled = data['enabled']
+            logger.info(f"Updated tool {tool_name}: enabled={metadata.enabled}")
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Tool {tool_name} updated successfully"
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to update tool: {e}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_tool(request, tool_name):
+    """
+    DELETE /api/tools/<tool_name>/
+
+    Delete a tool (only custom tools can be deleted)
+    """
+    try:
+        registry = get_tool_registry()
+        _ensure_yaml_tools_loaded(registry)
+
+        tool = registry.get_tool(tool_name)
+        if not tool:
+            return JsonResponse({'error': 'Tool not found'}, status=404)
+
+        # Check if it's a custom tool (has _custom suffix in filename)
+        from django.conf import settings
+        definitions_dir = Path(settings.BASE_DIR) / 'agent' / 'tools' / 'definitions'
+        filename = f"{tool_name.lower()}_custom.yaml"
+        filepath = definitions_dir / filename
+
+        if filepath.exists():
+            filepath.unlink()
+            logger.info(f"Deleted custom tool: {tool_name}")
+
+        # Unregister from registry
+        if hasattr(registry, '_tools') and tool_name in registry._tools:
+            del registry._tools[tool_name]
+            if hasattr(registry, '_metadata_cache') and tool_name in registry._metadata_cache:
+                del registry._metadata_cache[tool_name]
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Tool {tool_name} deleted successfully"
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to delete tool: {e}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)

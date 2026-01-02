@@ -89,6 +89,10 @@ urlpatterns = [
     path('tools/<str:tool_name>/', tool_views.get_tool_detail, name='tool-detail'),
     path('tools/execute/', tool_views.execute_tool, name='tool-execute'),
     path('tools/documentation/', tool_views.get_tool_documentation, name='tool-docs'),
+    path('tools/register/remote/', tool_views.register_remote_tool, name='register-remote-tool'),
+    path('tools/create/yaml/', tool_views.create_yaml_tool, name='create-yaml-tool'),
+    path('tools/<str:tool_name>/update/', tool_views.update_tool, name='update-tool'),
+    path('tools/<str:tool_name>/delete/', tool_views.delete_tool, name='delete-tool'),
 
     # Include routers
     path('', include(router.urls)),

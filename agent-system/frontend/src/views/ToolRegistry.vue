@@ -7,6 +7,13 @@
           <h1 class="text-3xl font-bold text-gray-900">🔧 Tool Registry</h1>
           <p class="text-gray-600 mt-1">Manage and execute agent tools</p>
         </div>
+        <button
+          @click="showRegisterModal = true"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
+        >
+          <span class="text-xl">+</span>
+          Register Tool
+        </button>
       </div>
 
       <!-- Stats Cards -->
@@ -90,6 +97,13 @@
         @execute="executeToolWithParams"
       />
 
+      <!-- Register Tool Modal -->
+      <RegisterToolModal
+        :show="showRegisterModal"
+        @close="showRegisterModal = false"
+        @registered="handleToolRegistered"
+      />
+
       <!-- Execution Results Panel -->
       <ExecutionResultsPanel
         v-if="executionResults.length > 0"
@@ -106,13 +120,15 @@ import axios from 'axios'
 import ToolCard from '../components/tools/ToolCard.vue'
 import ToolExecuteModal from '../components/tools/ToolExecuteModal.vue'
 import ExecutionResultsPanel from '../components/tools/ExecutionResultsPanel.vue'
+import RegisterToolModal from '../components/tools/RegisterToolModal.vue'
 
 export default {
   name: 'ToolRegistry',
   components: {
     ToolCard,
     ToolExecuteModal,
-    ExecutionResultsPanel
+    ExecutionResultsPanel,
+    RegisterToolModal
   },
   setup() {
     const tools = ref([])
@@ -125,6 +141,7 @@ export default {
     const selectedCategory = ref('')
 
     const showExecuteModal = ref(false)
+    const showRegisterModal = ref(false)
     const selectedTool = ref(null)
 
     const executionResults = ref([])
@@ -251,9 +268,19 @@ export default {
         'testing': '✅',
         'network': '🌐',
         'database': '🗄️',
-        'custom': '⚙️'
+        'custom': '⚙️',
+        'jira': '📋',
+        'remote': '🌐'
       }
       return icons[category] || '🔧'
+    }
+
+    const handleToolRegistered = async () => {
+      // Reload tools after registration
+      await loadTools()
+      showRegisterModal.value = false
+      // Show success message
+      alert('Tool registered successfully!')
     }
 
     onMounted(() => {
@@ -270,6 +297,7 @@ export default {
       searchQuery,
       selectedCategory,
       showExecuteModal,
+      showRegisterModal,
       selectedTool,
       executionResults,
       totalTools,
@@ -280,7 +308,8 @@ export default {
       openExecuteModal,
       viewToolDetails,
       executeToolWithParams,
-      getCategoryIcon
+      getCategoryIcon,
+      handleToolRegistered
     }
   }
 }
