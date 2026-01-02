@@ -118,7 +118,7 @@
     </nav>
     
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main :class="isFullScreen ? 'h-[calc(100vh-64px)]' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'">
       <router-view />
     </main>
     
@@ -153,13 +153,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, provide } from 'vue'
+import { ref, onMounted, provide, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from './services/api'
 
 const router = useRouter()
 const route = useRoute()
 const llmHealth = ref(null)
+
+const isFullScreen = computed(() => route.name === 'repository-detail')
 const currentUser = ref(null)
 const showUserMenu = ref(false)
 const notifications = ref([])

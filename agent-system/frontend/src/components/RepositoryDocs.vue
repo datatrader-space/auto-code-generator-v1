@@ -66,7 +66,6 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue'
 import { marked } from 'marked'
-import hljs from 'highlight.js'
 import api from '../services/api'
 
 const props = defineProps({
@@ -82,13 +81,10 @@ const error = ref(null)
 const requirementsContent = ref('')
 const filename = ref('')
 
-// Configure marked with highlight.js
+// Configure marked (syntax highlighting removed - can add back later if needed)
 marked.setOptions({
-  highlight: function(code, lang) {
-    const language = hljs.getLanguage(lang) ? lang : 'plaintext'
-    return hljs.highlight(code, { language }).value
-  },
-  langPrefix: 'hljs language-'
+  breaks: true,
+  gfm: true
 })
 
 const renderedRequirements = computed(() => {

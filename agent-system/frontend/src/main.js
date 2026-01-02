@@ -7,6 +7,7 @@ import api from './services/api'
 // Import views
 import SystemList from './views/SystemList.vue'
 import SystemDetail from './views/SystemDetail.vue'
+import RepositoryPage from './views/RepositoryPage.vue'
 import Login from './views/Login.vue'
 import LLMSettings from './views/LLMSettings.vue'
 import Benchmarks from './views/Benchmarks.vue'
@@ -31,6 +32,12 @@ const router = createRouter({
       path: '/systems/:id',
       name: 'system-detail',
       component: SystemDetail,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/systems/:systemId/repositories/:repoId',
+      name: 'repository-detail',
+      component: RepositoryPage,
       meta: { requiresAuth: true }
     },
     {

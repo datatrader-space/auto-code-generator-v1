@@ -64,7 +64,7 @@ api.interceptors.response.use(
       // Something else happened
       console.error('Error:', error.message)
     }
-    
+
     return Promise.reject(error)
   }
 )
@@ -76,28 +76,48 @@ export default {
   post: (url, data, config) => api.post(url, data, config),
   put: (url, data, config) => api.put(url, data, config),
   delete: (url, config) => api.delete(url, config),
-  
+
   // Systems
   getSystems: () => api.get('/systems/'),
   getSystem: (id) => api.get(`/systems/${id}/`),
   createSystem: (data) => api.post('/systems/', data),
   updateSystem: (id, data) => api.put(`/systems/${id}/`, data),
   deleteSystem: (id) => api.delete(`/systems/${id}/`),
-  
+
   // Repositories
   getRepositories: (systemId) => api.get(`/systems/${systemId}/repositories/`),
   getRepository: (systemId, repoId) => api.get(`/systems/${systemId}/repositories/${repoId}/`),
   createRepository: (systemId, data) => api.post(`/systems/${systemId}/repositories/`, data),
-  analyzeRepository: (systemId, repoId, force = false) => 
+  analyzeRepository: (systemId, repoId, force = false) =>
     api.post(`/systems/${systemId}/repositories/${repoId}/analyze/`, { force }),
-  getQuestions: (systemId, repoId) => 
+  getQuestions: (systemId, repoId) =>
     api.get(`/systems/${systemId}/repositories/${repoId}/questions/`),
   submitAnswers: (systemId, repoId, answers) =>
     api.post(`/systems/${systemId}/repositories/${repoId}/submit_answers/`, { answers }),
-  
+
+  // Repository Knowledge
+  getKnowledgeSummary: (systemId, repoId) =>
+    api.get(`/systems/${systemId}/repositories/${repoId}/knowledge/summary/`),
+  getKnowledgeDocs: (systemId, repoId) =>
+    api.get(`/systems/${systemId}/repositories/${repoId}/knowledge/docs/`),
+  extractKnowledge: (systemId, repoId, force = true) =>
+    api.post(`/systems/${systemId}/repositories/${repoId}/knowledge/extract/`, { force }),
+
+  // Repository Documentation
+  getRepositoryRequirements: (systemId, repoId) =>
+    api.get(`/systems/${systemId}/repositories/${repoId}/requirements/`),
+
+  // Repository Files
+  getRepositoryFiles: (systemId, repoId) =>
+    api.get(`/systems/${systemId}/repositories/${repoId}/files/`),
+  getFileContent: (systemId, repoId, filePath) =>
+    api.get(`/systems/${systemId}/repositories/${repoId}/files/content/`, {
+      params: { path: filePath }
+    }),
+
   // Knowledge
   getKnowledge: (systemId) => api.get(`/systems/${systemId}/knowledge/`),
-  
+
   // Tasks
   getTasks: (systemId) => api.get(`/systems/${systemId}/tasks/`),
   getTask: (systemId, taskId) => api.get(`/systems/${systemId}/tasks/${taskId}/`),
@@ -106,7 +126,7 @@ export default {
     api.post(`/systems/${systemId}/tasks/${taskId}/approve/`, { notes }),
   rejectTask: (systemId, taskId, notes = '') =>
     api.post(`/systems/${systemId}/tasks/${taskId}/reject/`, { notes }),
-  
+
   // LLM
   checkLLMHealth: () => api.get('/llm/health/'),
   getLlmStats: () => api.get('/llm/stats/'),
