@@ -860,6 +860,147 @@ class RepositoryViewSet(viewsets.ModelViewSet):
                 'type': type(e).__name__
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @decorators.action(detail=True, methods=['get'], url_path='files')
+    def list_files(self, request, pk=None, system_pk=None):
+        """
+        List all files in repository
+        
+        GET /api/systems/{system_id}/repositories/{repo_id}/files/
+        
+        Returns list of files from repository's local clone
+        """
+        repository = self.get_object()
+        
+        try:
+            from pathlib import Path
+            import os
+            
+            # Use repository clone path directly
+            if not repository.clone_path:
+                return Response({
+                    'files': [],
+                    'message': 'Repository not cloned yet. Clone the repository first.'
+                })
+            
+            source_path = Path(repository.clone_path)
+            
+            if not source_path.exists():
+                return Response({
+                    'files': [],
+                    'message': f'Repository clone not found at: {repository.clone_path}'
+                })
+            
+            # Walk directory and build file list
+            files = []
+            for root, dirs, filenames in os.walk(source_path):
+                # Skip hidden directories and common excludes
+                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', 'venv', '.git']]
+                
+                for filename in filenames:
+                    if filename.startswith('.'):
+                        continue
+                    
+                    file_path = Path(root) / filename
+                    relative_path = file_path.relative_to(source_path)
+                    
+                    files.append({
+                        'path': str(relative_path).replace('\\', '/'),  # Normalize path separators
+                        'name': filename,
+                        'type': 'file',
+                        'size': file_path.stat().st_size
+                    })
+            
+            return Response({
+                'files': files,
+                'count': len(files)
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to list files: {e}", exc_info=True)
+            return Response({
+                'error': str(e),
+                'type': type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @decorators.action(detail=True, methods=['get'], url_path='files/content')
+    def get_file_content(self, request, pk=None, system_pk=None):
+        """
+        Get file content
+        
+        GET /api/systems/{system_id}/repositories/{repo_id}/files/content/?path=<file_path>
+        
+        Returns content of specified file
+        """
+        repository = self.get_object()
+        file_path = request.query_params.get('path')
+        
+        if not file_path:
+            return Response({
+                'error': 'path parameter is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from pathlib import Path
+            
+            # Use repository clone path
+            if not repository.clone_path:
+                return Response({
+                    'error': 'Repository not cloned'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            source_path = Path(repository.clone_path)
+            full_path = source_path / file_path
+            
+            # Security: ensure path is within source directory
+            if not str(full_path.resolve()).startswith(str(source_path.resolve())):
+                return Response({
+                    'error': 'Invalid file path'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not full_path.exists():
+                return Response({
+                    'error': 'File not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Read file content
+            try:
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                # Binary file
+                return Response({
+                    'error': 'Binary file cannot be displayed',
+                    'is_binary': True
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Detect language
+            ext = file_path.split('.')[-1] if '.' in file_path else ''
+            lang_map = {
+                'py': 'python',
+                'js': 'javascript',
+                'vue': 'html',
+                'ts': 'typescript',
+                'json': 'json',
+                'md': 'markdown',
+                'html': 'html',
+                'css': 'css'
+            }
+            language = lang_map.get(ext, 'plaintext')
+            
+            return Response({
+                'path': file_path,
+                'content': content,
+                'language': language,
+                'size': len(content)
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to read file {file_path}: {e}", exc_info=True)
+            return Response({
+                'error': str(e),
+                'type': type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class SystemKnowledgeViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -1093,7 +1234,8 @@ def llm_stats(request):
     now = timezone.now()
     window_start = now - timedelta(hours=24)
 
-    logs = LLMRequestLog.objects.filter(user=user)
+    # LLMRequestLog is linked to user through conversation
+    logs = LLMRequestLog.objects.filter(conversation__user=user)
     window_logs = logs.filter(created_at__gte=window_start)
 
     total_requests = logs.count()

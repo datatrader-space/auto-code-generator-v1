@@ -403,6 +403,9 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 'type': 'assistant_typing',
                 'typing': False
             })
+        
+        # Return final answer for session tracking
+        return final_answer
 
     def _calculate_latency_ms(self, started_at):
         if not started_at:
@@ -686,19 +689,119 @@ class RepositoryChatConsumer(BaseChatConsumer):
         """Handle standard conversational (RAG) request"""
         import time
         
+        steps = []
+        tools_used = []
+        response_text = ""
+        
         try:
             # Get CRS context
+            context_start = time.time()
             context = await self.get_crs_context(user_message)
+            context_duration = int((time.time() - context_start) * 1000)
 
-            # Track context retrieval
+            # Track context retrieval as implicit tool usage
             context_summary = {
                 'blueprints_found': len(context.get('blueprints', [])) if isinstance(context.get('blueprints'), list) else 0,
                 'artifacts_found': len(context.get('artifacts', [])) if isinstance(context.get('artifacts'), list) else 0,
                 'relationships_found': len(context.get('relationships', [])) if isinstance(context.get('relationships'), list) else 0,
             }
+            
+            # Track CRS search as a step if context was retrieved
+            if context.get('crs_ready'):
+                tools_used.append('SEARCH_CRS')
+                
+                # Get actual artifacts for detailed tracking
+                artifacts_detail = []
+                blueprints_detail = []
+                relationships_detail = []
+                
+                # Capture artifacts with more detail
+                if isinstance(context.get('artifacts'), list):
+                    for a in context.get('artifacts', [])[:20]:  # First 20 artifacts
+                        artifact_info = {
+                            'name': a.get('name', 'Unknown'),
+                            'type': a.get('type', 'Unknown'),
+                            'file': a.get('file_path') or a.get('file', 'Unknown'),
+                            'description': a.get('description', '')[:200] if a.get('description') else '',
+                            'content_preview': a.get('content', '')[:300] if a.get('content') else ''
+                        }
+                        artifacts_detail.append(artifact_info)
+                
+                # Capture blueprints
+                if isinstance(context.get('blueprints'), list):
+                    for b in context.get('blueprints', [])[:10]:
+                        blueprint_info = {
+                            'file': b.get('file', 'Unknown'),
+                            'content_preview': b.get('content', '')[:200] if b.get('content') else ''
+                        }
+                        blueprints_detail.append(blueprint_info)
+                
+                # Capture relationships
+                if isinstance(context.get('relationships'), list):
+                    for r in context.get('relationships', [])[:10]:
+                        rel_info = {
+                            'from': r.get('from', 'Unknown'),
+                            'to': r.get('to', 'Unknown'),
+                            'type': r.get('type', 'Unknown')
+                        }
+                        relationships_detail.append(rel_info)
+                
+                steps.append({
+                    'action': 'SEARCH_CRS',
+                    'params': {'query': user_message},
+                    'result': {
+                        'artifacts_found': context.get('artifact_count', 0),
+                        'context_summary': context_summary,
+                        'artifacts': artifacts_detail,
+                        'blueprints': blueprints_detail,
+                        'relationships': relationships_detail,
+                        'crs_status': 'ready',
+                        'search_quality': 'high' if len(artifacts_detail) > 5 else 'medium' if len(artifacts_detail) > 0 else 'low'
+                    },
+                    'duration_ms': context_duration,
+                    'status': 'success'
+                })
+            else:
+                # CRS not ready, track as limited search
+                tools_used.append('SEARCH_CRS')
+                steps.append({
+                    'action': 'SEARCH_CRS',
+                    'params': {'query': user_message},
+                    'result': {
+                        'crs_status': context.get('status_message', 'not ready'),
+                        'artifacts_found': 0
+                    },
+                    'duration_ms': context_duration,
+                    'status': 'limited'
+                })
 
-            # Stream LLM response
+            # Stream LLM response and capture it
+            llm_start = time.time()
+            
+            # Build messages to see what we're sending to LLM
+            llm_messages = await self.build_llm_messages(conversation, user_message, context)
+            
             response_text = await self.stream_llm_response(user_message, context, conversation)
+            llm_duration = int((time.time() - llm_start) * 1000)
+            
+            # Track LLM call as a step with detailed info
+            tools_used.append('LLM_QUERY')
+            steps.append({
+                'action': 'LLM_QUERY',
+                'params': {
+                    'user_message': user_message,
+                    'context_size': len(str(context)),
+                    'message_count': len(llm_messages),
+                    'system_prompt_length': len(llm_messages[0].get('content', '')) if llm_messages else 0
+                },
+                'result': {
+                    'response_length': len(response_text) if response_text else 0,
+                    'response_preview': response_text[:200] if response_text else 'No response',
+                    'model_used': conversation.llm_model.name if conversation.llm_model else 'default'
+                },
+                'duration_ms': llm_duration,
+                'status': 'success'
+            })
             
             # Complete session with captured data
             duration_ms = int((time.time() - session_start_time) * 1000)
@@ -707,10 +810,16 @@ class RepositoryChatConsumer(BaseChatConsumer):
                 status='success',
                 completed_at=timezone.now(),
                 duration_ms=duration_ms,
-                final_answer=response_text[:500] if response_text else None,  # First 500 chars
+                final_answer=response_text if response_text else 'Response generated but not captured',
+                steps=steps,
+                tools_called=tools_used,
                 knowledge_context={
                     **session.knowledge_context,
-                    'context_retrieved': context_summary
+                    'context_retrieved': context_summary,
+                    'tools_executed': len(steps),
+                    'total_duration_ms': duration_ms,
+                    'context_retrieval_ms': context_duration,
+                    'llm_query_ms': llm_duration
                 }
             )
         except Exception as e:
@@ -719,7 +828,10 @@ class RepositoryChatConsumer(BaseChatConsumer):
                 session,
                 status='failed',
                 error_message=str(e),
-                completed_at=timezone.now()
+                completed_at=timezone.now(),
+                steps=steps,
+                tools_called=tools_used,
+                final_answer=response_text if response_text else None
             )
             raise
 
@@ -739,15 +851,27 @@ class RepositoryChatConsumer(BaseChatConsumer):
             
             # Execute Agent Runner in a thread (since it is synchronous)
             # We use the lazy-loaded self.agent_runner which has the socket_callback wired up
-            await sync_to_async(self.agent_runner.run_session)(user_message)
+            result = await sync_to_async(self.agent_runner.execute)(
+                session_id=session.session_id,
+                request=user_message
+            )
             
-            # Complete session
+            # Extract execution data from agent runner's current_session
+            agent_session_data = self.agent_runner.current_session
+            
+            # Complete session with captured execution data
             duration_ms = int((time.time() - session_start_time) * 1000)
             await self._update_session_log(
                 session,
-                status='success',
+                status='success' if result.get('status') == 'success' else 'failed',
                 completed_at=timezone.now(),
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
+                plan=agent_session_data.get('plan'),
+                steps=agent_session_data.get('steps', []),
+                tools_called=self._extract_tools_called(agent_session_data),
+                final_answer=self._extract_final_answer(agent_session_data),
+                artifacts_used=agent_session_data.get('patches_applied', []),
+                error_message=agent_session_data.get('error') if result.get('status') != 'success' else None
             )
             
             await self.send_json({
@@ -770,6 +894,30 @@ class RepositoryChatConsumer(BaseChatConsumer):
                 'type': 'error',
                 'error': f"Agent Runner failed: {str(e)}"
             })
+    
+    def _extract_final_answer(self, agent_session_data):
+        """Extract final answer from agent execution"""
+        # Try to get answer from last QUERY step
+        steps = agent_session_data.get('steps', [])
+        for step in reversed(steps):
+            if step.get('action') in ['QUERY', 'SEARCH']:
+                data = step.get('data', {})
+                answer = data.get('answer')
+                if answer:
+                    return answer[:1000]  # First 1000 chars
+        
+        # Fallback: return status message
+        return f"Task completed with status: {agent_session_data.get('status')}"
+    
+    def _extract_tools_called(self, agent_session_data):
+        """Extract list of tools/actions called from steps"""
+        steps = agent_session_data.get('steps', [])
+        tools = []
+        for step in steps:
+            action = step.get('action')
+            if action and action not in tools:
+                tools.append(action)
+        return tools
 
     @database_sync_to_async
     def _create_session_log(self, session_id, user_request, conversation):
