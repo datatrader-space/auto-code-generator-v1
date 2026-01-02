@@ -1,0 +1,144 @@
+# Git Operations Tools
+
+tools:
+  - tool:
+      name: GIT_STATUS
+      category: git
+      version: "1.0"
+      description: Show the working tree status
+      parameters: []
+      execution:
+        type: shell_command
+        template: "git status --short"
+        timeout: 10
+      examples:
+        - description: "Get current git status"
+          parameters: {}
+
+  - tool:
+      name: GIT_DIFF
+      category: git
+      version: "1.0"
+      description: Show changes between commits, commit and working tree, etc
+      parameters:
+        - name: path
+          type: path
+          required: false
+          description: "Specific file or directory to diff"
+        - name: cached
+          type: bool
+          required: false
+          default: false
+          description: "Show staged changes"
+      execution:
+        type: shell_command
+        template: |
+          git diff {{ '--cached' if cached else '' }} {{ path or '' }}
+        timeout: 30
+      examples:
+        - description: "Show unstaged changes"
+          parameters: {}
+        - description: "Show staged changes"
+          parameters:
+            cached: true
+
+  - tool:
+      name: GIT_LOG
+      category: git
+      version: "1.0"
+      description: Show commit logs
+      parameters:
+        - name: limit
+          type: int
+          required: false
+          default: 10
+          description: "Number of commits to show"
+        - name: path
+          type: path
+          required: false
+          description: "Show commits affecting specific path"
+      execution:
+        type: shell_command
+        template: "git log --oneline -n {{ limit }} {{ path or '' }}"
+        timeout: 10
+      examples:
+        - description: "Show last 10 commits"
+          parameters:
+            limit: 10
+
+  - tool:
+      name: GIT_CHECKOUT
+      category: git
+      version: "1.0"
+      description: Switch branches or create new branch
+      parameters:
+        - name: branch
+          type: string
+          required: false
+          description: "Branch to checkout"
+        - name: new_branch
+          type: string
+          required: false
+          description: "Create and checkout new branch"
+      execution:
+        type: shell_command
+        template: |
+          {%- if new_branch -%}
+          git checkout -b {{ new_branch }}
+          {%- elif branch -%}
+          git checkout {{ branch }}
+          {%- else -%}
+          echo "Error: Must specify either branch or new_branch"
+          exit 1
+          {%- endif -%}
+        timeout: 10
+      examples:
+        - description: "Create new feature branch"
+          parameters:
+            new_branch: "feature/my-feature"
+        - description: "Switch to existing branch"
+          parameters:
+            branch: "main"
+
+  - tool:
+      name: GIT_ADD
+      category: git
+      version: "1.0"
+      description: Add file contents to the index
+      parameters:
+        - name: files
+          type: list
+          required: false
+          default: ["."]
+          description: "Files to stage"
+      execution:
+        type: shell_command
+        template: "git add {{ files | join(' ') }}"
+        timeout: 10
+      examples:
+        - description: "Stage all changes"
+          parameters:
+            files: ["."]
+        - description: "Stage specific files"
+          parameters:
+            files: ["src/file1.py", "src/file2.py"]
+
+  - tool:
+      name: GIT_COMMIT
+      category: git
+      version: "1.0"
+      description: Record changes to the repository
+      parameters:
+        - name: message
+          type: string
+          required: true
+          description: "Commit message"
+      execution:
+        type: shell_command
+        template: |
+          git commit -m "{{ message }}"
+        timeout: 10
+      examples:
+        - description: "Commit with message"
+          parameters:
+            message: "feat: add new feature"

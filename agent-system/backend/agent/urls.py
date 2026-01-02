@@ -10,6 +10,7 @@ from rest_framework_nested import routers as nested_routers
 from agent import views
 from agent import oauth_views
 from agent import auth_views
+from agent.views import tool_views
 
 # Main router
 router = DefaultRouter()
@@ -82,6 +83,12 @@ urlpatterns = [
     path('auth/github/test', oauth_views.test_token, name='github-test-token'),
     path('auth/github/repos', oauth_views.list_github_repos, name='github-list-repos'),
     path('auth/github/repo-info', oauth_views.get_repo_info, name='github-repo-info'),
+
+    # Tool Management
+    path('tools/', tool_views.list_tools, name='tools-list'),
+    path('tools/<str:tool_name>/', tool_views.get_tool_detail, name='tool-detail'),
+    path('tools/execute/', tool_views.execute_tool, name='tool-execute'),
+    path('tools/documentation/', tool_views.get_tool_documentation, name='tool-docs'),
 
     # Include routers
     path('', include(router.urls)),
