@@ -103,7 +103,6 @@ def _build_crs_workspace(repository: Repository) -> CRSWorkspacePaths:
     }
     config_path.write_text(json.dumps(config, indent=2))
 
-    print(config)
     return CRSWorkspacePaths(
         workspace_root=crs_workspace_root,
         config_path=config_path,

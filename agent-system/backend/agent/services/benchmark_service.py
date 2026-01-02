@@ -53,7 +53,9 @@ def run_benchmark(
     workspace = _build_crs_workspace(repository)
     fs = WorkspaceFS(config_path=str(workspace.config_path))
 
-    tasks = _build_task_suite(system, task_types, suite_size)
+    # Use the first model for task generation if needed
+    gen_model = models[0] if models else None
+    tasks = _build_task_suite(system, task_types, suite_size, gen_model)
     model_payloads = [_serialize_model(model) for model in models]
     modes_by_model = {
         str(model.id): list(agent_modes)
@@ -74,7 +76,9 @@ def run_benchmark(
     )
 
     run_id = run_payload["run_id"]
-    _update_benchmark_index(user, fs.run_dir(run_id), system, run_id)
+    run_dir = fs.run_dir(run_id)
+    _update_benchmark_index(user, run_dir, system, run_id)
+    _copy_run_to_media(user, run_dir, run_id)
 
     total_modes = len(agent_modes) * max(1, len(models))
     total_tasks = len(tasks) * max(1, total_modes)
@@ -94,6 +98,26 @@ def run_benchmark(
         summary=run_payload["summary"],
         counts=counts,
     )
+
+
+def _copy_run_to_media(user: User, source_dir: Path, run_id: str) -> None:
+    """Copy benchmark run results to Django MEDIA_ROOT for download/viewing."""
+    if not settings.MEDIA_ROOT:
+        return
+        
+    dest_dir = Path(settings.MEDIA_ROOT) / "benchmarks" / str(user.id) / run_id
+    if dest_dir.exists():
+        import shutil
+        shutil.rmtree(dest_dir)
+    
+    # We use shutil.copytree. source_dir is a Path object from WorkspaceFS.
+    # We need to ensure it's a string or Path.
+    import shutil
+    try:
+        shutil.copytree(source_dir, dest_dir)
+    except Exception as e:
+        print(f"Failed to copy benchmark results to media: {e}")
+
 
 
 def load_benchmark_run(user: User, run_id: str) -> Dict[str, Any]:
@@ -151,7 +175,7 @@ def get_benchmark_download(user: User, run_id: str, file_path: str) -> Path:
     return resolved
 
 
-def _build_task_suite(system: System, task_types: List[str], suite_size: int) -> List[BenchmarkTask]:
+def _build_task_suite(system: System, task_types: List[str], suite_size: int, gen_model: Optional[LLMModel] = None) -> List[BenchmarkTask]:
     tasks = list(Task.objects.filter(system=system).order_by("-created_at"))
     filtered = []
     for task in tasks:
@@ -164,14 +188,26 @@ def _build_task_suite(system: System, task_types: List[str], suite_size: int) ->
     selected = filtered[: suite_size or 1]
 
     if not selected:
-        selected = [
-            SyntheticTask(
-                title=f"Generated {task_type} task",
-                description=f"Generated {task_type} task for benchmarking.",
-                task_id=f"generated-{idx}",
-            )
-            for idx, task_type in enumerate((task_types or ["read"]), start=1)
-        ][: max(1, suite_size or 1)]
+        # Try to generate via LLM first
+        generated = []
+        if gen_model:
+            try:
+                generated = _generate_synthetic_tasks(system, task_types, max(1, suite_size or 1), gen_model)
+            except Exception as e:
+                print(f"Failed to generate synthetic tasks: {e}")
+        
+        if generated:
+            selected = generated
+        else:
+            # Fallback to hardcoded
+            selected = [
+                SyntheticTask(
+                    title=f"Generated {task_type} task",
+                    description=f"Generated {task_type} task for benchmarking.",
+                    task_id=f"generated-{idx}",
+                )
+                for idx, task_type in enumerate((task_types or ["read"]), start=1)
+            ][: max(1, suite_size or 1)]
 
     suite = []
     for idx, task in enumerate(selected, start=1):
@@ -187,6 +223,57 @@ def _build_task_suite(system: System, task_types: List[str], suite_size: int) ->
             )
         )
     return suite
+
+
+def _generate_synthetic_tasks(system: System, task_types: List[str], count: int, llm_model: LLMModel) -> List[SyntheticTask]:
+    from llm.router import get_llm_router, LLMConfig
+    import re
+    
+    config_dict = _build_model_config(llm_model)
+    if not config_dict:
+        return []
+        
+    router = get_llm_router()
+    config = LLMConfig(**config_dict)
+    client = router.client_for_config(config)
+    
+    prompt = (
+        f"You are a benchmark generator. Create {count} distinct coding tasks for a system named '{system.name}'.\n"
+        f"System Description: {system.description}\n"
+        f"Task Types requested: {', '.join(task_types or ['general coding key'])}.\n"
+        "Return a STRICT JSON list of objects. Each object must have keys: 'title', 'description', 'task_type'.\n"
+        "Example:\n"
+        '[{"title": "Add User Model", "description": "Create a Django model for User with fields...", "task_type": "write"}]\n'
+        "Do not include markdown formatting like ```json. Just the JSON string."
+    )
+    
+    try:
+        if client:
+            response = client.query([{"role": "user", "content": prompt}]).get('content', '')
+        else:
+            response = router.query(messages=[{"role": "user", "content": prompt}]).get('content', '')
+            
+        # Clean response
+        json_str = response.strip()
+        if "```" in json_str:
+            json_str = re.search(r'```(?:json)?(.*?)```', json_str, re.DOTALL)
+            if json_str:
+                json_str = json_str.group(1).strip()
+            else:
+                json_str = response.strip() # Fallback
+        
+        data = json.loads(json_str)
+        tasks = []
+        for i, item in enumerate(data):
+            tasks.append(SyntheticTask(
+                title=item.get("title", f"Generated Task {i}"),
+                description=item.get("description", "No description"),
+                task_id=f"gen-llm-{uuid.uuid4().hex[:6]}"
+            ))
+        return tasks[:count]
+    except Exception as e:
+        print(f"LLM Generation Error: {e}")
+        return []
 
 
 def _execute_task_suite(
@@ -222,15 +309,55 @@ def _execute_task_suite(
 
             runner = AgentRunner(repository)
             
+            # Create DB Session for UI traceability
+            from agent.models import AgentSession, ChatConversation
+            
+            # Create a placeholder conversation if one doesn't exist for this run?
+            # Or just link to repository. 
+            # We'll create a standalone session linked to the repository.
+            # Ideally we'd have a conversation, but AgentSession works without it if we allow null (model definition says generic ForeignKey).
+            # Wait, AgentSession.conversation is non-null in model definition?
+            # let's check model definition. Line 577: conversation = ForeignKey(..., on_delete=models.CASCADE)
+            # It is NOT null=True. So we MUST have a conversation.
+            
+            # Find or create a conversation for benchmarks
+            conv, _ = ChatConversation.objects.get_or_create(
+                user=repository.system.user,
+                repository=repository,
+                title=f"Benchmark Run {model_id} ({mode})",
+                defaults={
+                    "conversation_type": "repository",
+                    "system": repository.system
+                }
+            )
+
+            db_session = AgentSession.objects.create(
+                session_id=session_id,
+                conversation=conv,
+                repository=repository,
+                session_type="task",
+                user_request=task.prompt[:1000],  # Truncate if too long
+                intent_classified_as="TASK",
+                status="running",
+                llm_model_used=LLMModel.objects.filter(id=model_id).first() if model_id else None
+            )
+            runner.current_session = {"session_id": session_id} # Hack to support socket events if needed
+            
             # Execute Agent
-            # Note: AgentRunner.execute expects a 'request' string. 
-            # We use task.prompt as the request.
             exec_result = runner.execute(
                 session_id=session_id,
                 request=task.prompt,
-                mode=mode,
+                mode=mode, 
                 model_config=model_config
             )
+            
+            # Update DB Session
+            db_session.status = "success" if exec_result.get("success") else "failed"
+            db_session.completed_at = timezone.now()
+            db_session.duration_ms = int((time.monotonic() - start_time) * 1000)
+            db_session.steps = exec_result.get("steps", [])
+            db_session.final_answer = str(exec_result.get("result", ""))
+            db_session.save()
             
             success = exec_result.get('status') == 'success'
             trace_path = exec_result.get('trace_path', "")

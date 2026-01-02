@@ -1,0 +1,32 @@
+{
+  "run_id": "20260102_164203__benchmark",
+  "model_id": "deepseek-r1:7b",
+  "mode": "crs-only",
+  "results": [
+    {
+      "task_id": "generated-1",
+      "success": true,
+      "latency_ms": 50717,
+      "error": null,
+      "details": {
+        "trace_path": "D:\\darrxscale\\central-v1\\strategy\\crs_workspace\\crs_workspace\\crs_workspaces\\2\\5\\aadml-central_crs\\state\\traces\\trace_manual_crs-only_benchmark-eed0d2d181d2.json",
+        "patches_applied": [],
+        "mode": "crs-only",
+        "model_id": "deepseek-r1:7b",
+        "session_id": "benchmark-eed0d2d181d2"
+      }
+    }
+  ],
+  "metrics": {
+    "success_rate": 1.0,
+    "avg_latency_ms": 50717.0,
+    "total": 1,
+    "scored": 1,
+    "total_cases": 1,
+    "executed_cases": 1,
+    "skipped_cases": 0,
+    "success_rate_executed": 1.0,
+    "avg_latency_ms_executed": 50717.0
+  },
+  "completed_at": "2026-01-02T16:42:54Z"
+}

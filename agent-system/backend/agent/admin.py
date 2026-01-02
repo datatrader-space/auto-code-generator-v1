@@ -217,7 +217,7 @@ class TaskAdmin(admin.ModelAdmin):
     filter_horizontal = ['affected_repos']
     
     def short_title(self, obj):
-        return obj.title[:50] + '...' if len(obj.title) > 50 else obj.title
+        return obj.title[:50] + '...' if obj.title and len(obj.title) > 50 else obj.title
     short_title.short_description = 'Title'
 
 

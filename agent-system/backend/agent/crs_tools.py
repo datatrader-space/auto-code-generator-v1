@@ -333,7 +333,7 @@ Step 2: Get details using the EXACT artifact_id from Step 1 output
                 ]
 
             if not filtered:
-                return f"📋 No {kind} artifacts found" + (f" matching '{filter_text}'" if filter_text else "")
+                return f"📋 No {kind} artifacts found" + (f" matching '{filter_text}'" if filter_text else "") + ". Do not retry this query."
 
             result = [f"📋 **{kind.upper()} Inventory** ({len(filtered)} items)\n"]
 

@@ -1,0 +1,81 @@
+{
+  "run_id": "20260102_164203__benchmark",
+  "started_at": "2026-01-02T16:42:03Z",
+  "models": [
+    {
+      "id": 16,
+      "model_id": "deepseek-r1:7b",
+      "name": "deepseek-r1:7b",
+      "provider": "deepseek",
+      "provider_id": 1
+    }
+  ],
+  "modes_by_model": {
+    "16": [
+      "crs-only"
+    ]
+  },
+  "task_suite": [
+    {
+      "task_id": "generated-1",
+      "task_type": "read",
+      "prompt": "Generated read task\n\nGenerated read task for benchmarking.",
+      "metadata": {
+        "system_id": 5,
+        "task_pk": null
+      }
+    }
+  ],
+  "metadata": {
+    "system_id": 5,
+    "system_name": "t",
+    "user_id": 2
+  },
+  "status": "completed",
+  "completed_at": "2026-01-02T16:42:54Z",
+  "summary": {
+    "run_id": "20260102_164203__benchmark",
+    "generated_at": "2026-01-02T16:42:54Z",
+    "model_summaries": {
+      "deepseek-r1:7b": {
+        "overall_score": 1.0,
+        "avg_latency_ms": 50717.0,
+        "total_results": 1,
+        "total_cases": 1,
+        "executed_cases": 1,
+        "skipped_cases": 0,
+        "success_rate_executed": 1.0,
+        "avg_latency_ms_executed": 50717.0,
+        "mode_metrics": {
+          "crs-only": {
+            "success_rate": 1.0,
+            "avg_latency_ms": 50717.0,
+            "total": 1,
+            "scored": 1,
+            "total_cases": 1,
+            "executed_cases": 1,
+            "skipped_cases": 0,
+            "success_rate_executed": 1.0,
+            "avg_latency_ms_executed": 50717.0
+          }
+        }
+      }
+    },
+    "model_ranking": [
+      {
+        "model_id": "deepseek-r1:7b",
+        "overall_score": 1.0,
+        "avg_latency_ms": 50717.0,
+        "rank": 1
+      }
+    ],
+    "crs_lag": [
+      {
+        "model_id": "deepseek-r1:7b",
+        "crs_avg_latency_ms": 50717.0,
+        "non_crs_avg_latency_ms": null,
+        "lag_ms": null
+      }
+    ]
+  }
+}

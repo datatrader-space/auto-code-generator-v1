@@ -1247,7 +1247,7 @@ def llm_stats(request):
 
     # If your model uses provider_type/model_id, keep these:
     provider_breakdown = list(
-        logs.values('provider_type')
+        logs.values('model__provider__provider_type')
         .annotate(
             total_requests=Count('id'),
             avg_latency_ms=Avg('latency_ms'),
@@ -1259,7 +1259,7 @@ def llm_stats(request):
     )
 
     model_breakdown = list(
-        logs.values('provider_type', 'model_id')
+        logs.values('model__provider__provider_type', 'model__model_id')
         .annotate(
             total_requests=Count('id'),
             avg_latency_ms=Avg('latency_ms'),
@@ -1274,8 +1274,8 @@ def llm_stats(request):
     if model_breakdown:
         top = model_breakdown[0]
         top_provider_model = {
-            'provider': top.get('provider_type'),
-            'model': top.get('model_id'),
+            'provider': top.get('model__provider__provider_type'),
+            'model': top.get('model__model_id'),
             'total_requests': top.get('total_requests'),
         }
 

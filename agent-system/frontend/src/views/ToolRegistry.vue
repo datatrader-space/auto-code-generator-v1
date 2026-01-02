@@ -188,7 +188,7 @@ export default {
     const loadTools = async () => {
       loading.value = true
       try {
-        const response = await axios.get('/tools/')
+        const response = await axios.get('/api/tools/')
         tools.value = response.data.tools
         toolsByCategory.value = response.data.by_category
         categories.value = response.data.categories
@@ -232,7 +232,7 @@ export default {
 
     const executeToolWithParams = async (execution) => {
       try {
-        const response = await axios.post('/tools/execute/', {
+        const response = await axios.post('/api/tools/execute/', {
           tool_name: execution.tool.name,
           parameters: execution.parameters,
           repository_id: execution.repository_id,
