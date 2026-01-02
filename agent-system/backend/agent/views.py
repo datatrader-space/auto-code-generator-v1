@@ -28,7 +28,7 @@ from agent.models import (
     SystemKnowledge, Task, AgentMemory,
     ChatConversation, ChatMessage,
     LLMProvider, LLMModel, LLMRequestLog,
-    SystemDocumentation,
+    SystemDocumentation, AgentSession,
 )
 from agent.serializers import (
     SystemListSerializer, SystemDetailSerializer,
@@ -40,6 +40,7 @@ from agent.serializers import (
     ChatConversationListSerializer, ChatConversationSerializer,
     SystemDocumentationSerializer,
     LLMProviderSerializer, LLMModelSerializer,
+    AgentSessionSerializer, AgentSessionListSerializer,
 )
 from agent.services.github_client import GitHubClient
 from agent.services.knowledge_builder import KnowledgeBuilder
@@ -1163,3 +1164,79 @@ class LLMModelViewSet(viewsets.ModelViewSet):
         if provider.user_id != self.request.user.id:
             raise PermissionDenied("Provider does not belong to current user.")
         serializer.save()
+
+
+class AgentSessionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Agent Session ViewSet for viewing execution traces
+    
+    GET /api/sessions/ - List all sessions
+    GET /api/sessions/{id}/ - Get session details
+    GET /api/sessions/{id}/replay/ - Get detailed replay data
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = AgentSessionSerializer
+    
+    def get_queryset(self):
+        """Filter sessions by user's repositories"""
+        return AgentSession.objects.filter(
+            repository__system__user=self.request.user
+        ).select_related(
+            'repository', 'conversation', 'llm_model_used'
+        ).order_by('-created_at')
+    
+    def get_serializer_class(self):
+        """Use list serializer for list view"""
+        if self.action == 'list':
+            return AgentSessionListSerializer
+        return AgentSessionSerializer
+    
+    def list(self, request, *args, **kwargs):
+        """List sessions with optional filtering"""
+        queryset = self.get_queryset()
+        
+        # Filter by repository
+        repository_id = request.query_params.get('repository')
+        if repository_id:
+            queryset = queryset.filter(repository_id=repository_id)
+        
+        # Filter by session type
+        session_type = request.query_params.get('session_type')
+        if session_type:
+            queryset = queryset.filter(session_type=session_type)
+        
+        # Filter by status
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @decorators.action(detail=True, methods=['get'])
+    def replay(self, request, pk=None):
+        """Get detailed replay data for debugging"""
+        session = self.get_object()
+        
+        return Response({
+            'session_id': session.session_id,
+            'session_type': session.session_type,
+            'intent_classified_as': session.intent_classified_as,
+            'request': session.user_request,
+            'plan': session.plan,
+            'steps': session.steps,
+            'artifacts': session.artifacts_used,
+            'tools': session.tools_called,
+            'final_answer': session.final_answer,
+            'duration_ms': session.duration_ms,
+            'status': session.status,
+            'error_message': session.error_message,
+            'knowledge_context': session.knowledge_context,
+            'created_at': session.created_at,
+            'completed_at': session.completed_at,
+        })

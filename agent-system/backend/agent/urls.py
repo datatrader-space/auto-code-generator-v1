@@ -15,6 +15,7 @@ from agent import auth_views
 router = DefaultRouter()
 router.register(r'systems', views.SystemViewSet, basename='system')
 router.register(r'conversations', views.ChatConversationViewSet, basename='conversation')
+router.register(r'sessions', views.AgentSessionViewSet, basename='agent-session')
 router.register(r'llm/providers', views.LLMProviderViewSet, basename='llm-provider')
 router.register(r'llm/models', views.LLMModelViewSet, basename='llm-model')
 

@@ -70,6 +70,19 @@ You MUST output tool calls in this EXACT format:
 ===END_TOOL_CALLS===
 ```
 
+**Example - Correct Workflow (Get Model Details):**
+```
+Step 1: List all models
+===TOOL_CALLS===
+[{"name":"LIST_ARTIFACTS","parameters":{"kind":"django_model"}}]
+===END_TOOL_CALLS===
+
+Step 2: Get details using the EXACT artifact_id from Step 1 output
+===TOOL_CALLS===
+[{"name":"GET_ARTIFACT","parameters":{"artifact_id":"django_model:Customer:customer/models.py:10-50"}}]
+===END_TOOL_CALLS===
+```
+
 ---
 
 ## Available Tools
@@ -92,7 +105,13 @@ You MUST output tool calls in this EXACT format:
 - **Purpose**: Get full details of a specific artifact
 - **Parameters**:
   - `artifact_id` (required): Full artifact ID from LIST_ARTIFACTS or SEARCH_CRS
+    - Format: `type:name:file_path:start_line-end_line`
+    - Example: `django_model:Customer:customer/models.py:10-50`
+    - Example: `drf_viewset:CustomerViewSet:customer/views.py:100-200`
 - **Returns**: Complete artifact details, metadata, evidence
+- **CRITICAL**: You MUST use the exact `artifact_id` from LIST_ARTIFACTS/SEARCH_CRS output
+  - ❌ WRONG: `/customer/models.py#Customer` or `customer.models.Customer`
+  - ✅ CORRECT: `django_model:Customer:customer/models.py:10-50`
 
 ### 4. SEARCH_CRS
 - **Purpose**: Keyword search for code elements
