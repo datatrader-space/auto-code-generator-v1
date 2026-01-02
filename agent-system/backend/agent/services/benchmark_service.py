@@ -315,7 +315,7 @@ def _run_read_task(
                 "role": "user",
                 "content": (
                     "Tool Results:\n\n"
-                    f"{'\n\n'.join(tool_results)}\n\n"
+                    f"{'  '.join(tool_results)}\n\n"
                     "Now answer the user's original question using this data. Provide a clear response with citations."
                 ),
             }
