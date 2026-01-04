@@ -46,6 +46,14 @@
                 🛠️ Tools
               </router-link>
 
+              <router-link
+                to="/services"
+                class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 border-b-2"
+                :class="$route.path === '/services' ? 'border-blue-500 text-gray-900' : 'border-transparent hover:border-gray-300'"
+              >
+                🌐 Services
+              </router-link>
+
               <a
                 href="http://localhost:8000/admin"
                 target="_blank"
