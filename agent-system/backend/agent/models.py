@@ -705,3 +705,270 @@ class BenchmarkRun(models.Model):
 
     def __str__(self):
         return f"BenchmarkRun {self.run_id} | {self.status}"
+
+
+# ============================================================================
+# Remote Service & Tool Models
+# ============================================================================
+
+class RemoteService(models.Model):
+    """
+    Represents an external service (Jira, Slack, Google Drive, etc.)
+    that provides multiple actions/tools.
+    """
+
+    # Basic info
+    name = models.CharField(max_length=255)  # "Jira", "Slack", "Google Drive"
+    slug = models.SlugField(max_length=255)  # "jira", "slack", "google_drive"
+    description = models.TextField()
+    category = models.CharField(max_length=100, blank=True)  # "project_management", "communication"
+    icon = models.CharField(max_length=50, blank=True)  # Emoji or icon name
+
+    # Configuration
+    base_url = models.URLField()  # "https://mycompany.atlassian.net"
+    auth_type = models.CharField(max_length=50)  # "bearer", "oauth2", "api_key", "basic"
+    auth_config = models.JSONField(default=dict)  # Encrypted credentials
+
+    # API Documentation
+    api_spec_url = models.URLField(null=True, blank=True)  # OpenAPI/Swagger URL
+    api_spec_content = models.JSONField(null=True, blank=True)  # Cached spec
+    api_docs_url = models.URLField(null=True, blank=True)  # Human docs URL
+
+    # Knowledge Base
+    knowledge_context = models.TextField(blank=True)  # AI-generated understanding
+    examples = models.JSONField(default=list)  # Usage examples
+
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='remote_services')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    enabled = models.BooleanField(default=True)
+
+    # Stats
+    total_actions = models.IntegerField(default=0)
+    enabled_actions = models.IntegerField(default=0)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'remote_services'
+        unique_together = [['created_by', 'slug']]
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['created_by', 'enabled']),
+            models.Index(fields=['slug']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.created_by.username})"
+
+
+class ServiceAction(models.Model):
+    """
+    Represents an action/tool within a service (e.g., JIRA_CREATE_ISSUE)
+    """
+
+    EXECUTION_PATTERN_CHOICES = [
+        ('simple', 'Simple Request-Response'),
+        ('async_polling', 'Async with Polling'),
+        ('webhook', 'Webhook Callback'),
+        ('multi_step', 'Multi-step Workflow'),
+        ('streaming', 'Streaming Response'),
+    ]
+
+    service = models.ForeignKey(
+        RemoteService,
+        on_delete=models.CASCADE,
+        related_name='actions'
+    )
+
+    # Action info
+    name = models.CharField(max_length=255)  # "CREATE_ISSUE"
+    action_group = models.CharField(max_length=100)  # "issues", "comments", "workflows"
+    description = models.TextField()
+
+    # Endpoint config
+    endpoint_path = models.CharField(max_length=500)  # "/rest/api/3/issue"
+    http_method = models.CharField(max_length=10, default='POST')  # "POST", "GET", "PUT", "DELETE"
+
+    # Parameters (from API spec)
+    parameters = models.JSONField(default=list)
+    # [{"name": "summary", "type": "string", "required": true, ...}]
+
+    # Request/Response config
+    request_body_schema = models.JSONField(null=True, blank=True)
+    response_schema = models.JSONField(null=True, blank=True)
+
+    # Execution pattern
+    execution_pattern = models.CharField(
+        max_length=50,
+        choices=EXECUTION_PATTERN_CHOICES,
+        default='simple'
+    )
+
+    # For async/polling operations
+    polling_config = models.JSONField(null=True, blank=True)
+    # {"poll_endpoint": "/status/{job_id}", "poll_interval": 5, "max_attempts": 60, ...}
+
+    # For webhook operations
+    webhook_config = models.JSONField(null=True, blank=True)
+    # {"webhook_url": "/webhooks/service/{action_id}", "secret": "...", ...}
+
+    # Tool metadata
+    tool_name = models.CharField(max_length=255, unique=True, db_index=True)
+    # "JIRA_CREATE_ISSUE"
+
+    enabled = models.BooleanField(default=True)
+    version = models.CharField(max_length=50, default='1.0.0')
+
+    # Usage stats
+    execution_count = models.IntegerField(default=0)
+    success_count = models.IntegerField(default=0)
+    failure_count = models.IntegerField(default=0)
+    last_executed_at = models.DateTimeField(null=True, blank=True)
+    average_execution_time = models.FloatField(null=True, blank=True)  # seconds
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'service_actions'
+        unique_together = [['service', 'name']]
+        ordering = ['service', 'action_group', 'name']
+        indexes = [
+            models.Index(fields=['service', 'action_group']),
+            models.Index(fields=['tool_name']),
+            models.Index(fields=['service', 'enabled']),
+        ]
+
+    def __str__(self):
+        return f"{self.service.name}/{self.name}"
+
+    def update_stats(self, success: bool, execution_time: float):
+        """Update execution statistics"""
+        self.execution_count += 1
+        if success:
+            self.success_count += 1
+        else:
+            self.failure_count += 1
+
+        self.last_executed_at = timezone.now()
+
+        # Update average execution time (running average)
+        if self.average_execution_time is None:
+            self.average_execution_time = execution_time
+        else:
+            # Weighted average (more weight on recent executions)
+            self.average_execution_time = (
+                0.7 * self.average_execution_time +
+                0.3 * execution_time
+            )
+
+        self.save(update_fields=[
+            'execution_count', 'success_count', 'failure_count',
+            'last_executed_at', 'average_execution_time'
+        ])
+
+
+class ServiceKnowledgeEntry(models.Model):
+    """
+    Knowledge base entries for a service (docs, examples, guides)
+    """
+
+    ENTRY_TYPE_CHOICES = [
+        ('api_guide', 'API Guide'),
+        ('example', 'Code Example'),
+        ('tutorial', 'Tutorial'),
+        ('faq', 'FAQ'),
+        ('troubleshooting', 'Troubleshooting'),
+        ('changelog', 'Changelog'),
+        ('best_practice', 'Best Practice'),
+    ]
+
+    service = models.ForeignKey(
+        RemoteService,
+        on_delete=models.CASCADE,
+        related_name='knowledge_entries'
+    )
+
+    entry_type = models.CharField(max_length=50, choices=ENTRY_TYPE_CHOICES)
+    title = models.CharField(max_length=500)
+    content = models.TextField()
+    source_url = models.URLField(null=True, blank=True)
+
+    # AI metadata for semantic search
+    embedding_vector = models.JSONField(null=True, blank=True)  # For semantic search
+    relevance_score = models.FloatField(default=1.0)
+
+    # Tags for categorization
+    tags = models.JSONField(default=list)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'service_knowledge_entries'
+        ordering = ['-relevance_score', '-created_at']
+        indexes = [
+            models.Index(fields=['service', 'entry_type']),
+            models.Index(fields=['service', '-relevance_score']),
+        ]
+        verbose_name_plural = 'Service knowledge entries'
+
+    def __str__(self):
+        return f"{self.service.name} - {self.title}"
+
+
+class RemoteToolJob(models.Model):
+    """
+    Tracks async remote tool executions (for polling/webhook patterns)
+    """
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    action = models.ForeignKey(
+        ServiceAction,
+        on_delete=models.CASCADE,
+        related_name='jobs'
+    )
+
+    job_id = models.CharField(max_length=255, db_index=True)  # External job ID
+    internal_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
+    # Execution context
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    repository = models.ForeignKey('Repository', on_delete=models.SET_NULL, null=True, blank=True)
+    session_id = models.CharField(max_length=255, blank=True)
+
+    # Input/Output
+    input_parameters = models.JSONField(default=dict)
+    output_data = models.JSONField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    poll_attempts = models.IntegerField(default=0)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'remote_tool_jobs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['job_id']),
+            models.Index(fields=['internal_id']),
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.action.tool_name} - {self.job_id} ({self.status})"

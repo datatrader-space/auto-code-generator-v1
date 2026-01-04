@@ -11,6 +11,7 @@ from agent import views
 from agent import oauth_views
 from agent import auth_views
 from agent.view_handlers import tool_views
+from agent.view_handlers import service_views
 
 # Main router
 router = DefaultRouter()
@@ -93,6 +94,15 @@ urlpatterns = [
     path('tools/create/yaml/', tool_views.create_yaml_tool, name='create-yaml-tool'),
     path('tools/<str:tool_name>/update/', tool_views.update_tool, name='update-tool'),
     path('tools/<str:tool_name>/delete/', tool_views.delete_tool, name='delete-tool'),
+
+    # Service Management
+    path('services/', service_views.list_services, name='services-list'),
+    path('services/<int:service_id>/', service_views.get_service_detail, name='service-detail'),
+    path('services/create/', service_views.create_service, name='create-service'),
+    path('services/<int:service_id>/update/', service_views.update_service, name='update-service'),
+    path('services/<int:service_id>/delete/', service_views.delete_service, name='delete-service'),
+    path('services/<int:service_id>/actions/create/', service_views.create_service_actions, name='create-service-actions'),
+    path('services/discover/', service_views.discover_actions, name='discover-actions'),
 
     # Include routers
     path('', include(router.urls)),
