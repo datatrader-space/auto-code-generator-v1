@@ -242,6 +242,11 @@ def _initialize_builtin_tools(registry: ToolRegistry):
         for tool_class in filesystem_tools.get_all_tools():
             registry.register_class(tool_class)
 
+        from .crs import get_all_tools as get_crs_tools
+        # Register CRS tools
+        for tool_class in get_crs_tools():
+            registry.register_class(tool_class)
+
         logger.info("Built-in tools initialized successfully")
 
     except ImportError as e:

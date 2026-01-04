@@ -1353,7 +1353,11 @@ class ChatConversationViewSet(viewsets.ModelViewSet):
         return ChatConversationSerializer
 
     def get_queryset(self):
-        qs = ChatConversation.objects.all().order_by('-updated_at')
+        # Allow superusers to see all conversations, otherwise filter by owner
+        if self.request.user.is_superuser:
+            qs = ChatConversation.objects.all().order_by('-updated_at')
+        else:
+            qs = ChatConversation.objects.filter(user=self.request.user).order_by('-updated_at')
 
         conv_type = self.request.query_params.get('type')
         if conv_type:

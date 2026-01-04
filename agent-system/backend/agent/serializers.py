@@ -10,7 +10,7 @@ from agent.models import (
     SystemKnowledge, Task, AgentMemory,
     SystemDocumentation,
     ChatConversation, ChatMessage, LLMProvider, LLMModel,
-    AgentSession, BenchmarkRun
+    AgentSession, BenchmarkRun, ToolDefinition, AgentProfile
 )
 
 User = get_user_model()
@@ -469,3 +469,34 @@ class AgentSessionListSerializer(serializers.ModelSerializer):
     
     def get_step_count(self, obj):
         return len(obj.steps) if obj.steps else 0
+
+
+class ToolDefinitionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ToolDefinition
+        fields = ['id', 'name', 'category', 'description', 'enabled', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class AgentProfileSerializer(serializers.ModelSerializer):
+    tools = ToolDefinitionSerializer(many=True, read_only=True)
+    tool_ids = serializers.PrimaryKeyRelatedField(
+        source='tools', 
+        many=True, 
+        queryset=ToolDefinition.objects.all(), 
+        write_only=True,
+        required=False
+    )
+    default_model_name = serializers.CharField(source='default_model.name', read_only=True)
+    
+    class Meta:
+        model = AgentProfile
+        fields = [
+            'id', 'name', 'description', 'system_prompt_template',
+            'default_model', 'default_model_name', 'temperature',
+            'tools', 'tool_ids',
+            'knowledge_scope',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+

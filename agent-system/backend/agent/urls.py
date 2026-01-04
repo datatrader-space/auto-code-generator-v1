@@ -11,10 +11,12 @@ from agent import views
 from agent import oauth_views
 from agent import auth_views
 from agent.view_handlers import tool_views
+from agent import agent_views
 from agent.view_handlers import service_views
 
 # Main router
 router = DefaultRouter()
+router.register(r'agents', agent_views.AgentProfileViewSet)
 router.register(r'systems', views.SystemViewSet, basename='system')
 router.register(r'conversations', views.ChatConversationViewSet, basename='conversation')
 router.register(r'sessions', views.AgentSessionViewSet, basename='agent-session')
@@ -87,13 +89,15 @@ urlpatterns = [
 
     # Tool Management
     path('tools/', tool_views.list_tools, name='tools-list'),
-    path('tools/<str:tool_name>/', tool_views.get_tool_detail, name='tool-detail'),
     path('tools/execute/', tool_views.execute_tool, name='tool-execute'),
     path('tools/documentation/', tool_views.get_tool_documentation, name='tool-docs'),
     path('tools/register/remote/', tool_views.register_remote_tool, name='register-remote-tool'),
     path('tools/create/yaml/', tool_views.create_yaml_tool, name='create-yaml-tool'),
     path('tools/<str:tool_name>/update/', tool_views.update_tool, name='update-tool'),
     path('tools/<str:tool_name>/delete/', tool_views.delete_tool, name='delete-tool'),
+
+    path('tools/definitions/', agent_views.ToolDefinitionViewSet.as_view({'get': 'list'}), name='tool-definitions'),
+    path('tools/<str:tool_name>/', tool_views.get_tool_detail, name='tool-detail'),
 
     # Service Management
     path('services/', service_views.list_services, name='services-list'),

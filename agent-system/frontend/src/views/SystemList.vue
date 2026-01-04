@@ -8,13 +8,22 @@
     
     <!-- Create System Button -->
     <div class="mb-6">
-      <button
-        @click="showCreateModal = true"
-        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-      >
-        <span class="mr-2">+</span>
-        Create New System
-      </button>
+      <div class="flex gap-4">
+        <router-link
+          to="/agents"
+          class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+        >
+          <span class="mr-2">🤖</span>
+          Agent Library
+        </router-link>
+        <button
+          @click="showCreateModal = true"
+          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          <span class="mr-2">+</span>
+          Create New System
+        </button>
+      </div>
     </div>
 
     <!-- LLM Stats -->

@@ -707,6 +707,77 @@ class BenchmarkRun(models.Model):
         return f"BenchmarkRun {self.run_id} | {self.status}"
 
 
+class ToolDefinition(models.Model):
+    """
+    Represents a tool available in the system.
+    Syncs with the code-based ToolRegistry.
+    """
+    name = models.CharField(max_length=100, unique=True, help_text="Unique tools identifier (e.g., LIST_ARTIFACTS)")
+    category = models.CharField(max_length=100, default="general")
+    description = models.TextField(blank=True)
+    
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'tool_definitions'
+        ordering = ['category', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+class AgentProfile(models.Model):
+    """
+    Defines a reusable Agent Configuration ('Species').
+    """
+    KNOWLEDGE_SCOPE_CHOICES = [
+        ('system', 'Full System Context'),
+        ('repository', 'Repository Only'),
+        ('none', 'No RAG / Isolation'),
+    ]
+
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    
+    # The "Soul"
+    system_prompt_template = models.TextField(
+        help_text="System prompt template. Use {{tools}} and {{context}} placeholders."
+    )
+    
+    # The "Brain"
+    default_model = models.ForeignKey(
+        LLMModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='agent_profiles'
+    )
+    temperature = models.FloatField(default=0.7)
+    
+    # The "Hands"
+    tools = models.ManyToManyField(ToolDefinition, blank=True, related_name='agent_profiles')
+    
+    # Knowledge Context
+    knowledge_scope = models.CharField(
+        max_length=50, 
+        choices=KNOWLEDGE_SCOPE_CHOICES,
+        default='system'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'agent_profiles'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+
 # ============================================================================
 # Remote Service & Tool Models
 # ============================================================================

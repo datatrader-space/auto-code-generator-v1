@@ -12,7 +12,12 @@ import Login from './views/Login.vue'
 import LLMSettings from './views/LLMSettings.vue'
 import Benchmarks from './views/Benchmarks.vue'
 import ToolRegistry from './views/ToolRegistry.vue'
+<<<<<<< Updated upstream
 import Services from './views/Services.vue'
+=======
+import AgentLibrary from './views/AgentLibrary.vue'
+import AgentPlayground from './views/AgentPlayground.vue'
+>>>>>>> Stashed changes
 
 // Create router
 const router = createRouter({
@@ -61,9 +66,21 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+<<<<<<< Updated upstream
       path: '/services',
       name: 'services',
       component: Services,
+=======
+      path: '/agents',
+      name: 'agent-library',
+      component: AgentLibrary,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/agents/:id',
+      name: 'agent-playground',
+      component: AgentPlayground,
+>>>>>>> Stashed changes
       meta: { requiresAuth: true }
     }
   ]
