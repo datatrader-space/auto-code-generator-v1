@@ -75,6 +75,7 @@ export default {
   get: (url, config) => api.get(url, config),
   post: (url, data, config) => api.post(url, data, config),
   put: (url, data, config) => api.put(url, data, config),
+  patch: (url, data, config) => api.patch(url, data, config),
   delete: (url, config) => api.delete(url, config),
 
   // Systems
@@ -102,6 +103,8 @@ export default {
     api.get(`/systems/${systemId}/repositories/${repoId}/knowledge/docs/`),
   extractKnowledge: (systemId, repoId, force = true) =>
     api.post(`/systems/${systemId}/repositories/${repoId}/knowledge/extract/`, { force }),
+  analyzeKnowledgeDoc: (systemId, repoId, kind, specId) =>
+    api.post(`/systems/${systemId}/repositories/${repoId}/knowledge/analyze_doc/`, { kind, spec_id: specId }),
 
   // Repository Documentation
   getRepositoryRequirements: (systemId, repoId) =>
@@ -186,18 +189,67 @@ export default {
   },
 
   // Context Files
-  createConversation: (data) => api.post('/conversations/', data),
   getConversations: (params) => api.get('/conversations/', { params }),
+  getConversation: (id) => api.get(`/conversations/${id}/`),
+  createConversation: (data) => api.post('/conversations/', data),
 
-  uploadContextFile: (conversationPk, file) => {
+  uploadContextFile: (conversationPk, file, agentId = null) => {
     const formData = new FormData()
     formData.append('file', file)
-    return api.post(`/conversations/${conversationPk}/files/`, formData, {
+    if (agentId) {
+      formData.append('agent_profile_id', agentId)
+    }
+
+    // If agentId is provided, we can use a direct endpoint or the same one if generic
+    // But since current URL is /conversations/:id/files/, we need a generic one or assume conversationPk is null
+    // Let's use the generic viewset if no conversationPk, but our URLs are nested.
+    // Actually, I didn't add a generic router for files.
+    // I should probably add a generic path or assume conversationPk might be 'agent' placeholder?
+    // BETTER: Use a new generic endpoint in api.js?
+    // Wait, the backend logic I added to ContextFileViewSet creates a generic endpoint if I register it.
+    // Let's assume I need to register strict /context_files/ endpoint in urls.py for this to work clean.
+    // For now, let's keep the nested URL for conversation, and use a different strategy or Assume user adds generic route.
+
+    // Changing strategy: I will assume I added `router.register(r'context_files', ...)` or similiar.
+    // But I didn't. I only modified the ViewSet code.
+    // I need to register the generic route in urls.py first.
+    // Let's modify api.js assuming the route exists as /agents/:id/files/ or /context_files/
+
+    // Let's assume /context_files/ for generic access
+    let url = `/conversations/${conversationPk}/files/`
+    if (agentId && !conversationPk) {
+      // Generic endpoint required.
+      // Pass.
+    }
+    return api.post(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
   },
+  // RE-WRITING properly below
+  uploadAgentFile: (agentId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('agent_profile', agentId);
+    // We need a generic endpoint. I will add 'context_files' to router in next step.
+    return api.post('/context_files/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  uploadConversationFile: (conversationPk, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/conversations/${conversationPk}/files/`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
   getContextFiles: (conversationPk) => api.get(`/conversations/${conversationPk}/files/`),
-  deleteContextFile: (conversationPk, fileId) => api.delete(`/conversations/${conversationPk}/files/${fileId}/`)
+  deleteContextFile: (conversationPk, fileId) => api.delete(`/conversations/${conversationPk}/files/${fileId}/`),
+
+  // Agent Chat
+  startAgentChat: (agentProfileId, repositoryId = null) => {
+    const payload = {};
+    if (repositoryId) payload.repository_id = repositoryId;
+    return api.post(`/agents/${agentProfileId}/chat/`, payload);
+  },
+
+  // New Agent Knowledge
+  analyzeContextFile: (fileId) => api.post(`/context_files/${fileId}/analyze/`),
 }

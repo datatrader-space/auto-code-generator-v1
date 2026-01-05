@@ -798,23 +798,89 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
         try:
             from agent.services.knowledge_agent import RepositoryKnowledgeAgent
-
+            
             agent = RepositoryKnowledgeAgent(repository=repository)
             doc = agent.spec_store.get_doc(kind=kind, spec_id=spec_id)
-
+            
             if not doc:
-                return Response({
-                    'error': f'Document not found: {kind}/{spec_id}'
-                }, status=status.HTTP_404_NOT_FOUND)
-
+                return Response({'error': 'Document not found'}, status=status.HTTP_404_NOT_FOUND)
+                
             return Response(doc)
 
         except Exception as e:
-            logger.error(f"Failed to get knowledge doc {kind}/{spec_id}: {e}", exc_info=True)
+            logger.error(f"Failed to get knowledge doc detail: {e}", exc_info=True)
             return Response({
                 'error': str(e),
                 'type': type(e).__name__
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @decorators.action(detail=True, methods=['post'], url_path='knowledge/analyze_doc')
+    def analyze_knowledge_doc(self, request, pk=None, system_pk=None):
+        """
+        Analyze/Summarize a specific knowledge document using LLM
+        
+        POST /api/systems/{system_id}/repositories/{repo_id}/knowledge/analyze_doc/
+        Body: {"kind": "...", "spec_id": "..."}
+        """
+        repository = self.get_object()
+        kind = request.data.get('kind')
+        spec_id = request.data.get('spec_id')
+        
+        if not kind or not spec_id:
+             return Response({'error': 'kind and spec_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from agent.services.knowledge_agent import RepositoryKnowledgeAgent
+            agent = RepositoryKnowledgeAgent(repository=repository)
+            doc = agent.spec_store.get_doc(kind=kind, spec_id=spec_id)
+            
+            if not doc:
+                 return Response({'error': 'Document not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Use LLM to summarize
+            from llm.router import get_llm_router, LLMConfig
+            
+            router = get_llm_router()
+            # Use a fast/smart model (default)
+            # We can use the user's default provider
+            
+            # Simple summarization prompt
+            content = doc.get('content') or str(doc)
+            
+            messages = [
+                {'role': 'system', 'content': 'You are a helpful AI assistant. Analyze the provided validation/knowledge document and provide a concise, user-friendly summary of its purpose and key content. If it helps, explain how this might be useful for an agent.'},
+                {'role': 'user', 'content': f"Document ({kind}/{spec_id}):\n\n{content}\n\nSummary:"}
+            ]
+            
+            # Use 'ollama' or default provider. 
+            # Ideally we pick one configured for the user, but for now we default to a safe choice or check provider
+            # Let's try to get a client from the router. 
+            # We can use a generic config.
+            
+            # Using synchronous call for simplicity in this endpoint, or we could stream if we wanted.
+            # But frontend probably expects a simple JSON response.  
+            
+            # Determine provider
+            provider = 'ollama'
+            # Check if user has an OpenAI provider active?
+            # For now, stick to 'ollama'/local default for robustness unless configured otherwise.
+            # TODO: Better model selection logic here.
+            
+            config = LLMConfig(provider=provider, model=None) 
+            client = router.client_for_config(config)
+            
+            response_text = ""
+            for chunk in client.query_stream(messages):
+                response_text += chunk
+                
+            return Response({
+                'summary': response_text,
+                'doc_title': doc.get('title') or spec_id
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to analyze doc: {e}", exc_info=True)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @decorators.action(detail=True, methods=['put'], url_path='knowledge/docs/(?P<kind>[^/.]+)/(?P<spec_id>[^/.]+)')
     def update_knowledge_doc(self, request, pk=None, system_pk=None, kind=None, spec_id=None):
@@ -1373,6 +1439,23 @@ class ChatConversationViewSet(viewsets.ModelViewSet):
         if repository_id:
             qs = qs.filter(repository_id=repository_id)
 
+        # Filter by Agent Profile (via metadata)
+        agent_id = self.request.query_params.get('agent_profile_id')
+        if agent_id:
+            try:
+                agent_id_int = int(agent_id)
+                # Debug logging
+                # logger.info(f"Filtering for agent_profile_id={agent_id} (int={agent_id_int})")
+                # all_meta = list(qs.values_list('metadata', flat=True)[:5])
+                # logger.info(f"Sample metadata in DB: {all_meta}")
+
+                qs = qs.filter(
+                    Q(metadata__agent_profile_id=agent_id_int) | 
+                    Q(metadata__agent_profile_id=str(agent_id))
+                )
+            except ValueError:
+                qs = qs.filter(metadata__agent_profile_id=agent_id)
+
         return qs.select_related(
             'system', 'repository', 'user', 'llm_model', 'llm_model__provider'
         ).prefetch_related('messages')
@@ -1589,7 +1672,7 @@ class AgentSessionViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         """Filter sessions by user's repositories"""
         return AgentSession.objects.filter(
-            repository__system__user=self.request.user
+            conversation__user=self.request.user
         ).select_related(
             'repository', 'conversation', 'llm_model_used'
         ).order_by('-created_at')
@@ -1649,3 +1732,88 @@ class AgentSessionViewSet(viewsets.ReadOnlyModelViewSet):
             'created_at': session.created_at,
             'completed_at': session.completed_at,
         })
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ContextFileViewSet(viewsets.ModelViewSet):
+    serializer_class = ContextFileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Filter by conversation if nested
+        qs = ContextFile.objects.all()
+        if 'conversation_pk' in self.kwargs:
+            qs = qs.filter(conversation_id=self.kwargs['conversation_pk'])
+        
+        # Or filter by agent profile if provided in query params
+        agent_id = self.request.query_params.get('agent_id')
+        if agent_id:
+            qs = qs.filter(agent_profile_id=agent_id)
+            
+        return qs.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        # Auto-populate name from file if missing
+        save_kwargs = {}
+        if not serializer.validated_data.get('name'):
+            file_obj = serializer.validated_data.get('file')
+            if file_obj:
+                save_kwargs['name'] = file_obj.name
+
+        # If nested under conversation, use that
+        if 'conversation_pk' in self.kwargs:
+            conversation = get_object_or_404(ChatConversation, pk=self.kwargs['conversation_pk'])
+            save_kwargs['conversation'] = conversation
+            context_file = serializer.save(**save_kwargs)
+            
+            # Auto-analyze if needed (optional)
+            # self.analyze_file(context_file)
+            
+        else:
+            # Serializer should have validated agent_profile if provided in request
+            context_file = serializer.save(**save_kwargs)
+            
+            # Check if linked to agent (either via request or passed validation)
+            if context_file.agent_profile:
+                 self.analyze_file(context_file)
+
+    def analyze_file(self, context_file):
+        """Helper to run analysis on a file"""
+        try:
+            content = context_file.file.read().decode('utf-8')
+            
+            # Use LLM to analyze
+            from llm.router import get_llm_router, LLMConfig
+            from asgiref.sync import async_to_sync
+            
+            router = get_llm_router()
+            config = LLMConfig(provider='ollama', model=None, base_url='http://localhost:11434')
+            client = router.client_for_config(config)
+            
+            prompt = [
+                {'role': 'system', 'content': 'You are a helpful analyst. Summarize this document and extract key concepts useful for an AI agent.'},
+                {'role': 'user', 'content': f"Document Name: {context_file.name}\n\nContent:\n{content[:10000]}"} # Limit context
+            ]
+            
+            # Streaming not needed for background task, but client is designed for it
+            # We'll just flatten the stream
+            response_text = ""
+            for chunk in client.query_stream(prompt):
+                 response_text += chunk
+            
+            context_file.analysis = response_text
+            context_file.save(update_fields=['analysis'])
+            
+        except Exception as e:
+            # Catch connection errors (e.g. Ollama down) to prevent crash
+            logger.error(f"Analysis failed for {context_file.id}: {e}")
+            # Optionally set a localized error message in analysis field
+            if "Connection refused" in str(e) or "Cannot connect" in str(e):
+                 context_file.analysis = f"Analysis failed: Could not connect to LLM provider. Please check if Ollama is running."
+                 context_file.save(update_fields=['analysis'])
+
+    @decorators.action(detail=True, methods=['post'])
+    def analyze(self, request, pk=None, conversation_pk=None):
+        """Manually trigger analysis"""
+        context_file = self.get_object()
+        self.analyze_file(context_file)
+        return Response({'status': 'analyzed', 'analysis': context_file.analysis})

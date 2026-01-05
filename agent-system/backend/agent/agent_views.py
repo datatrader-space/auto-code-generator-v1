@@ -56,17 +56,27 @@ class AgentProfileViewSet(viewsets.ModelViewSet):
         
         system_id = request.data.get('system_id')
         repo_id = request.data.get('repository_id')
+        model_id = request.data.get('llm_model_id')
         
-        if not system_id and profile.knowledge_scope == 'system':
-             return Response(
-                {"error": "System ID required for system-scope agents"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
-        # This logic will eventually spawn a ChatConversation linked to this profile
-        # For now, we return a mock success to unblock frontend dev
+        # Create a real conversation linked to this profile
+        from agent.models import ChatConversation, System, Repository
+        
+        conversation = ChatConversation.objects.create(
+            user=request.user,
+            system_id=system_id,
+            repository_id=repo_id,
+            llm_model_id=model_id,
+            title=f"Chat with {profile.name}",
+            conversation_type='repository', # Using repository chat infrastructure
+            metadata={
+                'agent_profile_id': profile.id,
+                'agent_name': profile.name
+            }
+        )
+        
         return Response({
             "message": f"Started chat with agent {profile.name}",
-            "profile_id": profile.id,
+            "profile_id": conversation.id, # Using conversation ID as profile_id for frontend compat
+            "conversation_id": conversation.id,
             "system_id": system_id
         })

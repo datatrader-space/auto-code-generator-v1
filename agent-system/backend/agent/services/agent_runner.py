@@ -39,6 +39,9 @@ class AgentRunner:
     @property
     def fs(self):
         if self._fs is None:
+            if not self.repository:
+                return None
+                
             from core.fs import WorkspaceFS
             from django.conf import settings
             repo_root = Path(settings.BASE_DIR).parents[1]
@@ -95,7 +98,13 @@ class AgentRunner:
         
         # 2. Get ToolSet
         try:
-            toolset = ToolRegistry.get(mode, self.repository)
+            if self.repository:
+                 toolset = ToolRegistry.get(mode, self.repository)
+            else:
+                 # For repository-less agents, use built-in tool registry
+                 from agent.tools.registry import get_tool_registry
+                 self.tool_registry = get_tool_registry()
+                 toolset = None  # We'll use tool_registry directly instead of toolset
         except Exception as e:
             logger.error(f"Failed to load tools: {e}")
             return {'status': 'error', 'error': f"Failed to load tools: {e}"}
@@ -124,8 +133,15 @@ class AgentRunner:
         
         try:
             # Initial Prompt
-            system_prompt = toolset.get_system_prompt()
-            system_prompt += "\n\nAlso you have Core Actions:\n- PATCH: Apply code changes (must use JSON payload with 'changes').\n- VERIFY: Run tests/verification."
+            if toolset:
+                system_prompt = toolset.get_system_prompt()
+            elif hasattr(self, 'tool_registry'):
+                system_prompt = self.tool_registry.generate_prompt_documentation()
+            else:
+                system_prompt = "You are a helpful AI assistant."
+            # Removed hardcoded PATCH/VERIFY actions - those are code-specific
+            
+            logger.info(f"[AGENT INIT] System Prompt:\n{system_prompt}\n--- END SYSTEM PROMPT ---")
             
             history = [
                 {"role": "system", "content": system_prompt},
@@ -147,10 +163,86 @@ class AgentRunner:
                 self._send_event('agent_planning', {'status': 'thinking', 'step': step_i})
                 
                 response = self._ask_llm(history, model_config)
+                logger.info(f"[AGENT STEP {step_i}] LLM Full Response:\n{response}\n--- END RESPONSE ---")
                 history.append({"role": "assistant", "content": response})
                 
                 # Parse Tools
-                tool_calls = toolset.parse_tool_calls(response)
+                if toolset:
+                    tool_calls = toolset.parse_tool_calls(response)
+                    logger.info(f"[AGENT STEP {step_i}] Parsed {len(tool_calls)} tool calls (using toolset)")
+                else:
+                    # Simple parsing for repository-less agents - support both JSON and function-call formats
+                    import json, re
+                    tool_calls = []
+                    
+                    # 1. Try to find JSON blocks using brace counting (handles nested dicts)
+                    cursor = 0
+                    while True:
+                        start_brace = response.find('{', cursor)
+                        if start_brace == -1:
+                            break
+                        
+                        depth = 0
+                        end_brace = -1
+                        for i in range(start_brace, len(response)):
+                            if response[i] == '{':
+                                depth += 1
+                            elif response[i] == '}':
+                                depth -= 1
+                                if depth == 0:
+                                    end_brace = i
+                                    break
+                        
+                        if end_brace != -1:
+                            json_str = response[start_brace:end_brace+1]
+                            try:
+                                call = json.loads(json_str)
+                                # Normalize keys
+                                tool_name = call.get('tool') or call.get('name') or call.get('action') or call.get('function')
+                                params = call.get('parameters') or call.get('arguments') or call.get('params') or call.get('args') or {}
+                                
+                                if tool_name and isinstance(tool_name, str):
+                                    normalized_call = {'name': tool_name, 'parameters': params}
+                                    tool_calls.append(normalized_call)
+                                    logger.info(f"[AGENT STEP {step_i}] Parsed JSON tool call: {normalized_call}")
+                            except Exception as e:
+                                logger.warning(f"[AGENT STEP {step_i}] Failed to parse JSON: {json_str[:100]}..., error: {e}")
+                            cursor = end_brace + 1
+                        else:
+                            cursor = start_brace + 1
+                    
+                    # 2. Key-value function search Fallback: TOOL_NAME(key="val") OR TOOL_NAME("val", "val")
+                    if not tool_calls:
+                        func_pattern = r'([A-Z_]+)\((.*?)\)'
+                        func_matches = re.findall(func_pattern, response, re.DOTALL)
+                        logger.info(f"[AGENT STEP {step_i}] Found {len(func_matches)} function-call matches")
+                        for tool_name, params_str in func_matches:
+                            if tool_name in ["JSON", "TOOL", "CALL"]: continue # Skip false positives
+                            
+                            try:
+                                param_dict = {}
+                                # Try key="value"
+                                kv_pairs = list(re.finditer(r'(\w+)=["\'](.*?)["\']', params_str))
+                                if kv_pairs:
+                                    for param_match in kv_pairs:
+                                        param_dict[param_match.group(1)] = param_match.group(2)
+                                
+                                # Fallback: Positional args "val1", "val2"
+                                elif params_str.strip():
+                                     parts = [p.strip().strip('"').strip("'") for p in params_str.split(',')]
+                                     if tool_name in ['WRITE_FILE', 'CREATE_FILE'] and len(parts) >= 1:
+                                          param_dict = {'path': parts[0], 'content': parts[1] if len(parts) > 1 else ''}
+                                     elif tool_name == 'READ_FILE' and len(parts) >= 1:
+                                          param_dict = {'path': parts[0]}
+                                
+                                if param_dict or (not params_str.strip()):
+                                    tool_call = {'name': tool_name, 'parameters': param_dict}
+                                    tool_calls.append(tool_call)
+                                    logger.info(f"[AGENT STEP {step_i}] Parsed function-call: {tool_call}")
+                            except Exception as e:
+                                logger.warning(f"[AGENT STEP {step_i}] Failed to parse function call: {tool_name}({params_str}), error: {e}")
+                    
+                    logger.info(f"[AGENT STEP {step_i}] Final parsed {len(tool_calls)} tool calls: {tool_calls}")
                 observer.log("TOOL_CALLS", tool_calls)
                 
                 if not tool_calls:
@@ -209,11 +301,39 @@ class AgentRunner:
                                 
                         else:
                             # ToolSet Action
-                            result_str = toolset.execute_tool(name, params)
+                            logger.info(f"[TOOL EXEC] Executing {name} with params: {params}")
+                            if toolset:
+                                result_str = toolset.execute_tool(name, params)
+                                logger.info(f"[TOOL EXEC] {name} result: {result_str[:200]}...")
+                            else:
+                                # Use tool_registry for repository-less agents
+                                logger.info(f"[TOOL EXEC] Using tool_registry for {name}")
+                                from agent.tools.base import ToolExecutionContext, ToolPermission
+                                
+                                # Determine workspace path
+                                workspace_path = "/tmp"
+                                if self.repository and hasattr(self.repository, 'get_workspace_path'):
+                                    workspace_path = self.repository.get_workspace_path()
+                                elif self.repository and hasattr(self.repository, 'workspace'):
+                                    workspace_path = self.repository.workspace.root_path
+                                elif self.current_session and 'workspace_path' in self.current_session:
+                                    workspace_path = self.current_session['workspace_path']
+
+                                context = ToolExecutionContext(
+                                    repository=self.repository if self.repository else None,
+                                    user=None, # user not easily available in this context yet
+                                    session_id=session_id if session_id else "unknown_session",
+                                    workspace_path=workspace_path,
+                                    permissions=[ToolPermission.READ, ToolPermission.WRITE, ToolPermission.EXECUTE],
+                                    trace=[]
+                                )
+                                result = self.tool_registry.execute(name, params, context)
+                                result_str = result.output if result.success else f"Error: {result.error}"
+                                logger.info(f"[TOOL EXEC] {name} result success={result.success}: {result_str[:200]}...")
                             step_record['data'] = {'output': result_str[:200] + '...'} # Summary for UI
                             
                     except Exception as e:
-                        logger.error(f"Tool {name} failed: {e}")
+                        logger.error(f"Tool {name} failed: {e}", exc_info=True)
                         result_str = f"Error: {e}"
                         step_record['status'] = 'error'
                         step_record['error'] = str(e)
@@ -250,8 +370,11 @@ class AgentRunner:
             
         # Save Trace
         try:
-            state_dir = self.fs.paths.state_dir
-            trace_path = observer.save(os.path.join(state_dir, 'traces'))
+            if self.fs:
+                state_dir = self.fs.paths.state_dir
+                trace_path = observer.save(os.path.join(state_dir, 'traces'))
+            else:
+                trace_path = "" # No persistence for free agents yet
         except Exception as e:
             logger.error(f"Failed to save trace: {e}")
             trace_path = ""

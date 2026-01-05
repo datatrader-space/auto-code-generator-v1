@@ -487,6 +487,9 @@ class ChatConversation(models.Model):
     )
 
     # Metadata
+    metadata = models.JSONField(default=dict, blank=True)
+
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -582,7 +585,9 @@ class AgentSession(models.Model):
     repository = models.ForeignKey(
         Repository,
         on_delete=models.CASCADE,
-        related_name='agent_sessions'
+        related_name='agent_sessions',
+        null=True,
+        blank=True
     )
 
     # Classification
@@ -1063,12 +1068,22 @@ class ContextFile(models.Model):
     conversation = models.ForeignKey(
         ChatConversation,
         on_delete=models.CASCADE,
-        related_name='context_files'
+        related_name='context_files',
+        null=True,
+        blank=True
+    )
+    agent_profile = models.ForeignKey(
+        'AgentProfile',
+        on_delete=models.CASCADE,
+        related_name='knowledge_files',
+        null=True,
+        blank=True
     )
     
     file = models.FileField(upload_to='context_files/%Y/%m/%d/')
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    analysis = models.TextField(blank=True, help_text="AI Analysis/Summary of the file")
     
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -1077,4 +1092,6 @@ class ContextFile(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.conversation.id}: {self.name}"
+        if self.agent_profile:
+            return f"Agent {self.agent_profile.name}: {self.name}"
+        return f"Conv {self.conversation_id}: {self.name}"

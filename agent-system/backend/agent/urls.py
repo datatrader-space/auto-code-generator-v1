@@ -23,7 +23,9 @@ router.register(r'sessions', views.AgentSessionViewSet, basename='agent-session'
 router.register(r'llm/providers', views.LLMProviderViewSet, basename='llm-provider')
 router.register(r'llm/models', views.LLMModelViewSet, basename='llm-model')
 router.register(r'benchmarks/runs', views.BenchmarkRunViewSet, basename='benchmark-run')
+router.register(r'benchmarks/runs', views.BenchmarkRunViewSet, basename='benchmark-run')
 router.register(r'benchmarks/reports', views.BenchmarkReportViewSet, basename='benchmark-report')
+router.register(r'context_files', views.ContextFileViewSet, basename='context-file')
 
 # Nested routers for system resources
 systems_router = nested_routers.NestedDefaultRouter(

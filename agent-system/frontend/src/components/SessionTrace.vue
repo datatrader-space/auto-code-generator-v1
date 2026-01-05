@@ -135,12 +135,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import axios from 'axios'
 
 const props = defineProps({
   repositoryId: {
     type: Number,
+    default: null
+  },
+  sessionId: {
+    type: String,
     default: null
   }
 })
@@ -156,11 +160,19 @@ const loadSessions = async () => {
   try {
     const params = {}
     if (props.repositoryId) params.repository = props.repositoryId
+    // If sessionId is provided, use it to filter
+    if (props.sessionId) params.session_id = props.sessionId
+    
     if (filterType.value) params.session_type = filterType.value
     if (filterStatus.value) params.status = filterStatus.value
 
     const response = await axios.get('/api/sessions/', { params })
     sessions.value = response.data.results || response.data
+    
+    // Auto-select if only one session found and it matches requested ID
+    if (props.sessionId && sessions.value.length === 1) {
+        viewDetails(sessions.value[0]);
+    }
   } catch (error) {
     console.error('Failed to load sessions:', error)
   } finally {
@@ -170,11 +182,9 @@ const loadSessions = async () => {
 
 const viewDetails = async (session) => {
   try {
+    // If session object is sparse, fetch details
     const response = await axios.get(`/api/sessions/${session.id}/`)
     console.log('📊 Session detail response:', response.data)
-    console.log('Steps:', response.data.steps)
-    console.log('Plan:', response.data.plan)
-    console.log('Final Answer:', response.data.final_answer)
     selectedSession.value = response.data
   } catch (error) {
     console.error('Failed to load session details:', error)
@@ -203,6 +213,10 @@ const formatDateTime = (timestamp) => {
 }
 
 onMounted(loadSessions)
+
+watch(() => props.sessionId, () => {
+    loadSessions();
+});
 
 // Auto-refresh every 10 seconds
 setInterval(loadSessions, 10000)

@@ -210,7 +210,7 @@
 
             <!-- Discover Button -->
             <button
-              v-if="formData.discovery_method !== 'manual' && (formData.api_spec_url || postmanCollection.value)"
+              v-if="formData.discovery_method !== 'manual' && (formData.api_spec_url || postmanCollection)"
               @click="discoverActions"
               :disabled="discovering"
               class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition disabled:opacity-50"
@@ -639,7 +639,9 @@ export default {
       formData,
       discoveredData,
       selectedCategories,
+      postmanCollection,
       canProceed,
+      handlePostmanUpload,
       discoverActions,
       toggleCategory,
       getTotalSelectedActions,

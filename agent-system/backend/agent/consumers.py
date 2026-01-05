@@ -251,9 +251,14 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
             model_info = llm_config.get('model_info', {'provider': 'ollama'})
         else:
             # Fallback to basic config
-            config = {'provider': conversation.model_provider or 'ollama'}
+            from llm.router import LLMConfig
+            config = LLMConfig(
+                provider=conversation.model_provider or 'ollama',
+                model=None,
+                base_url='http://localhost:11434' if (conversation.model_provider or 'ollama') == 'ollama' else None
+            )
             client = await sync_to_async(router.client_for_config)(config)
-            model_info = {'provider': config['provider']}
+            model_info = {'provider': config.provider}
 
         # Send typing indicator
         await self.send_json({
@@ -306,8 +311,72 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                 
                 logger.info(f"LLM Response (Iteration {iteration+1}): {iteration_response[:200]}...")
 
-                # Check for tool calls
-                tool_calls = crs_tools.parse_tool_calls(iteration_response)
+                # Check for tool calls - robust parsing
+                import json, re
+                tool_calls = []
+                
+                # 1. Try to find JSON blocks using brace counting (handles nested dicts)
+                cursor = 0
+                while True:
+                    start_brace = iteration_response.find('{', cursor)
+                    if start_brace == -1:
+                        break
+                    
+                    depth = 0
+                    end_brace = -1
+                    for i in range(start_brace, len(iteration_response)):
+                        if iteration_response[i] == '{':
+                            depth += 1
+                        elif iteration_response[i] == '}':
+                            depth -= 1
+                            if depth == 0:
+                                end_brace = i
+                                break
+                    
+                    if end_brace != -1:
+                        json_str = iteration_response[start_brace:end_brace+1]
+                        try:
+                            call = json.loads(json_str)
+                            # Normalize keys
+                            tool_name = call.get('tool') or call.get('name') or call.get('action') or call.get('function')
+                            params = call.get('parameters') or call.get('arguments') or call.get('params') or call.get('args') or {}
+                            
+                            if tool_name and isinstance(tool_name, str):
+                                tool_calls.append({'name': tool_name, 'parameters': params})
+                        except:
+                            pass
+                        cursor = end_brace + 1
+                    else:
+                        cursor = start_brace + 1
+
+                # 2. Key-value function search Fallback: TOOL_NAME(key="val") OR TOOL_NAME("val", "val")
+                if not tool_calls:
+                    func_pattern = r'([A-Z_]+)\((.*?)\)'
+                    func_matches = re.findall(func_pattern, iteration_response, re.DOTALL)
+                    for tool_name, params_str in func_matches:
+                        if tool_name in ["JSON", "TOOL", "CALL"]: continue # Skip false positives
+                        
+                        param_dict = {}
+                        # Try key="value"
+                        kv_pairs = list(re.finditer(r'(\w+)=["\'](.*?)["\']', params_str))
+                        if kv_pairs:
+                            for param_match in kv_pairs:
+                                param_dict[param_match.group(1)] = param_match.group(2)
+                        
+                        # Fallback: Positional args "val1", "val2"
+                        elif params_str.strip():
+                             # Naive split by comma inside quotes - robust enough for simple calls
+                             # matches "val1", "val2" or 'val1', 'val2'
+                             parts = [p.strip().strip('"').strip("'") for p in params_str.split(',')]
+                             if tool_name in ['WRITE_FILE', 'CREATE_FILE'] and len(parts) >= 1:
+                                  param_dict = {'path': parts[0], 'content': parts[1] if len(parts) > 1 else ''}
+                             elif tool_name == 'READ_FILE' and len(parts) >= 1:
+                                  param_dict = {'path': parts[0]}
+                        
+                        if param_dict or (not params_str.strip()):
+                            tool_calls.append({'name': tool_name, 'parameters': param_dict})
+                
+                logger.info(f"Parsed {len(tool_calls)} valid tool calls: {tool_calls}")
 
                 if not tool_calls:
                     # No tools requested - this is the final answer
@@ -324,6 +393,14 @@ class BaseChatConsumer(AsyncWebsocketConsumer):
                     tool_params = tool_call['parameters']
 
                     logger.info(f"Executing {tool_name} with params: {tool_params}")
+                    
+                    # Notify frontend of tool call
+                    await self.send_json({
+                        'type': 'tool_call',
+                        'tool': tool_name,
+                        'tool_input': tool_params
+                    })
+
                     result = await sync_to_async(crs_tools.execute_tool)(tool_name, tool_params)
 
                     # Send tool result to frontend as separate event (not mixed with assistant)
@@ -543,9 +620,12 @@ class RepositoryChatConsumer(BaseChatConsumer):
         self.repository_id = self.scope['url_route']['kwargs']['repository_id']
         self.repository = await self.get_repository()
 
-        if not self.repository:
-            await self.close()
-            return
+        # Allow connection even if repository is None (Free Agent mode)
+        # self.repository will be None if ID is 0 or invalid
+        if not self.repository and str(self.repository_id) != '0':
+            # Only close if it was a real ID that failed lookup, 
+            # but for now let's be permissive to support '0'
+            pass
 
         # Initialize sub-agents
         self._agent_runner = None
@@ -585,14 +665,76 @@ class RepositoryChatConsumer(BaseChatConsumer):
             return None
 
     @database_sync_to_async
+    def get_llm_config(self, conversation):
+        """Get LLM configuration for this conversation, prioritizing agent profile's default_model"""
+        from llm.router import LLMConfig
+        from agent.models import AgentProfile
+        
+        # Check if conversation is linked to an agent profile
+        if conversation.metadata and conversation.metadata.get('agent_profile_id'):
+            try:
+                agent_profile = AgentProfile.objects.select_related('default_model__provider').get(
+                    id=conversation.metadata['agent_profile_id']
+                )
+                if agent_profile.default_model:
+                    # Use agent's configured model
+                    llm_model = agent_profile.default_model
+                    config = LLMConfig(
+                        provider=llm_model.provider.provider_type,
+                        model=llm_model.model_id,
+                        base_url=llm_model.provider.base_url
+                    )
+                    return {
+                        'config': config,
+                        'model_info': {
+                            'provider': llm_model.provider.provider_type,
+                            'model_name': llm_model.name,
+                            'model_id': llm_model.model_id
+                        }
+                    }
+            except AgentProfile.DoesNotExist:
+                pass
+        
+        # Fallback to conversation's llm_model if set
+        if conversation.llm_model:
+            config = LLMConfig(
+                provider=conversation.llm_model.provider.provider_type,
+                model=conversation.llm_model.model_id,
+                base_url=conversation.llm_model.provider.base_url
+            )
+            return {
+                'config': config,
+                'model_info': {
+                    'provider': conversation.llm_model.provider.provider_type,
+                    'model_name': conversation.llm_model.name
+                }
+            }
+        
+        # No specific model configured
+        return None
+
+    @database_sync_to_async
     def get_or_create_conversation(self, conversation_id=None):
         """Get existing or create new conversation"""
         if conversation_id:
             try:
-                return ChatConversation.objects.get(
-                    id=conversation_id,
-                    repository=self.repository
-                )
+                # If we have a repository, prefer matching it, but allow loose match if self.repository is None
+                # or if the conversation is decoupled.
+                if self.repository:
+                    return ChatConversation.objects.select_related('llm_model').get(
+                        id=conversation_id,
+                        repository=self.repository
+                    )
+                else:
+                    return ChatConversation.objects.select_related('llm_model').get(id=conversation_id)
+            except ChatConversation.DoesNotExist:
+                 # Try finding it without repo filter if we are in free mode or repo mismatch
+                 if self.repository:
+                     try:
+                         return ChatConversation.objects.select_related('llm_model').get(id=conversation_id)
+                     except ChatConversation.DoesNotExist:
+                         return None
+                 return None
             except ChatConversation.DoesNotExist:
                 pass
 
@@ -797,7 +939,7 @@ class RepositoryChatConsumer(BaseChatConsumer):
                 'result': {
                     'response_length': len(response_text) if response_text else 0,
                     'response_preview': response_text[:200] if response_text else 'No response',
-                    'model_used': conversation.llm_model.name if conversation.llm_model else 'default'
+                    'model_used': await sync_to_async(lambda: conversation.llm_model.name if conversation.llm_model else 'default')()
                 },
                 'duration_ms': llm_duration,
                 'status': 'success'
@@ -932,8 +1074,8 @@ class RepositoryChatConsumer(BaseChatConsumer):
             user_request=user_request,
             status='running',
             knowledge_context={
-                'architecture_style': self.repository.config.get('paradigm', 'unknown') if self.repository.config else 'unknown',
-                'domain': self.repository.config.get('domain', 'unknown') if self.repository.config else 'unknown',
+                'architecture_style': self.repository.config.get('paradigm', 'unknown') if (self.repository and self.repository.config) else 'unknown',
+                'domain': self.repository.config.get('domain', 'unknown') if (self.repository and self.repository.config) else 'unknown',
             }
         )
     
@@ -1033,15 +1175,42 @@ Output ONLY the JSON: {{"intent": "CHAT" | "TASK"}}"""}
 
         status_message = context.get('status_message')
 
-        # Get tool definitions
-        crs_tools = CRSTools(repository=self.repository)
-        tool_definitions = crs_tools.get_tool_definitions()
+        # Get tool definitions from agent profile (not hardcoded)
+        tool_definitions = ""
+        
+        # Check if conversation is linked to an agent profile
+        agent_profile = None
+        if conversation.metadata and conversation.metadata.get('agent_profile_id'):
+            from agent.models import AgentProfile
+            try:
+                agent_profile = await sync_to_async(AgentProfile.objects.prefetch_related('tools').get)(
+                    id=conversation.metadata['agent_profile_id']
+                )
+            except AgentProfile.DoesNotExist:
+                pass
+        
+        # Load tools from agent profile if available
+        if agent_profile:
+            configured_tools = await sync_to_async(list)(agent_profile.tools.all())
+            if configured_tools:
+                # Build tool definitions from agent's configured tools
+                tool_list = []
+                for tool in configured_tools:
+                    tool_list.append(f"**{tool.name}**: {tool.description}")
+                tool_definitions = "\n".join(tool_list)
+            # else: agent has no tools configured, tool_definitions stays empty
+        elif self.repository:
+            # Fallback for repository-based chats without agent profiles
+            crs_tools = CRSTools(repository=self.repository)
+            tool_definitions = crs_tools.get_tool_definitions()
+        # else: No agent, no repository = no tools
 
         # Get CRS status summary for context
         crs_status_context = ""
-        try:
-            summary = await sync_to_async(get_crs_summary)(self.repository)
-            crs_status_context = f"""
+        if self.repository:
+            try:
+                summary = await sync_to_async(get_crs_summary)(self.repository)
+                crs_status_context = f"""
 # Repository CRS Status
 
 - Repository: {self.repository.name}
@@ -1053,8 +1222,8 @@ Output ONLY the JSON: {{"intent": "CHAT" | "TASK"}}"""}
 
 This gives you context on what data is available.
 """
-        except Exception as e:
-            logger.warning(f"Could not load CRS summary: {e}")
+            except Exception as e:
+                logger.warning(f"Could not load CRS summary: {e}")
 
         # Fetch uploaded context files
         context_files = await sync_to_async(list)(
@@ -1081,17 +1250,76 @@ This gives you context on what data is available.
                     logger.error(f"Failed to read context file {cf.id}: {e}")
 
         # Build tool-first system prompt with router
-        system_prompt = f"""You are a code repository assistant with access to CRS (Contextual Retrieval System) tools.
+        
+        # Check if conversation is linked to an Agent Profile
+        agent_profile = None
+        if conversation.metadata and conversation.metadata.get('agent_profile_id'):
+            from agent.models import AgentProfile
+            try:
+                agent_profile = await sync_to_async(AgentProfile.objects.get)(id=conversation.metadata['agent_profile_id'])
+                logger.info(f"Using Agent Profile: {agent_profile.name}")
+                
+                # Fetch Agent Knowledge Files
+                agent_files = await sync_to_async(list)(
+                    ContextFile.objects.filter(agent_profile=agent_profile)
+                )
+                if agent_files:
+                    uploaded_context_prompt += f"\n\n# Agent Knowledge Base ({agent_profile.name}):\n"
+                    for af in agent_files:
+                        try:
+                            # Prefer analysis if available, otherwise content
+                            content_to_use = af.analysis if af.analysis else "No analysis available."
+                            # If content is small, maybe include raw? For now, trust analysis.
+                            # Or read file if analysis is empty?
+                            
+                            uploaded_context_prompt += f"\n## Knowledge: {af.name}\nAnalysis/Summary:\n{content_to_use}\n"
+                            
+                            # Optional: Read raw content if critical
+                        except Exception as e:
+                            logger.error(f"Failed to read agent file {af.id}: {e}")
 
-{crs_status_context}
-{uploaded_context_prompt}
+            except Exception as e:
+                logger.error(f"Failed to load Agent Profile: {e}")
 
-# YOUR JOB
+        # Build system prompt based on agent configuration
+        if agent_profile:
+            # Use agent's custom system prompt
+            system_prompt_base = agent_profile.system_prompt_template
+            
+            # Inject knowledge context if agent has files
+            if uploaded_context_prompt:
+                knowledge_section = f"\n\n# KNOWLEDGE CONTEXT\n{uploaded_context_prompt}"
+            else:
+                knowledge_section = ""
+            
+            # Build tools list if agent has configured tools
+            try:
+                configured_tools = list(agent_profile.tools.all())
+                if configured_tools:
+                    tools_description = "\n".join([
+                        f"- {tool.name}: {tool.description}" 
+                        for tool in configured_tools
+                    ])
+                    system_prompt_base = system_prompt_base.replace('{{tools}}', f"Available Tools:\n{tools_description}")
+                    print(system_prompt_base)
+                else:
+                    system_prompt_base = system_prompt_base.replace('{{tools}}', 'No tools configured.')
+            except:
+                system_prompt_base = system_prompt_base.replace('{{tools}}', 'No tools available.')
+                
+            base_system_prompt = f"{system_prompt_base}{knowledge_section}"
+                
+        else:
+            # No agent profile: Generic assistant
+            base_system_prompt = f"""You are a helpful AI assistant.
 
-1. **PLAN** which tools to use
-2. **REQUEST** tools in the JSON format below
-3. **WAIT** for tool results
-4. **ANSWER** the user's question with citations
+{uploaded_context_prompt if uploaded_context_prompt else ''}
+
+Answer the user's questions to the best of your ability."""
+
+        # Only include tool definitions if tools exist
+        if tool_definitions and tool_definitions.strip():
+            system_prompt = f"""{base_system_prompt}
 
 ---
 
@@ -1099,43 +1327,13 @@ This gives you context on what data is available.
 
 ---
 
-# CRITICAL: Inventory Questions
+Use the available tools to help answer the user's question."""
+        else:
+            system_prompt = base_system_prompt
 
-For "list/show all/what X exist" questions, you MUST use LIST_ARTIFACTS.
-NEVER answer from memory or make assumptions.
-
-Examples of inventory questions:
-- "What models exist?"
-- "List all serializers"
-- "Show me viewsets"
-- "What are the models?"
-
----
-
-Now answer the user's question using the appropriate tools."""
-
-        if status_message:
-            # FIX: Still provide tool access, but warn about search limitations
-            system_prompt = f"""You are analyzing a code repository.
-
-CRS Status: {status_message}
-
-# LIMITED MODE
-- Semantic Search (SEARCH_CRS, CRS_RELATIONSHIPS) is unavailable.
-- File Access (READ_FILE, LIST_ARTIFACTS) is AVAILABLE.
-
-Please:
-1. Use `LIST_ARTIFACTS` to find files/models (best effort).
-2. Use `READ_FILE` to read code directly.
-3. Determine if you can answer based on file contents.
-
----
-
-{tool_definitions}
-
----
-
-Now answer the user's question using the available tools."""
+        # REMOVED: Hardcoded CRS override that ignored agent configuration
+        # if status_message:
+        #     system_prompt = f"""You are analyzing a code repository...
         
         messages = [
             {

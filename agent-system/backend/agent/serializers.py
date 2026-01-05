@@ -372,10 +372,11 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
 class ContextFileSerializer(serializers.ModelSerializer):
     """Context file serializer"""
+    name = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = ContextFile
-        fields = ['id', 'conversation', 'file', 'name', 'description', 'created_at']
+        fields = ['id', 'conversation', 'agent_profile', 'file', 'name', 'description', 'analysis', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 
@@ -498,13 +499,15 @@ class AgentProfileSerializer(serializers.ModelSerializer):
     )
     default_model_name = serializers.CharField(source='default_model.name', read_only=True)
     
+    knowledge_files = ContextFileSerializer(many=True, read_only=True)
+    
     class Meta:
         model = AgentProfile
         fields = [
             'id', 'name', 'description', 'system_prompt_template',
             'default_model', 'default_model_name', 'temperature',
             'tools', 'tool_ids',
-            'knowledge_scope',
+            'knowledge_scope', 'knowledge_files',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

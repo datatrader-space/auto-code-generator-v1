@@ -4,7 +4,7 @@
       <h2 class="font-bold text-gray-800">Agent Configuration</h2>
       <div class="flex gap-2">
         <button 
-            @click="$emit('save')" 
+            @click="save" 
             :disabled="isSaving"
             class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
         >
@@ -38,12 +38,26 @@
 
       <hr />
 
-      <!-- Soul (Prompt) -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-            System Prompt
-            <span class="text-xs font-normal text-gray-500 ml-1">(Use {{tools}} for automatic injection)</span>
-        </label>
+      <!-- Soul (Prompt) & Model -->
+      <div class="space-y-4">
+        <div>
+             <label class="block text-sm font-medium text-gray-700 mb-1">Default Model</label>
+             <select 
+                ref="modelSelect"
+                :value="internalAgent.default_model || ''"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+             >
+                <option :value="null">Select a model...</option>
+                <option v-for="m in llmModels" :key="m.id" :value="m.id">
+                    {{ m.name }} ({{ m.provider_name }})
+                </option>
+             </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+                System Prompt
+                <span v-pre class="text-xs font-normal text-gray-500 ml-1">(Use {{tools}} for automatic injection)</span>
+            </label>
         <div class="relative">
             <textarea 
                 v-model="internalAgent.system_prompt_template"
@@ -53,30 +67,70 @@
             ></textarea>
         </div>
       </div>
+      </div>
 
       <hr />
 
       <!-- Knowledge -->
+
+
+      <hr />
+
+      <!-- Agent Knowledge Base -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Knowledge Context</label>
-        <div class="grid grid-cols-3 gap-2">
-            <button 
-                v-for="scope in scopes" 
-                :key="scope.value"
-                @click="internalAgent.knowledge_scope = scope.value"
-                :class="[
-                    'px-2 py-2 text-xs font-medium rounded border text-center transition-colors',
-                    internalAgent.knowledge_scope === scope.value
-                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                ]"
-            >
-                {{ scope.label }}
-            </button>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Knowledge Base & Files</label>
+        <div class="space-y-3">
+             <!-- Upload -->
+            <div class="flex gap-2">
+                <input 
+                    type="file" 
+                    ref="fileInput"
+                    class="hidden" 
+                    @change="handleFileUpload"
+                />
+                <button 
+                    @click="$refs.fileInput.click()"
+                    class="flex-1 px-3 py-2 border border-gray-300 border-dashed rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-indigo-600 transition flex items-center justify-center gap-2"
+                    :disabled="uploading"
+                >
+                    <span v-if="uploading">Uploading...</span>
+                    <span v-else>+ Upload Knowledge File</span>
+                </button>
+            </div>
+
+            <!-- File List -->
+            <div class="space-y-2">
+                <!-- If no files -->
+                <div v-if="(!internalAgent.knowledge_files || internalAgent.knowledge_files.length === 0)" class="text-xs text-gray-400 text-center italic py-2">
+                    No files uploaded. Agent relies on prompt only.
+                </div>
+
+                <div 
+                    v-for="file in internalAgent.knowledge_files" 
+                    :key="file.id"
+                    class="group relative bg-white border border-gray-200 rounded-lg p-3 hover:border-indigo-300 transition"
+                >
+                    <!-- Header -->
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="font-medium text-sm text-gray-800 truncate pr-4">{{ file.name }}</div>
+                        <button 
+                             class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                             title="Remove (Database only)"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <!-- Analysis Preview -->
+                    <div v-if="file.analysis" class="text-xs text-gray-600 bg-gray-50 p-2 rounded mt-1 line-clamp-3">
+                        <span class="font-bold text-indigo-600">AI Analysis:</span> {{ file.analysis }}
+                    </div>
+                    <div v-else class="text-xs text-gray-400 italic mt-1">
+                        Analysis pending...
+                    </div>
+                </div>
+            </div>
         </div>
-        <p class="text-xs text-gray-500 mt-2">
-            {{ getScopeDescription(internalAgent.knowledge_scope) }}
-        </p>
       </div>
 
       <hr />
@@ -134,10 +188,17 @@ const props = defineProps({
 const emit = defineEmits(['update:agent', 'save']);
 
 // Local copy for editing
-const internalAgent = ref({ ...props.agent });
+const internalAgent = ref({ 
+    default_model: null,  // Ensure this property exists for Vue reactivity
+    ...props.agent 
+});
 const availableTools = ref([]);
+const llmModels = ref([]);
 const loadingTools = ref(false);
 const isUpdatingFromProp = ref(false);
+const uploading = ref(false);
+const fileInput = ref(null);
+const modelSelect = ref(null);
 
 const scopes = [
     { value: 'system', label: 'Full System' },
@@ -171,6 +232,18 @@ const fetchTools = async () => {
     }
 };
 
+const fetchModels = async () => {
+    try {
+        console.log('Fetching LLM models...');
+        const res = await api.getLlmModels();
+        llmModels.value = res.data.results || res.data;
+        console.log('Loaded models:', llmModels.value.length, 'models');
+        console.log('Models:', llmModels.value.map(m => ({ id: m.id, name: m.name })));
+    } catch (e) {
+        console.error("Failed to fetch models", e);
+    }
+};
+
 const toggleTool = (toolId) => {
     if (!internalAgent.value.tool_ids) {
         internalAgent.value.tool_ids = [];
@@ -184,10 +257,56 @@ const toggleTool = (toolId) => {
     }
 };
 
+const save = () => {
+    // Read the model selection directly from the form
+    const selectedModel = modelSelect.value?.value;
+    const modelId = selectedModel && selectedModel !== '' ? parseInt(selectedModel) : null;
+    
+    // Create the payload with the current form values
+    const agentData = {
+        ...internalAgent.value,
+        default_model: modelId
+    };
+    
+    console.log('Saving agent with default_model:', modelId);
+    emit('save', agentData);
+};
+
+const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!internalAgent.value.id) {
+        alert("Please save the agent first to upload files.");
+        return;
+    }
+
+    try {
+        uploading.value = true;
+        const res = await api.uploadAgentFile(internalAgent.value.id, file);
+        
+        // Add to list
+        if (!internalAgent.value.knowledge_files) {
+            internalAgent.value.knowledge_files = [];
+        }
+        internalAgent.value.knowledge_files.unshift(res.data);
+        
+        // Clear input
+        if (fileInput.value) fileInput.value.value = '';
+    } catch (e) {
+        alert("Upload failed: " + (e.response?.data?.error || e.message));
+    } finally {
+        uploading.value = false;
+    }
+};
+
 // Sync prop changes to internal
 watch(() => props.agent, (newVal) => {
     isUpdatingFromProp.value = true;
-    internalAgent.value = { ...newVal };
+    internalAgent.value = { 
+        default_model: null,  // Ensure reactivity
+        ...newVal 
+    };
     // Ensure array exists
     if (!internalAgent.value.tool_ids) internalAgent.value.tool_ids = [];
     
@@ -201,7 +320,13 @@ watch(internalAgent, (newVal) => {
     emit('update:agent', newVal);
 }, { deep: true });
 
+// Debug: Watch default_model specifically
+watch(() => internalAgent.value.default_model, (newVal, oldVal) => {
+    console.log('🔍 default_model changed from', oldVal, 'to', newVal);
+}, { immediate: true });
+
 onMounted(() => {
     fetchTools();
+    fetchModels();
 });
 </script>

@@ -12,8 +12,9 @@ from agent.models import (
     User, System, Repository, RepositoryQuestion,
     SystemKnowledge, Task, AgentMemory, GitHubOAuthConfig,
     ChatConversation, ChatMessage, LLMProvider, LLMModel, LLMRequestLog,
-    AgentSession
+    AgentSession,AgentProfile
 )
+admin.site.register(AgentProfile)
 
 
 @admin.register(User)

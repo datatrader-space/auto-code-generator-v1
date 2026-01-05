@@ -185,6 +185,19 @@ class ToolRegistry:
         Generate tool documentation for LLM system prompt
         """
         docs = ["# Available Tools\n"]
+        docs.append("## CRITICAL: Tool Call Format\n")
+        docs.append("**When you need to use a tool, OUTPUT the JSON immediately. Do NOT explain what you will do.**\n\n")
+        docs.append("**Correct format:**\n")
+        docs.append('```json\n{"name": "WRITE_FILE", "parameters": {"path": "E:/test.txt", "content": "Hello"}}\n```\n\n')
+        docs.append("**WRONG - do NOT do this:**\n")
+        docs.append('❌ "I will use the WRITE_FILE tool..."\n')
+        docs.append('❌ "Let me create the file..."\n')
+        docs.append('❌ Explaining before outputting JSON\n\n')
+        docs.append("**RIGHT - do this:**\n")
+        docs.append('✅ Immediately output: `{"name": "WRITE_FILE", "parameters": {...}}`\n\n')
+        docs.append("**Required JSON keys:**\n")
+        docs.append('- `"name"` - Tool name (must be uppercase, e.g., "WRITE_FILE")\n')
+        docs.append('- `"parameters"` - Parameter object\n\n')
 
         # Group by category
         categories = {}

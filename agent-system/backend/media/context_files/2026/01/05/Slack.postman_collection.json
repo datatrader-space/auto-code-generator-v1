@@ -1,0 +1,4124 @@
+{
+	"info": {
+		"_postman_id": "36f50e66-985d-4944-a86f-b119202ebb88",
+		"name": "Slack",
+		"description": "One way to interact with the Slack platform is its HTTP RPC-based Web API, a collection of methods requiring OAuth 2.0-based user, bot, or workspace tokens blessed with related OAuth scopes.\n\nContact Support:\n Name: No Contact\n Email: email@example.com",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "51252730",
+		"_collection_link": "https://www.postman.com/api-evangelist/slack/collection/i4uunv2/slack?action=share&source=collection_link&creator=51252730"
+	},
+	"item": [
+		{
+			"name": "Delete Message",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/chat.delete",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"chat.delete"
+					]
+				},
+				"description": "Deletes a message."
+			},
+			"response": []
+		},
+		{
+			"name": "Edit File Comments",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/files.comments.edit",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.comments.edit"
+					]
+				},
+				"description": "Edit an existing file comment."
+			},
+			"response": []
+		},
+		{
+			"name": "Close Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/im.close",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"im.close"
+					]
+				},
+				"description": "Close a direct message channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Group Thread",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/groups.replies?thread_ts=<>&token=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.replies"
+					],
+					"query": [
+						{
+							"key": "thread_ts",
+							"value": "<>",
+							"description": "Unique identifier of a thread's parent message"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Retrieve a thread of messages posted to a private channel"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Bot Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/bots.info?token=<>&bot=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"bots.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "bot",
+							"value": "<>",
+							"description": "Bot user to get info on"
+						}
+					]
+				},
+				"description": "Gets information about a bot user."
+			},
+			"response": []
+		},
+		{
+			"name": "Rename Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.rename",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.rename"
+					]
+				},
+				"description": "Renames a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Set User Profile",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/users.profile.set",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.profile.set"
+					]
+				},
+				"description": "Set the profile information for a user."
+			},
+			"response": []
+		},
+		{
+			"name": "Set User Presence",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/users.setPresence",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.setPresence"
+					]
+				},
+				"description": "Manually sets user presence."
+			},
+			"response": []
+		},
+		{
+			"name": "Close Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.close",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.close"
+					]
+				},
+				"description": "Closes a direct message or multi-person direct message."
+			},
+			"response": []
+		},
+		{
+			"name": "Open Messages",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/im.open",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"im.open"
+					]
+				},
+				"description": "Opens a direct message channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Group",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/groups.list?exclude_members=<>&token=<>&exclude_archived=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.list"
+					],
+					"query": [
+						{
+							"key": "exclude_members",
+							"value": "<>",
+							"description": "Exclude the `members` from each `group`"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "exclude_archived",
+							"value": "<>",
+							"description": "Don't return archived private channels."
+						}
+					]
+				},
+				"description": "Lists private channels that the calling user has access to."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Team Logs",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/team.integrationLogs?count=<post>&change_type=<>&app_id=<>&token=<>&user=<post>&service_id=<>&page=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"team.integrationLogs"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "change_type",
+							"value": "<>",
+							"description": "Filter logs with this change type. Defaults to all logs."
+						},
+						{
+							"key": "app_id",
+							"value": "<>",
+							"description": "Filter logs to this Slack app. Defaults to all logs."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						},
+						{
+							"key": "service_id",
+							"value": "<>",
+							"description": "Filter logs to this service. Defaults to all logs."
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						}
+					]
+				},
+				"description": "Gets the integration logs for the current team."
+			},
+			"response": []
+		},
+		{
+			"name": "Remove User From Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.kick",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.kick"
+					]
+				},
+				"description": "Removes a user from a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Do Not Disturb",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/dnd.info?token=<>&user=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dnd.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						}
+					]
+				},
+				"description": "Retrieves a user's current Do Not Disturb status."
+			},
+			"response": []
+		},
+		{
+			"name": "Archive Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.archive",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.archive"
+					]
+				},
+				"description": "Archives a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Reminder",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/reminders.info?token=<>&reminder=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reminders.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "reminder",
+							"value": "<>",
+							"description": "The ID of the reminder"
+						}
+					]
+				},
+				"description": "Gets information about a reminder."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Channel",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/channels.info?channel=collection",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`",
+							"disabled": true
+						},
+						{
+							"key": "include_locale",
+							"value": "<>",
+							"description": "Set this to `true` to receive the locale for this channel. Defaults to `false`",
+							"disabled": true
+						},
+						{
+							"key": "channel",
+							"value": "collection",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Gets information about a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Remove User From Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.kick",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.kick"
+					]
+				},
+				"description": "Removes a user from a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.mark",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.mark"
+					]
+				},
+				"description": "Sets the read cursor in a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Close Multiparty Direct Message",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/mpim.close",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"mpim.close"
+					]
+				},
+				"description": "Closes a multiparty direct message channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Join Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.join",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.join"
+					]
+				},
+				"description": "Joins an existing conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Channel History",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/channels.history?count=<post>&unreads=<>&inclusive=<>&token=<>&oldest=<>&channel=<>&latest=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.history"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "unreads",
+							"value": "<>",
+							"description": "Include `unread_count_display` in the output?"
+						},
+						{
+							"key": "inclusive",
+							"value": "<>",
+							"description": "Include messages with latest or oldest timestamp in results."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "oldest",
+							"value": "<>",
+							"description": "Start of time range of messages to include in results."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "latest",
+							"value": "<>",
+							"description": "End of time range of messages to include in results."
+						}
+					]
+				},
+				"description": "Fetches history of messages and events from a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Messages",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/im.mark",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"im.mark"
+					]
+				},
+				"description": "Sets the read cursor in a direct message channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Oauth Token",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/oauth.token?client_secret=<>&code=<>&single_channel=<>&client_id=<>&redirect_uri=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"oauth.token"
+					],
+					"query": [
+						{
+							"key": "client_secret",
+							"value": "<>",
+							"description": "Issued when you created your application."
+						},
+						{
+							"key": "code",
+							"value": "<>",
+							"description": "The `code` param returned via the OAuth callback."
+						},
+						{
+							"key": "single_channel",
+							"value": "<>",
+							"description": "Request the user to add your app only to a single channel."
+						},
+						{
+							"key": "client_id",
+							"value": "<>",
+							"description": "Issued when you created your application."
+						},
+						{
+							"key": "redirect_uri",
+							"value": "<>",
+							"description": "This must match the originally submitted URI (if one was sent)."
+						}
+					]
+				},
+				"description": "Exchanges a temporary OAuth verifier code for a workspace token."
+			},
+			"response": []
+		},
+		{
+			"name": "Upload File",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/files.upload",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.upload"
+					]
+				},
+				"description": "Uploads or creates a file."
+			},
+			"response": []
+		},
+		{
+			"name": "List Group Users",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/usergroups.users.list?token=<>&include_disabled=<>&usergroup=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"usergroups.users.list"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "include_disabled",
+							"value": "<>",
+							"description": "Allow results that involve disabled User Groups."
+						},
+						{
+							"key": "usergroup",
+							"value": "<>",
+							"description": "The encoded ID of the User Group to update."
+						}
+					]
+				},
+				"description": "List all users in a User Group"
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.info?include_locale=<>&token=<>&user=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.info"
+					],
+					"query": [
+						{
+							"key": "include_locale",
+							"value": "<>",
+							"description": "Set this to `true` to receive the locale for this channel. Defaults to `false`"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						}
+					]
+				},
+				"description": "Gets information about a user."
+			},
+			"response": []
+		},
+		{
+			"name": "Find User",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.lookupByEmail?token=<>&email=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.lookupByEmail"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "email",
+							"value": "<post>",
+							"description": "An email address belonging to a user in the workspace"
+						}
+					]
+				},
+				"description": "Find a user with an email address."
+			},
+			"response": []
+		},
+		{
+			"name": "List Reactions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/reactions.list?count=<post>&token=<>&full=<>&user=<post>&page=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reactions.list"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "full",
+							"value": "<>",
+							"description": "If true always return the complete reaction list."
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						}
+					]
+				},
+				"description": "Lists reactions made by a user."
+			},
+			"response": []
+		},
+		{
+			"name": "Create Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.create",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.create"
+					]
+				},
+				"description": "Initiates a public or private channel-based conversation"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Billable Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/team.billableInfo?token=<>&user=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"team.billableInfo"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						}
+					]
+				},
+				"description": "Gets billable users information for the current team."
+			},
+			"response": []
+		},
+		{
+			"name": "End Do Not Disturb",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/dnd.endDnd",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dnd.endDnd"
+					]
+				},
+				"description": "Ends the current user's Do Not Disturb session immediately."
+			},
+			"response": []
+		},
+		{
+			"name": "Search Real Time Messaging",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/search.all?sort_dir=<>&query=<>&sort=<>&count=<post>&token=<>&highlight=<>&page=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"search.all"
+					],
+					"query": [
+						{
+							"key": "sort_dir",
+							"value": "<>",
+							"description": "Change sort direction to ascending (`asc`) or descending (`desc`)."
+						},
+						{
+							"key": "query",
+							"value": "<>",
+							"description": "Search query. May contains booleans, etc."
+						},
+						{
+							"key": "sort",
+							"value": "<>",
+							"description": "Return matches sorted by either `score` or `timestamp`."
+						},
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "highlight",
+							"value": "<>",
+							"description": "Pass a value of `true` to enable query highlight markers (see below)."
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						}
+					]
+				},
+				"description": "Searches for messages and files matching a query."
+			},
+			"response": []
+		},
+		{
+			"name": "Delete File Comments",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/files.comments.delete",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.comments.delete"
+					]
+				},
+				"description": "Deletes an existing comment on a file."
+			},
+			"response": []
+		},
+		{
+			"name": "Revoke Auth",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/auth.revoke?test=<>&token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth.revoke"
+					],
+					"query": [
+						{
+							"key": "test",
+							"value": "<>",
+							"description": "Setting this parameter to `1` triggers a _testing mode_ where the specified token will not actually be revoked."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Revokes a token."
+			},
+			"response": []
+		},
+		{
+			"name": "Add Reaction",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/reactions.add",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reactions.add"
+					]
+				},
+				"description": "Adds a reaction to an item."
+			},
+			"response": []
+		},
+		{
+			"name": "Star Item",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/stars.add",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"stars.add"
+					]
+				},
+				"description": "Adds a star to an item."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Reminders Complete",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/reminders.complete",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reminders.complete"
+					]
+				},
+				"description": "Marks a reminder as complete."
+			},
+			"response": []
+		},
+		{
+			"name": "Unfurl Message",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/chat.unfurl",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"chat.unfurl"
+					]
+				},
+				"description": "Provide custom unfurl behavior for user-posted URLs"
+			},
+			"response": []
+		},
+		{
+			"name": "Unarchve Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.unarchive",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.unarchive"
+					]
+				},
+				"description": "Reverses conversation archival."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Group",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/groups.info?token=<>&include_locale=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "include_locale",
+							"value": "<>",
+							"description": "Set this to `true` to receive the locale for this channel. Defaults to `false`"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Gets information about a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Revoke Public URL",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/files.revokePublicURL",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.revokePublicURL"
+					]
+				},
+				"description": "Revokes public/external sharing access for a file"
+			},
+			"response": []
+		},
+		{
+			"name": "List Conversations",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.list",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.list"
+					],
+					"query": [
+						{
+							"key": "cursor",
+							"value": "<>",
+							"description": "Paginate through collections of data by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request's `response_metadata`. Default value fetches the first \"page\" of the collection. See [pagination](/docs/pagination) for more detail.",
+							"disabled": true
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`",
+							"disabled": true
+						},
+						{
+							"key": "limit",
+							"value": "<>",
+							"description": "The maximum number of items to return. Fewer than the requested number of items may be returned, even if the end of the list hasn't been reached. Must be an integer no larger than 1000.",
+							"disabled": true
+						},
+						{
+							"key": "exclude_archived",
+							"value": "<>",
+							"description": "Don't return archived private channels.",
+							"disabled": true
+						},
+						{
+							"key": "types",
+							"value": "<>",
+							"description": "Mix and match channel types by providing a comma-separated list of any combination of `public_channel`, `private_channel`, `mpim`, `im`",
+							"disabled": true
+						}
+					]
+				},
+				"description": "Lists all channels in a Slack team."
+			},
+			"response": []
+		},
+		{
+			"name": "List Stars",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/stars.list?count=<post>&token=<>&page=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"stars.list"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						}
+					]
+				},
+				"description": "Lists stars for a user."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Reaction",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/reactions.get?full=<>&file_comment=<>&timestamp=<post>&token=<>&file=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reactions.get"
+					],
+					"query": [
+						{
+							"key": "full",
+							"value": "<>",
+							"description": "If true always return the complete reaction list."
+						},
+						{
+							"key": "file_comment",
+							"value": "<>",
+							"description": "File comment to get reactions for."
+						},
+						{
+							"key": "timestamp",
+							"value": "<post>",
+							"description": "Timestamp of the message to get reactions for."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "file",
+							"value": "<>",
+							"description": "File to get reactions for."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Gets reactions for an item."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Messages History",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/im.history?count=<post>&unreads=<>&inclusive=<>&token=<>&oldest=<>&channel=<>&latest=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"im.history"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "unreads",
+							"value": "<>",
+							"description": "Include `unread_count_display` in the output?"
+						},
+						{
+							"key": "inclusive",
+							"value": "<>",
+							"description": "Include messages with latest or oldest timestamp in results."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "oldest",
+							"value": "<>",
+							"description": "Start of time range of messages to include in results."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "latest",
+							"value": "<>",
+							"description": "End of time range of messages to include in results."
+						}
+					]
+				},
+				"description": "Fetches history of messages and events from direct message channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Pin Item",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/pins.add",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"pins.add"
+					]
+				},
+				"description": "Pins an item to a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Leave Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.leave",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.leave"
+					]
+				},
+				"description": "Leaves a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Permalink",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/chat.getPermalink?token=<>&message_ts=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"chat.getPermalink"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "message_ts",
+							"value": "<>",
+							"description": "A message's `ts` value, uniquely identifying it within a channel"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Retrieve a permalink URL for a specific extant message"
+			},
+			"response": []
+		},
+		{
+			"name": "Rename Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.rename",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.rename"
+					]
+				},
+				"description": "Renames a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "List Files",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/files.list?count=<post>&channel=<>&ts_to=<>&ts_from=<>&token=<>&user=<post>&page=<post>&types=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.list"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "ts_to",
+							"value": "<>",
+							"description": "Filter files created before this timestamp (inclusive)."
+						},
+						{
+							"key": "ts_from",
+							"value": "<>",
+							"description": "Filter files created after this timestamp (inclusive)."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						},
+						{
+							"key": "types",
+							"value": "<>",
+							"description": "Mix and match channel types by providing a comma-separated list of any combination of `public_channel`, `private_channel`, `mpim`, `im`"
+						}
+					]
+				},
+				"description": "Lists & filters team files."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Multiparty Direct Messages",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/mpim.mark",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"mpim.mark"
+					]
+				},
+				"description": "Sets the read cursor in a multiparty direct message channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Update Group Users",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/usergroups.users.update",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"usergroups.users.update"
+					]
+				},
+				"description": "Update the list of users for a User Group"
+			},
+			"response": []
+		},
+		{
+			"name": "Set Conversation Topic",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.setTopic",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.setTopic"
+					]
+				},
+				"description": "Sets the topic for a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Conversation Members",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.members?cursor=<>&token=<>&limit=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.members"
+					],
+					"query": [
+						{
+							"key": "cursor",
+							"value": "<>",
+							"description": "Paginate through collections of data by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request's `response_metadata`. Default value fetches the first \"page\" of the collection. See [pagination](/docs/pagination) for more detail."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "limit",
+							"value": "<>",
+							"description": "The maximum number of items to return. Fewer than the requested number of items may be returned, even if the end of the list hasn't been reached. Must be an integer no larger than 1000."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Retrieve members of a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Open Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.open",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.open"
+					]
+				},
+				"description": "Opens or resumes a direct message or multi-person direct message."
+			},
+			"response": []
+		},
+		{
+			"name": "Unpin Item",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/pins.remove",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"pins.remove"
+					]
+				},
+				"description": "Un-pins an item from a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Delete File",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/files.delete",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.delete"
+					]
+				},
+				"description": "Deletes a file."
+			},
+			"response": []
+		},
+		{
+			"name": "List Pins",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/pins.list?token=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"pins.list"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Lists items pinned to a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Test API",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api.test?foo=<>&error=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api.test"
+					],
+					"query": [
+						{
+							"key": "foo",
+							"value": "<>",
+							"description": "example property to return"
+						},
+						{
+							"key": "error",
+							"value": "<>",
+							"description": "Error response to return"
+						}
+					]
+				},
+				"description": "Checks API calling code."
+			},
+			"response": []
+		},
+		{
+			"name": "List Reminders",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/reminders.list?token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reminders.list"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Lists all reminders created by or for a given user."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Presence",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.getPresence?token=<>&user=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.getPresence"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						}
+					]
+				},
+				"description": "Gets user presence information."
+			},
+			"response": []
+		},
+		{
+			"name": "Update Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/usergroups.update",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"usergroups.update"
+					]
+				},
+				"description": "Update an existing User Group"
+			},
+			"response": []
+		},
+		{
+			"name": "Leave Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.leave",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.leave"
+					]
+				},
+				"description": "Leaves a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Get File",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/files.info?count=<post>&token=<>&file=<>&page=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.info"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "file",
+							"value": "<>",
+							"description": "File to get reactions for."
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						}
+					]
+				},
+				"description": "Gets information about a team file."
+			},
+			"response": []
+		},
+		{
+			"name": "Leave Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.leave",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.leave"
+					]
+				},
+				"description": "Leaves a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "App Permissions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/apps.permissions.info?token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"apps.permissions.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Returns list of permissions this app has on a team."
+			},
+			"response": []
+		},
+		{
+			"name": "Create Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/usergroups.create",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"usergroups.create"
+					]
+				},
+				"description": "Create a User Group"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Child Group",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/groups.createChild",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.createChild"
+					]
+				},
+				"description": "Clones and archives a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.mark",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.mark"
+					]
+				},
+				"description": "Sets the read cursor in a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Photo",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.deletePhoto",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.deletePhoto"
+					]
+				},
+				"description": "Delete the user profile photo"
+			},
+			"response": []
+		},
+		{
+			"name": "Set User Profile Photo",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.setPhoto",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.setPhoto"
+					]
+				},
+				"description": "Set the user profile photo"
+			},
+			"response": []
+		},
+		{
+			"name": "Share Public URL",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/files.sharedPublicURL",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.sharedPublicURL"
+					]
+				},
+				"description": "Enables a file for public/external sharing."
+			},
+			"response": []
+		},
+		{
+			"name": "Remove User From Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.kick",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.kick"
+					]
+				},
+				"description": "Removes a user from a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Sent Ephemeral lMessage",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/chat.postEphemeral",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"chat.postEphemeral"
+					]
+				},
+				"description": "Sends an ephemeral message to a user in a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Rename Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.rename",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.rename"
+					]
+				},
+				"description": "Renames a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Migration Exchange",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/migration.exchange?token=<>&to_old=<>&users=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"migration.exchange"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "to_old",
+							"value": "<>",
+							"description": "Specify `true` to convert `W` global user IDs to workspace-specific `U` IDs. Defaults to `false`."
+						},
+						{
+							"key": "users",
+							"value": "<>",
+							"description": "A comma-separated list of user ids, up to 400 per request"
+						}
+					]
+				},
+				"description": "For Enterprise Grid workspaces, map local user IDs to global user IDs"
+			},
+			"response": []
+		},
+		{
+			"name": "Enable Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/usergroups.enable",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"usergroups.enable"
+					]
+				},
+				"description": "Enable a User Group"
+			},
+			"response": []
+		},
+		{
+			"name": "End Do Not Disturb Snooze",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/dnd.setSnooze",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dnd.setSnooze"
+					]
+				},
+				"description": "Turns on Do Not Disturb mode for the current user, or changes its duration."
+			},
+			"response": []
+		},
+		{
+			"name": "Update Message",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/chat.update",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"chat.update"
+					]
+				},
+				"description": "Updates a message."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Multiparty Direct Message History",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/mpim.history?count=<post>&unreads=<>&inclusive=<>&token=<>&oldest=<>&channel=<>&latest=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"mpim.history"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "unreads",
+							"value": "<>",
+							"description": "Include `unread_count_display` in the output?"
+						},
+						{
+							"key": "inclusive",
+							"value": "<>",
+							"description": "Include messages with latest or oldest timestamp in results."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "oldest",
+							"value": "<>",
+							"description": "Start of time range of messages to include in results."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "latest",
+							"value": "<>",
+							"description": "End of time range of messages to include in results."
+						}
+					]
+				},
+				"description": "Fetches history of messages and events from a multiparty direct message."
+			},
+			"response": []
+		},
+		{
+			"name": "Request App Permissions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/apps.permissions.request?scopes=<>&token=<>&trigger_id=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"apps.permissions.request"
+					],
+					"query": [
+						{
+							"key": "scopes",
+							"value": "<>",
+							"description": "A comma separated list of scopes to request for"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "trigger_id",
+							"value": "<>",
+							"description": "Token used to trigger the permissions API"
+						}
+					]
+				},
+				"description": "Allows an app to request additional scopes"
+			},
+			"response": []
+		},
+		{
+			"name": "Start Real Time Messaging Files",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/search.files?sort_dir=<>&query=<>&sort=<>&highlight=<>&count=<post>&token=<>&page=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"search.files"
+					],
+					"query": [
+						{
+							"key": "sort_dir",
+							"value": "<>",
+							"description": "Change sort direction to ascending (`asc`) or descending (`desc`)."
+						},
+						{
+							"key": "query",
+							"value": "<>",
+							"description": "Search query. May contains booleans, etc."
+						},
+						{
+							"key": "sort",
+							"value": "<>",
+							"description": "Return matches sorted by either `score` or `timestamp`."
+						},
+						{
+							"key": "highlight",
+							"value": "<>",
+							"description": "Pass a value of `true` to enable query highlight markers (see below)."
+						},
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						}
+					]
+				},
+				"description": "Searches for files matching a query."
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Identity",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.identity?token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.identity"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Get a user's identity."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Logs",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/team.accessLogs?count=<post>&token=<>&page=<post>&before=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"team.accessLogs"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						},
+						{
+							"key": "before",
+							"value": "<>",
+							"description": "End of time range of logs to include in results (inclusive)."
+						}
+					]
+				},
+				"description": "Gets the access logs for the current team."
+			},
+			"response": []
+		},
+		{
+			"name": "Invite User To Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.invite",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.invite"
+					]
+				},
+				"description": "Invites a user to a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Unarchive Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.unarchive",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.unarchive"
+					]
+				},
+				"description": "Unarchives a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Connect Real Time Messaging",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/rtm.connect?token=<>&batch_presence_aware=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"rtm.connect"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "batch_presence_aware",
+							"value": "<>",
+							"description": "Only deliver presence events when requested by subscription. See [presence subscriptions](/docs/presence-and-status#subscriptions)."
+						}
+					]
+				},
+				"description": "Starts a Real Time Messaging session."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Team",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/team.info?token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"team.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Gets information about the current team."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Conversation History",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.history?inclusive=<>&cursor=<>&token=<>&limit=<>&oldest=<>&channel=<>&latest=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.history"
+					],
+					"query": [
+						{
+							"key": "inclusive",
+							"value": "<>",
+							"description": "Include messages with latest or oldest timestamp in results."
+						},
+						{
+							"key": "cursor",
+							"value": "<>",
+							"description": "Paginate through collections of data by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request's `response_metadata`. Default value fetches the first \"page\" of the collection. See [pagination](/docs/pagination) for more detail."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "limit",
+							"value": "<>",
+							"description": "The maximum number of items to return. Fewer than the requested number of items may be returned, even if the end of the list hasn't been reached. Must be an integer no larger than 1000."
+						},
+						{
+							"key": "oldest",
+							"value": "<>",
+							"description": "Start of time range of messages to include in results."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "latest",
+							"value": "<>",
+							"description": "End of time range of messages to include in results."
+						}
+					]
+				},
+				"description": "Fetches a conversation's history of messages and events."
+			},
+			"response": []
+		},
+		{
+			"name": "Create Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.create",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.create"
+					]
+				},
+				"description": "Creates a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Reply to Messages",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/im.replies?thread_ts=<>&token=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"im.replies"
+					],
+					"query": [
+						{
+							"key": "thread_ts",
+							"value": "<>",
+							"description": "Unique identifier of a thread's parent message"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Retrieve a thread of messages posted to a direct message conversation"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.create",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.create"
+					]
+				},
+				"description": "Creates a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Add Reminders",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/reminders.add",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reminders.add"
+					]
+				},
+				"description": "Creates a reminder."
+			},
+			"response": []
+		},
+		{
+			"name": "Set Conversation Purpose",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.setPurpose",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.setPurpose"
+					]
+				},
+				"description": "Sets the purpose for a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Join Channel",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.join",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.join"
+					]
+				},
+				"description": "Joins a channel, creating it if needed."
+			},
+			"response": []
+		},
+		{
+			"name": "List Groups",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/usergroups.list?include_users=<>&token=<>&include_count=<>&include_disabled=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"usergroups.list"
+					],
+					"query": [
+						{
+							"key": "include_users",
+							"value": "<>",
+							"description": "Include the list of users for each User Group."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "include_count",
+							"value": "<>",
+							"description": "Include the number of users in each User Group."
+						},
+						{
+							"key": "include_disabled",
+							"value": "<>",
+							"description": "Allow results that involve disabled User Groups."
+						}
+					]
+				},
+				"description": "List all User Groups for a team"
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Profile",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.profile.get?token=<>&include_labels=<>&user=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.profile.get"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "include_labels",
+							"value": "<>",
+							"description": "Include labels for each ID in custom profile fields"
+						},
+						{
+							"key": "user",
+							"value": "<post>",
+							"description": "Filter logs generated by this user???s actions. Defaults to all logs."
+						}
+					]
+				},
+				"description": "Retrieves a user's profile information."
+			},
+			"response": []
+		},
+		{
+			"name": "Open Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.open",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.open"
+					]
+				},
+				"description": "Opens a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "List Emojis",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/emoji.list?token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"emoji.list"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Lists custom emoji for a team."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Conversation",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.info?token=<>&channel=<>&include_locale=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.info"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "include_locale",
+							"value": "<>",
+							"description": "Set this to `true` to receive the locale for this channel. Defaults to `false`"
+						}
+					]
+				},
+				"description": "Retrieve information about a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Share Message",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/chat.meMessage",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"chat.meMessage"
+					]
+				},
+				"description": "Share a me message into a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "End Do Not Disturb Snooze",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/dnd.endSnooze",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dnd.endSnooze"
+					]
+				},
+				"description": "Ends the current user's snooze mode immediately."
+			},
+			"response": []
+		},
+		{
+			"name": "Group History",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/groups.history?count=<post>&unreads=<>&inclusive=<>&token=<>&oldest=<>&channel=<>&latest=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.history"
+					],
+					"query": [
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "unreads",
+							"value": "<>",
+							"description": "Include `unread_count_display` in the output?"
+						},
+						{
+							"key": "inclusive",
+							"value": "<>",
+							"description": "Include messages with latest or oldest timestamp in results."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "oldest",
+							"value": "<>",
+							"description": "Start of time range of messages to include in results."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "latest",
+							"value": "<>",
+							"description": "End of time range of messages to include in results."
+						}
+					]
+				},
+				"description": "Fetches history of messages and events from a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Search Real Time Messaging",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/search.messages?sort_dir=<>&query=<>&sort=<>&count=<post>&token=<>&highlight=<>&page=<post>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"search.messages"
+					],
+					"query": [
+						{
+							"key": "sort_dir",
+							"value": "<>",
+							"description": "Change sort direction to ascending (`asc`) or descending (`desc`)."
+						},
+						{
+							"key": "query",
+							"value": "<>",
+							"description": "Search query. May contains booleans, etc."
+						},
+						{
+							"key": "sort",
+							"value": "<>",
+							"description": "Return matches sorted by either `score` or `timestamp`."
+						},
+						{
+							"key": "count",
+							"value": "<post>"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "highlight",
+							"value": "<>",
+							"description": "Pass a value of `true` to enable query highlight markers (see below)."
+						},
+						{
+							"key": "page",
+							"value": "<post>"
+						}
+					]
+				},
+				"description": "Searches for messages matching a query."
+			},
+			"response": []
+		},
+		{
+			"name": "Start Real Time Messaging",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/rtm.start?no_latest=<>&simple_latest=<>&include_locale=<>&no_unreads=<>&batch_presence_aware=<>&mpim_aware=<>&token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"rtm.start"
+					],
+					"query": [
+						{
+							"key": "no_latest",
+							"value": "<>",
+							"description": "Exclude latest timestamps for channels, groups, mpims, and ims. Automatically sets `no_unreads` to `1`"
+						},
+						{
+							"key": "simple_latest",
+							"value": "<>",
+							"description": "Return timestamp only for latest message object of each channel (improves performance)."
+						},
+						{
+							"key": "include_locale",
+							"value": "<>",
+							"description": "Set this to `true` to receive the locale for this channel. Defaults to `false`"
+						},
+						{
+							"key": "no_unreads",
+							"value": "<>",
+							"description": "Skip unread counts for each channel (improves performance)."
+						},
+						{
+							"key": "batch_presence_aware",
+							"value": "<>",
+							"description": "Only deliver presence events when requested by subscription. See [presence subscriptions](/docs/presence-and-status#subscriptions)."
+						},
+						{
+							"key": "mpim_aware",
+							"value": "<>",
+							"description": "Returns MPIMs to the client in the API response."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Starts a Real Time Messaging session."
+			},
+			"response": []
+		},
+		{
+			"name": "Set Channel Topic",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.setTopic",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.setTopic"
+					]
+				},
+				"description": "Sets the topic for a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Set Group Topic",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.setTopic",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.setTopic"
+					]
+				},
+				"description": "Sets the topic for a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Open Multiparty Direct Messages",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/mpim.open",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"mpim.open"
+					]
+				},
+				"description": "This method opens a multiparty direct message."
+			},
+			"response": []
+		},
+		{
+			"name": "Remove Reaction",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/reactions.remove",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reactions.remove"
+					]
+				},
+				"description": "Removes a reaction from an item."
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Reminders",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/reminders.delete",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"reminders.delete"
+					]
+				},
+				"description": "Deletes a reminder."
+			},
+			"response": []
+		},
+		{
+			"name": "Disable Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/usergroups.disable",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"usergroups.disable"
+					]
+				},
+				"description": "Disable an existing User Group"
+			},
+			"response": []
+		},
+		{
+			"name": "Add File Comments",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/files.comments.add",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"files.comments.add"
+					]
+				},
+				"description": "Add a comment to an existing file."
+			},
+			"response": []
+		},
+		{
+			"name": "List Messages",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/im.list?cursor=<>&token=<>&limit=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"im.list"
+					],
+					"query": [
+						{
+							"key": "cursor",
+							"value": "<>",
+							"description": "Paginate through collections of data by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request's `response_metadata`. Default value fetches the first \"page\" of the collection. See [pagination](/docs/pagination) for more detail."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "limit",
+							"value": "<>",
+							"description": "The maximum number of items to return. Fewer than the requested number of items may be returned, even if the end of the list hasn't been reached. Must be an integer no larger than 1000."
+						}
+					]
+				},
+				"description": "Lists direct message channels for the calling user."
+			},
+			"response": []
+		},
+		{
+			"name": "Set Channel Purpose",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.setPurpose",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.setPurpose"
+					]
+				},
+				"description": "Sets the purpose for a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Reply to Multiparty Direct Messages",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/mpim.replies?thread_ts=<>&token=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"mpim.replies"
+					],
+					"query": [
+						{
+							"key": "thread_ts",
+							"value": "<>",
+							"description": "Unique identifier of a thread's parent message"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Retrieve a thread of messages posted to a direct message conversation from a multiparty direct message."
+			},
+			"response": []
+		},
+		{
+			"name": "Open Dialog",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/dialog.open?dialog=<>&trigger_id=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dialog.open"
+					],
+					"query": [
+						{
+							"key": "dialog",
+							"value": "<>",
+							"description": "The dialog definition. This must be a JSON-encoded string."
+						},
+						{
+							"key": "trigger_id",
+							"value": "<>",
+							"description": "Token used to trigger the permissions API"
+						}
+					]
+				},
+				"description": "Open a dialog with a user"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Do Not Disturb Status",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/dnd.teamInfo?token=<>&users=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dnd.teamInfo"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "users",
+							"value": "<>",
+							"description": "A comma-separated list of user ids, up to 400 per request"
+						}
+					]
+				},
+				"description": "Retrieves the Do Not Disturb status for users on a team."
+			},
+			"response": []
+		},
+		{
+			"name": "List Team Users",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/users.list?presence=<>&cursor=<>&token=<>&limit=<>&include_locale=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.list"
+					],
+					"query": [
+						{
+							"key": "presence",
+							"value": "<>",
+							"description": "Whether to include presence data in the output. Setting this to `false` improves performance, especially with large teams."
+						},
+						{
+							"key": "cursor",
+							"value": "<>",
+							"description": "Paginate through collections of data by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request's `response_metadata`. Default value fetches the first \"page\" of the collection. See [pagination](/docs/pagination) for more detail."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "limit",
+							"value": "<>",
+							"description": "The maximum number of items to return. Fewer than the requested number of items may be returned, even if the end of the list hasn't been reached. Must be an integer no larger than 1000."
+						},
+						{
+							"key": "include_locale",
+							"value": "<>",
+							"description": "Set this to `true` to receive the locale for this channel. Defaults to `false`"
+						}
+					]
+				},
+				"description": "Lists all users in a Slack team."
+			},
+			"response": []
+		},
+		{
+			"name": "Invite User To Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.invite",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.invite"
+					]
+				},
+				"description": "Invites users to a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Test Auth",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/auth.test",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth.test"
+					]
+				},
+				"description": "Checks authentication & identity."
+			},
+			"response": []
+		},
+		{
+			"name": "List Channels",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/channels.list",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.list"
+					],
+					"query": [
+						{
+							"key": "exclude_members",
+							"value": "<>",
+							"description": "Exclude the `members` from each `group`",
+							"disabled": true
+						},
+						{
+							"key": "cursor",
+							"value": "<>",
+							"description": "Paginate through collections of data by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request's `response_metadata`. Default value fetches the first \"page\" of the collection. See [pagination](/docs/pagination) for more detail.",
+							"disabled": true
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`",
+							"disabled": true
+						},
+						{
+							"key": "limit",
+							"value": "<>",
+							"description": "The maximum number of items to return. Fewer than the requested number of items may be returned, even if the end of the list hasn't been reached. Must be an integer no larger than 1000.",
+							"disabled": true
+						},
+						{
+							"key": "exclude_archived",
+							"value": "<>",
+							"description": "Don't return archived private channels.",
+							"disabled": true
+						}
+					]
+				},
+				"description": "Lists all channels in a Slack team."
+			},
+			"response": []
+		},
+		{
+			"name": "Set Group Purpose",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.setPurpose",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.setPurpose"
+					]
+				},
+				"description": "Sets the purpose for a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Invite Channel User",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/channels.invite",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.invite"
+					]
+				},
+				"description": "Invites a user to a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Oauth Access",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/oauth.access?client_secret=<>&code=<>&client_id=<>&redirect_uri=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"oauth.access"
+					],
+					"query": [
+						{
+							"key": "client_secret",
+							"value": "<>",
+							"description": "Issued when you created your application."
+						},
+						{
+							"key": "code",
+							"value": "<>",
+							"description": "The `code` param returned via the OAuth callback."
+						},
+						{
+							"key": "client_id",
+							"value": "<>",
+							"description": "Issued when you created your application."
+						},
+						{
+							"key": "redirect_uri",
+							"value": "<>",
+							"description": "This must match the originally submitted URI (if one was sent)."
+						}
+					]
+				},
+				"description": "Exchanges a temporary OAuth code for an API token."
+			},
+			"response": []
+		},
+		{
+			"name": "List Multiparty Direct Messages",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/mpim.list?token=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"mpim.list"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						}
+					]
+				},
+				"description": "Lists multiparty direct message channels for the calling user."
+			},
+			"response": []
+		},
+		{
+			"name": "Unarchive Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.unarchive",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.unarchive"
+					]
+				},
+				"description": "Unarchives a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Channel Thread",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/channels.replies?thread_ts=<>&token=<>&channel=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"channels.replies"
+					],
+					"query": [
+						{
+							"key": "thread_ts",
+							"value": "<>",
+							"description": "Unique identifier of a thread's parent message"
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						}
+					]
+				},
+				"description": "Retrieve a thread of messages posted to a channel"
+			},
+			"response": []
+		},
+		{
+			"name": "Send Channel Message",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"channel\": \"{{channel_id}}\",\n  \"text\": \"I hope the tour went well, Mr. Wonka.\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/chat.postMessage",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"chat.postMessage"
+					]
+				},
+				"description": "Sends a message to a channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Make User Inactive",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/users.setActive",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"users.setActive"
+					]
+				},
+				"description": "Marks a user as active."
+			},
+			"response": []
+		},
+		{
+			"name": "Archive Conversation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.archive",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.archive"
+					]
+				},
+				"description": "Archives a conversation."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Team Profile",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/team.profile.get?token=<>&visibility=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"team.profile.get"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "visibility",
+							"value": "<>",
+							"description": "Filter by visibility."
+						}
+					]
+				},
+				"description": "Retrieve a team's profile."
+			},
+			"response": []
+		},
+		{
+			"name": "Archive Group",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/groups.archive",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"groups.archive"
+					]
+				},
+				"description": "Archives a private channel."
+			},
+			"response": []
+		},
+		{
+			"name": "Reply Conversation",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/conversations.replies?inclusive=<>&ts=<>&cursor=<>&token=<>&limit=<>&oldest=<>&channel=<>&latest=<>",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"conversations.replies"
+					],
+					"query": [
+						{
+							"key": "inclusive",
+							"value": "<>",
+							"description": "Include messages with latest or oldest timestamp in results."
+						},
+						{
+							"key": "ts",
+							"value": "<>",
+							"description": "Unique identifier of a thread's parent message."
+						},
+						{
+							"key": "cursor",
+							"value": "<>",
+							"description": "Paginate through collections of data by setting the `cursor` parameter to a `next_cursor` attribute returned by a previous request's `response_metadata`. Default value fetches the first \"page\" of the collection. See [pagination](/docs/pagination) for more detail."
+						},
+						{
+							"key": "token",
+							"value": "<>",
+							"description": "Authentication token. Requires scope: `groups:history`"
+						},
+						{
+							"key": "limit",
+							"value": "<>",
+							"description": "The maximum number of items to return. Fewer than the requested number of items may be returned, even if the end of the list hasn't been reached. Must be an integer no larger than 1000."
+						},
+						{
+							"key": "oldest",
+							"value": "<>",
+							"description": "Start of time range of messages to include in results."
+						},
+						{
+							"key": "channel",
+							"value": "<>",
+							"description": "Private channel to fetch thread from"
+						},
+						{
+							"key": "latest",
+							"value": "<>",
+							"description": "End of time range of messages to include in results."
+						}
+					]
+				},
+				"description": "Retrieve a thread of messages posted to a conversation"
+			},
+			"response": []
+		},
+		{
+			"name": "Remove Star from Item",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "<>",
+						"description": "Authentication token. Requires scope: `chat:write`"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/stars.remove",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"stars.remove"
+					]
+				},
+				"description": "Removes a star from an item."
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://slack.com/api"
+		}
+	]
+}

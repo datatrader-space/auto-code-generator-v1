@@ -45,6 +45,9 @@ class RepositoryKnowledgeAgent:
     def fs(self):
         """Lazy-load WorkspaceFS"""
         if self._fs is None:
+            if not self.repository:
+                return None
+            
             from core.fs import WorkspaceFS
             from pathlib import Path
             from django.conf import settings
@@ -102,6 +105,10 @@ class RepositoryKnowledgeAgent:
             }
         """
         start = time.time()
+        
+        if not self.repository:
+            logger.info("Skipping knowledge extraction (No Repository)")
+            return {'status': 'skipped', 'reason': 'No repository'}
 
         logger.info(f"Starting knowledge extraction for repository: {self.repository.name}")
 
@@ -234,6 +241,9 @@ class RepositoryKnowledgeAgent:
         Returns:
             dict: Update results
         """
+        if not self.repository:
+            return {'status': 'skipped'}
+            
         logger.info(f"Starting incremental knowledge update for {len(changed_files)} changed files")
 
         # Determine what knowledge to update based on changed files
@@ -323,6 +333,14 @@ class RepositoryKnowledgeAgent:
             dict: Relevant knowledge context
         """
         try:
+            if not self.repository or not self.spec_store:
+                return {
+                    'profile': None,
+                    'relevant_knowledge': [],
+                    'architecture_style': None,
+                    'domain': None
+                }
+                
             # Get profile
             profile = self.spec_store.get_doc(kind='repository_profile', spec_id='main')
 
