@@ -107,6 +107,16 @@ export default {
   getRepositoryRequirements: (systemId, repoId) =>
     api.get(`/systems/${systemId}/repositories/${repoId}/requirements/`),
 
+  // Service Management
+  getServices: () => api.get('/services/'),
+  getService: (id) => api.get(`/services/${id}/`),
+  createService: (data) => api.post('/services/create/', data),
+  updateService: (id, data) => api.post(`/services/${id}/update/`, data),
+  deleteService: (id) => api.post(`/services/${id}/delete/`),
+  createServiceActions: (id, data) => api.post(`/services/${id}/actions/create/`, data),
+  discoverServiceActions: (data) => api.post('/services/discover/', data),
+
+
   // Repository Files
   getRepositoryFiles: (systemId, repoId) =>
     api.get(`/systems/${systemId}/repositories/${repoId}/files/`),
@@ -173,5 +183,21 @@ export default {
     const base = api.defaults.baseURL || ''
     const encoded = encodeURIComponent(filePath)
     return `${base}/benchmarks/reports/${id}/download?file=${encoded}`
-  }
+  },
+
+  // Context Files
+  createConversation: (data) => api.post('/conversations/', data),
+  getConversations: (params) => api.get('/conversations/', { params }),
+
+  uploadContextFile: (conversationPk, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/conversations/${conversationPk}/files/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+  getContextFiles: (conversationPk) => api.get(`/conversations/${conversationPk}/files/`),
+  deleteContextFile: (conversationPk, fileId) => api.delete(`/conversations/${conversationPk}/files/${fileId}/`)
 }

@@ -261,7 +261,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import api from '../../services/api'
 
 const props = defineProps({
   service: {
@@ -287,7 +287,7 @@ const loadServiceDetails = async () => {
   error.value = null
 
   try {
-    const response = await axios.get(`/api/services/${props.service.id}/`)
+    const response = await api.getService(props.service.id)
     serviceDetail.value = response.data
 
     // Expand first group by default
@@ -365,7 +365,7 @@ const toggleActionExpanded = (actionId) => {
 
 const toggleServiceEnabled = async () => {
   try {
-    await axios.post(`/api/services/${props.service.id}/update/`, {
+    await api.updateService(props.service.id, {
       enabled: !serviceDetail.value.enabled
     })
 
@@ -409,7 +409,7 @@ const handleDeleteService = async () => {
   }
 
   try {
-    await axios.delete(`/api/services/${props.service.id}/`)
+    await api.deleteService(props.service.id)
     emit('updated')
     emit('close')
   } catch (err) {

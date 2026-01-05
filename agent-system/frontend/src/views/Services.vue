@@ -90,7 +90,7 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import api from '../services/api'
 import ServiceCard from '../components/services/ServiceCard.vue'
 import ServiceRegistrationModal from '../components/services/ServiceRegistrationModal.vue'
 import ServiceDetailModal from '../components/services/ServiceDetailModal.vue'
@@ -117,8 +117,8 @@ export default {
     const loadServices = async () => {
       loading.value = true
       try {
-        const response = await axios.get('/services/')
-        services.value = response.data.services
+        const response = await api.getServices()
+        services.value = response.data.services || []
       } catch (error) {
         console.error('Failed to load services:', error)
         alert('Failed to load services: ' + (error.response?.data?.error || error.message))
@@ -129,7 +129,7 @@ export default {
 
     const viewService = async (service) => {
       try {
-        const response = await axios.get(`/services/${service.id}/`)
+        const response = await api.getService(service.id)
         selectedService.value = response.data
       } catch (error) {
         console.error('Failed to load service details:', error)
@@ -149,7 +149,7 @@ export default {
       }
 
       try {
-        await axios.delete(`/services/${serviceId}/`)
+        await api.deleteService(serviceId)
         await loadServices()
         alert('Service deleted successfully')
       } catch (error) {
@@ -160,7 +160,7 @@ export default {
 
     const handleToggleEnabled = async (serviceId, enabled) => {
       try {
-        await axios.post(`/services/${serviceId}/update/`, { enabled })
+        await api.updateService(serviceId, { enabled })
         await loadServices()
       } catch (error) {
         console.error('Failed to update service:', error)
