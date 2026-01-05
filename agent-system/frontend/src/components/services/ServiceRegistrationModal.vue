@@ -87,6 +87,53 @@
         <!-- Step 2: API Configuration -->
         <div v-else-if="currentStep === 1">
           <div class="space-y-4">
+            <!-- Discovery Method Selector -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">How would you like to add actions? *</label>
+              <div class="space-y-2">
+                <label class="flex items-start gap-3 p-3 border rounded cursor-pointer hover:bg-gray-50 transition" :class="formData.discovery_method === 'openapi' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'">
+                  <input type="radio" v-model="formData.discovery_method" value="openapi" class="mt-1" />
+                  <div class="flex-1">
+                    <div class="font-medium">📄 OpenAPI/Swagger Spec</div>
+                    <div class="text-sm text-gray-600">Automatically discover from OpenAPI 3.0 or Swagger 2.0 specification</div>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 border rounded cursor-pointer hover:bg-gray-50 transition" :class="formData.discovery_method === 'postman' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'">
+                  <input type="radio" v-model="formData.discovery_method" value="postman" class="mt-1" />
+                  <div class="flex-1">
+                    <div class="font-medium">📮 Postman Collection</div>
+                    <div class="text-sm text-gray-600">Import from Postman collection (v2.x format)</div>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 border rounded cursor-pointer hover:bg-gray-50 transition" :class="formData.discovery_method === 'graphql' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'">
+                  <input type="radio" v-model="formData.discovery_method" value="graphql" class="mt-1" />
+                  <div class="flex-1">
+                    <div class="font-medium">🔷 GraphQL Schema</div>
+                    <div class="text-sm text-gray-600">Auto-discover from GraphQL endpoint using introspection</div>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 border rounded cursor-pointer hover:bg-gray-50 transition" :class="formData.discovery_method === 'html_docs' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'">
+                  <input type="radio" v-model="formData.discovery_method" value="html_docs" class="mt-1" />
+                  <div class="flex-1">
+                    <div class="font-medium">📖 HTML Documentation</div>
+                    <div class="text-sm text-gray-600">Extract endpoints from HTML documentation (experimental)</div>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 border rounded cursor-pointer hover:bg-gray-50 transition" :class="formData.discovery_method === 'manual' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'">
+                  <input type="radio" v-model="formData.discovery_method" value="manual" class="mt-1" />
+                  <div class="flex-1">
+                    <div class="font-medium">✍️ Manual Entry</div>
+                    <div class="text-sm text-gray-600">I'll add actions manually later</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Base URL (always shown) -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Base URL *</label>
               <input
@@ -98,19 +145,72 @@
               <p class="text-xs text-gray-500 mt-1">The base URL for all API requests</p>
             </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">API Spec URL (OpenAPI/Swagger)</label>
+            <!-- OpenAPI/Swagger -->
+            <div v-if="formData.discovery_method === 'openapi'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">OpenAPI Spec URL *</label>
               <input
                 v-model="formData.api_spec_url"
                 type="url"
                 placeholder="https://api.example.com/openapi.json"
                 class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
               />
-              <p class="text-xs text-gray-500 mt-1">URL to OpenAPI or Swagger specification</p>
+              <p class="text-xs text-gray-500 mt-1">URL to OpenAPI 3.0 or Swagger 2.0 specification</p>
             </div>
 
+            <!-- Postman Collection -->
+            <div v-if="formData.discovery_method === 'postman'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Postman Collection</label>
+              <input
+                v-model="formData.api_spec_url"
+                type="url"
+                placeholder="https://api.example.com/collection.json or upload file"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 mb-2"
+              />
+              <div class="text-center text-gray-500 text-sm">or</div>
+              <input
+                type="file"
+                @change="handlePostmanUpload"
+                accept=".json"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 mt-2"
+              />
+              <p class="text-xs text-gray-500 mt-1">Upload or provide URL to Postman Collection v2.x JSON</p>
+            </div>
+
+            <!-- GraphQL -->
+            <div v-if="formData.discovery_method === 'graphql'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">GraphQL Endpoint URL *</label>
+              <input
+                v-model="formData.api_spec_url"
+                type="url"
+                placeholder="https://api.example.com/graphql"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <p class="text-xs text-gray-500 mt-1">GraphQL endpoint (will use introspection query)</p>
+            </div>
+
+            <!-- HTML Documentation -->
+            <div v-if="formData.discovery_method === 'html_docs'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Documentation URL *</label>
+              <input
+                v-model="formData.api_spec_url"
+                type="url"
+                placeholder="https://api.example.com/docs"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <p class="text-xs text-gray-500 mt-1">URL to API documentation page</p>
+              <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mt-2">
+                <p class="text-xs text-yellow-800">⚠️ Experimental: Extracts endpoints using pattern matching. Results should be reviewed.</p>
+              </div>
+            </div>
+
+            <!-- Manual Entry Notice -->
+            <div v-if="formData.discovery_method === 'manual'" class="bg-blue-50 border border-blue-200 rounded p-4">
+              <p class="text-sm text-blue-800">You can add actions manually after creating the service.</p>
+            </div>
+
+            <!-- Discover Button -->
             <button
-              v-if="formData.api_spec_url"
+              v-if="formData.discovery_method !== 'manual' && (formData.api_spec_url || postmanCollection)"
               @click="discoverActions"
               :disabled="discovering"
               class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition disabled:opacity-50"
@@ -118,6 +218,7 @@
               {{ discovering ? 'Discovering...' : '🔍 Discover Actions' }}
             </button>
 
+            <!-- Discovery Results -->
             <div v-if="discoveredData" class="bg-green-50 border border-green-200 rounded p-4">
               <div class="flex items-center gap-2 text-green-700 font-medium mb-2">
                 <span>✅</span>
@@ -125,6 +226,9 @@
               </div>
               <div class="text-sm text-gray-600">
                 Found {{ Object.keys(discoveredData.categories).length }} categories
+              </div>
+              <div v-if="discoveredData.note" class="text-xs text-gray-500 mt-2">
+                {{ discoveredData.note }}
               </div>
             </div>
           </div>
@@ -364,12 +468,14 @@ export default {
       icon: '',
       base_url: '',
       api_spec_url: '',
+      discovery_method: 'openapi',
       auth_type: 'bearer',
       auth_config: {}
     })
 
     const discoveredData = ref(null)
     const selectedCategories = ref([])
+    const postmanCollection = ref(null)
 
     const canProceed = computed(() => {
       if (currentStep.value === 0) {
@@ -387,15 +493,44 @@ export default {
       return true
     })
 
+    const handlePostmanUpload = (event) => {
+      const file = event.target.files[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          try {
+            postmanCollection.value = JSON.parse(e.target.result)
+          } catch (error) {
+            alert('Failed to parse Postman collection: ' + error.message)
+          }
+        }
+        reader.readAsText(file)
+      }
+    }
+
     const discoverActions = async () => {
       discovering.value = true
       try {
-        const response = await axios.post('/services/discover/', {
-          api_spec_url: formData.value.api_spec_url,
+        const payload = {
+          discovery_method: formData.value.discovery_method,
           service_type: formData.value.name.toLowerCase()
-        })
+        }
+
+        // Add method-specific data
+        if (formData.value.discovery_method === 'postman' && postmanCollection.value) {
+          payload.postman_collection = postmanCollection.value
+        } else if (formData.value.api_spec_url) {
+          payload.api_spec_url = formData.value.api_spec_url
+        }
+
+        const response = await axios.post('/services/discover/', payload)
 
         discoveredData.value = response.data
+
+        // Auto-fill base URL if discovered
+        if (response.data.base_url && !formData.value.base_url) {
+          formData.value.base_url = response.data.base_url
+        }
 
         // Auto-select recommended categories
         selectedCategories.value = response.data.recommended_categories || []
@@ -442,6 +577,7 @@ export default {
           base_url: formData.value.base_url,
           auth_type: formData.value.auth_type,
           auth_config: formData.value.auth_config,
+          discovery_method: formData.value.discovery_method,
           api_spec_url: formData.value.api_spec_url
         })
 
