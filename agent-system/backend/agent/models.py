@@ -801,6 +801,17 @@ class RemoteService(models.Model):
     auth_config = models.JSONField(default=dict)  # Encrypted credentials
 
     # API Documentation
+    discovery_method = models.CharField(
+        max_length=50,
+        default='openapi',
+        choices=[
+            ('openapi', 'OpenAPI/Swagger Spec'),
+            ('postman', 'Postman Collection'),
+            ('graphql', 'GraphQL Schema'),
+            ('html_docs', 'HTML Documentation'),
+            ('manual', 'Manual Entry'),
+        ]
+    )
     api_spec_url = models.URLField(null=True, blank=True)  # OpenAPI/Swagger URL
     api_spec_content = models.JSONField(null=True, blank=True)  # Cached spec
     api_docs_url = models.URLField(null=True, blank=True)  # Human docs URL

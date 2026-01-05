@@ -188,6 +188,7 @@ def create_service(request):
             base_url=data['base_url'],
             auth_type=data['auth_type'],
             auth_config=data.get('auth_config', {}),  # Should be encrypted in production
+            discovery_method=data.get('discovery_method', 'manual'),
             api_spec_url=data.get('api_spec_url'),
             api_docs_url=data.get('api_docs_url'),
             knowledge_context=data.get('knowledge_context', ''),
@@ -422,11 +423,13 @@ def discover_actions(request):
     """
     POST /api/services/discover/
 
-    Discover actions from an API specification URL
+    Discover actions from an API specification URL or file
 
     Body:
     {
-        "api_spec_url": "https://api.example.com/openapi.json",
+        "discovery_method": "openapi|postman|graphql|html_docs",
+        "api_spec_url": "https://api.example.com/openapi.json",  // for openapi, graphql, html_docs
+        "postman_collection": {...},  // for postman (JSON content)
         "service_type": "jira"  // optional, for better categorization
     }
 
@@ -448,15 +451,35 @@ def discover_actions(request):
     try:
         data = json.loads(request.body)
 
-        api_spec_url = data.get('api_spec_url')
-        if not api_spec_url:
-            return JsonResponse({'error': 'Missing api_spec_url'}, status=400)
-
+        discovery_method = data.get('discovery_method', 'openapi')
         service_type = data.get('service_type', '')
 
-        # Parse API spec
+        # Parse based on discovery method
         parser = APISpecParser()
-        spec = parser._fetch_and_parse_sync(api_spec_url)
+
+        if discovery_method == 'postman':
+            # Handle Postman collection (could be URL or JSON data)
+            postman_collection = data.get('postman_collection')
+            api_spec_url = data.get('api_spec_url')
+
+            if postman_collection:
+                # Parse JSON collection directly
+                spec = parser.parse_postman_collection(postman_collection)
+            elif api_spec_url:
+                # Fetch from URL
+                spec = parser.parse_postman_collection(api_spec_url)
+            else:
+                return JsonResponse({'error': 'Missing postman_collection or api_spec_url'}, status=400)
+
+        elif discovery_method in ['openapi', 'graphql', 'html_docs']:
+            api_spec_url = data.get('api_spec_url')
+            if not api_spec_url:
+                return JsonResponse({'error': 'Missing api_spec_url'}, status=400)
+
+            spec = parser._fetch_and_parse_sync(api_spec_url, discovery_method=discovery_method)
+
+        else:
+            return JsonResponse({'error': f'Invalid discovery_method: {discovery_method}'}, status=400)
 
         # Categorize actions
         categorizer = ActionCategorizer()
@@ -467,7 +490,9 @@ def discover_actions(request):
             'base_url': spec['base_url'],
             'auth': spec['auth'],
             'categories': categorized['categories'],
-            'recommended_categories': categorized['recommended']
+            'recommended_categories': categorized['recommended'],
+            'discovery_method': discovery_method,
+            'note': spec.get('note', '')
         })
 
     except Exception as e:
