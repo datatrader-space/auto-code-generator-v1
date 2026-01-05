@@ -239,10 +239,15 @@ const fetchTools = async () => {
                 break;
             }
 
-            // Get next page URL (extract path from full URL)
+            // Get next page URL (extract path from full URL and remove /api prefix)
             if (data.next) {
                 const url = new URL(data.next);
-                nextUrl = url.pathname + url.search;
+                let path = url.pathname + url.search;
+                // Remove /api prefix since api.get() adds it automatically
+                if (path.startsWith('/api/')) {
+                    path = path.substring(4);
+                }
+                nextUrl = path;
             } else {
                 nextUrl = null;
             }
