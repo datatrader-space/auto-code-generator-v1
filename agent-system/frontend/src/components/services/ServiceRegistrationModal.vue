@@ -442,7 +442,7 @@
 
 <script>
 import { ref, computed } from 'vue'
-import api from '@/services/api'
+import api from '../../services/api'
 
 export default {
   name: 'ServiceRegistrationModal',
@@ -580,7 +580,7 @@ export default {
       registering.value = true
       try {
         // Step 1: Create service
-        const serviceResponse = await api.post('/services/create/', {
+        const serviceResponse = await api.createService({
           name: formData.value.name,
           description: formData.value.description,
           category: formData.value.category,
@@ -614,7 +614,7 @@ export default {
           })
 
           if (actionsToCreate.length > 0) {
-            await api.post(`/services/${serviceId}/actions/create/`, {
+            await api.createServiceActions(serviceId, {
               actions: actionsToCreate
             })
           }
