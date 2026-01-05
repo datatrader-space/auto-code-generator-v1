@@ -1786,7 +1786,31 @@ class ContextFileViewSet(viewsets.ModelViewSet):
             from asgiref.sync import async_to_sync
             
             router = get_llm_router()
-            config = LLMConfig(provider='ollama', model=None, base_url='http://localhost:11434')
+            
+            # Helper to get config from agent profile or fallback
+            config = None
+            if context_file.agent_profile and context_file.agent_profile.default_model:
+                model = context_file.agent_profile.default_model
+                config = LLMConfig(
+                    provider=model.provider.provider_type,
+                    model=model.model_id,
+                    base_url=model.provider.base_url,
+                    api_key=model.provider.api_key
+                )
+            else:
+                # Fallback to first active model
+                model = LLMModel.objects.filter(is_active=True).first()
+                if model:
+                    config = LLMConfig(
+                        provider=model.provider.provider_type,
+                        model=model.model_id,
+                        base_url=model.provider.base_url,
+                        api_key=model.provider.api_key
+                    )
+                else:
+                    # Final fallback (usually local ollama)
+                    config = LLMConfig(provider='ollama', model=None, base_url='http://localhost:11434')
+
             client = router.client_for_config(config)
             
             prompt = [
