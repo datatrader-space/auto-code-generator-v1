@@ -112,7 +112,7 @@ export default {
   getService: (id) => api.get(`/services/${id}/`),
   createService: (data) => api.post('/services/create/', data),
   updateService: (id, data) => api.post(`/services/${id}/update/`, data),
-  deleteService: (id) => api.post(`/services/${id}/delete/`),
+  deleteService: (id) => api.delete(`/services/${id}/delete/`),
   createServiceActions: (id, data) => api.post(`/services/${id}/actions/create/`, data),
   discoverServiceActions: (data) => api.post('/services/discover/', data),
 
