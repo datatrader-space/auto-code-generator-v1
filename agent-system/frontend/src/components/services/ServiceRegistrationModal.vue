@@ -210,7 +210,7 @@
 
             <!-- Discover Button -->
             <button
-              v-if="formData.discovery_method !== 'manual' && (formData.api_spec_url || postmanCollection)"
+              v-if="formData.discovery_method !== 'manual' && (formData.api_spec_url || postmanCollection.value)"
               @click="discoverActions"
               :disabled="discovering"
               class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition disabled:opacity-50"
@@ -442,7 +442,7 @@
 
 <script>
 import { ref, computed } from 'vue'
-import axios from 'axios'
+import api from '@/services/api'
 
 export default {
   name: 'ServiceRegistrationModal',
@@ -534,7 +534,7 @@ export default {
         }
 
         console.log('Discovery payload:', { method: payload.discovery_method, hasCollection: !!payload.postman_collection, hasUrl: !!payload.api_spec_url })
-        const response = await axios.post('/services/discover/', payload)
+        const response = await api.discoverServiceActions(payload)
 
         discoveredData.value = response.data
 
@@ -580,7 +580,7 @@ export default {
       registering.value = true
       try {
         // Step 1: Create service
-        const serviceResponse = await axios.post('/services/create/', {
+        const serviceResponse = await api.post('/services/create/', {
           name: formData.value.name,
           description: formData.value.description,
           category: formData.value.category,
@@ -614,7 +614,7 @@ export default {
           })
 
           if (actionsToCreate.length > 0) {
-            await axios.post(`/services/${serviceId}/actions/create/`, {
+            await api.post(`/services/${serviceId}/actions/create/`, {
               actions: actionsToCreate
             })
           }

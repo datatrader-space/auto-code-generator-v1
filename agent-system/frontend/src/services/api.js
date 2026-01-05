@@ -173,5 +173,8 @@ export default {
     const base = api.defaults.baseURL || ''
     const encoded = encodeURIComponent(filePath)
     return `${base}/benchmarks/reports/${id}/download?file=${encoded}`
-  }
+  },
+
+  // Services
+  discoverServiceActions: (data) => api.post('/services/discover/', data)
 }
