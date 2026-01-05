@@ -500,7 +500,12 @@ export default {
         reader.onload = (e) => {
           try {
             postmanCollection.value = JSON.parse(e.target.result)
+            console.log('Postman collection loaded:', postmanCollection.value)
+            // Show success message
+            const actionCount = postmanCollection.value?.item?.length || 0
+            alert(`✅ Postman collection loaded successfully! Found ${actionCount} items.`)
           } catch (error) {
+            console.error('Failed to parse Postman collection:', error)
             alert('Failed to parse Postman collection: ' + error.message)
           }
         }
@@ -517,12 +522,18 @@ export default {
         }
 
         // Add method-specific data
+        // For Postman: prefer uploaded file over URL
         if (formData.value.discovery_method === 'postman' && postmanCollection.value) {
           payload.postman_collection = postmanCollection.value
-        } else if (formData.value.api_spec_url) {
+          console.log('Sending Postman collection with', postmanCollection.value?.item?.length || 0, 'items')
+        }
+        // For all methods: send URL if provided (unless we already have uploaded collection)
+        if (formData.value.api_spec_url && !payload.postman_collection) {
           payload.api_spec_url = formData.value.api_spec_url
+          console.log('Sending API spec URL:', formData.value.api_spec_url)
         }
 
+        console.log('Discovery payload:', { method: payload.discovery_method, hasCollection: !!payload.postman_collection, hasUrl: !!payload.api_spec_url })
         const response = await axios.post('/services/discover/', payload)
 
         discoveredData.value = response.data
