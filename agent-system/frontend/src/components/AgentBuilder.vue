@@ -222,9 +222,34 @@ const selectedToolsCount = computed(() => {
 const fetchTools = async () => {
     try {
         loadingTools.value = true;
-        // Fetch ToolDefinitions from our new API
-        const response = await api.get('/tools/definitions/');
-        availableTools.value = response.data.results || response.data;
+        // Fetch ALL pages of ToolDefinitions from our API
+        let allTools = [];
+        let nextUrl = '/tools/definitions/';
+
+        while (nextUrl) {
+            const response = await api.get(nextUrl);
+            const data = response.data;
+
+            // Add results from this page
+            if (data.results) {
+                allTools = allTools.concat(data.results);
+            } else {
+                // Fallback for non-paginated response
+                allTools = data;
+                break;
+            }
+
+            // Get next page URL (extract path from full URL)
+            if (data.next) {
+                const url = new URL(data.next);
+                nextUrl = url.pathname + url.search;
+            } else {
+                nextUrl = null;
+            }
+        }
+
+        availableTools.value = allTools;
+        console.log(`Loaded ${allTools.length} tools total`);
     } catch (e) {
         console.error("Failed to fetch tools", e);
     } finally {
