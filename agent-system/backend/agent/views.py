@@ -31,20 +31,22 @@ from agent.models import (
     LLMProvider, LLMModel, LLMRequestLog,
     SystemDocumentation,
     BenchmarkRun,
-     AgentSession,
+    BenchmarkRun,
+    AgentSession, ContextFile
 )
 from agent.serializers import (
     SystemListSerializer, SystemDetailSerializer,
     RepositoryListSerializer, RepositoryDetailSerializer, RepositoryCreateSerializer,
     RepositoryQuestionSerializer, AnswerQuestionsSerializer,
     SystemKnowledgeSerializer, TaskListSerializer, TaskDetailSerializer,
+    ContextFileSerializer,
     TaskCreateSerializer, AgentMemorySerializer,
     AnalyzeRepositorySerializer, LLMHealthSerializer, LLMStatsSerializer,
     ChatConversationListSerializer, ChatConversationSerializer,
     SystemDocumentationSerializer,
     LLMProviderSerializer, LLMModelSerializer,
     BenchmarkRunSerializer, BenchmarkRunCreateSerializer,
-    AgentSessionSerializer, AgentSessionListSerializer,
+    AgentSessionSerializer, AgentSessionListSerializer,ContextFileSerializer
 )
 from agent.services.github_client import GitHubClient
 from agent.services.knowledge_builder import KnowledgeBuilder
@@ -1374,6 +1376,63 @@ class ChatConversationViewSet(viewsets.ModelViewSet):
         return qs.select_related(
             'system', 'repository', 'user', 'llm_model', 'llm_model__provider'
         ).prefetch_related('messages')
+
+    def perform_create(self, serializer):
+        system_id = self.request.data.get('system_id')
+        repo_id = self.request.data.get('repository_id')
+        
+        system = None
+        repository = None
+        
+        if system_id:
+            system = get_object_or_404(System, id=system_id, user=self.request.user)
+            
+        if repo_id:
+            repository = get_object_or_404(Repository, id=repo_id, system__user=self.request.user)
+            system = repository.system
+            
+        serializer.save(
+            user=self.request.user,
+            system=system,
+            repository=repository
+        )
+
+    # Allow getting conversation by random ID without PK
+    @decorators.action(detail=False, methods=['get'], url_path='by-id/(?P<conversation_pk>[^/.]+)')
+    def by_id(self, request, conversation_pk=None):
+        conversation = get_object_or_404(ChatConversation, id=conversation_pk, user=request.user)
+        serializer = ChatConversationSerializer(conversation)
+        return Response(serializer.data)
+
+
+class ContextFileViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing context files
+    """
+    
+    permission_classes = [IsAuthenticated]
+    serializer_class = ContextFileSerializer
+    
+    def get_queryset(self):
+        conversation_pk = self.kwargs.get('conversation_pk')
+        return ContextFile.objects.filter(
+            conversation_id=conversation_pk,
+            conversation__user=self.request.user
+        )
+    
+    def perform_create(self, serializer):
+        conversation_pk = self.kwargs.get('conversation_pk')
+        conversation = get_object_or_404(ChatConversation, id=conversation_pk, user=self.request.user)
+        
+        # Auto-generate name from file if not provided
+        name = serializer.validated_data.get('name')
+        if not name and 'file' in serializer.validated_data:
+            name = serializer.validated_data['file'].name
+            
+        serializer.save(
+            conversation=conversation,
+            name=name
+        )
 
 
 @method_decorator(csrf_exempt, name='dispatch')

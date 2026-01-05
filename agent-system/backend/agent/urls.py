@@ -57,6 +57,18 @@ systems_router.register(
     basename='system-memories'
 )
 
+# Nested router for conversation resources
+conversations_router = nested_routers.NestedDefaultRouter(
+    router,
+    r'conversations',
+    lookup='conversation'
+)
+conversations_router.register(
+    r'files',
+    views.ContextFileViewSet,
+    basename='conversation-files'
+)
+
 urlpatterns = [
     # API root
     path('', views.api_root, name='api-root'),
@@ -111,4 +123,5 @@ urlpatterns = [
     # Include routers
     path('', include(router.urls)),
     path('', include(systems_router.urls)),
+    path('', include(conversations_router.urls)),
 ]

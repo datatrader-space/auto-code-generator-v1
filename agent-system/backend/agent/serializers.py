@@ -10,7 +10,7 @@ from agent.models import (
     SystemKnowledge, Task, AgentMemory,
     SystemDocumentation,
     ChatConversation, ChatMessage, LLMProvider, LLMModel,
-    AgentSession, BenchmarkRun, ToolDefinition, AgentProfile
+    AgentSession, BenchmarkRun, ToolDefinition, AgentProfile, ContextFile
 )
 
 User = get_user_model()
@@ -367,6 +367,15 @@ class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatMessage
         fields = ['id', 'role', 'content', 'context_used', 'model_info', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class ContextFileSerializer(serializers.ModelSerializer):
+    """Context file serializer"""
+
+    class Meta:
+        model = ContextFile
+        fields = ['id', 'conversation', 'file', 'name', 'description', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 

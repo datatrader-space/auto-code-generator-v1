@@ -459,6 +459,7 @@ def discover_actions(request):
 
         if discovery_method == 'postman':
             # Handle Postman collection (could be URL or JSON data)
+            print(data)
             postman_collection = data.get('postman_collection')
             api_spec_url = data.get('api_spec_url')
 

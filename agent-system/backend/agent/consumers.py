@@ -9,7 +9,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 
-from agent.models import Repository, System, ChatConversation, ChatMessage, LLMModel, LLMRequestLog
+from agent.models import Repository, System, ChatConversation, ChatMessage, LLMModel, LLMRequestLog, ContextFile
 from agent.services.crs_context import CRSContext
 from agent.rag import CRSRetriever, ConversationMemory
 from agent.knowledge.crs_documentation import (
@@ -1056,10 +1056,35 @@ This gives you context on what data is available.
         except Exception as e:
             logger.warning(f"Could not load CRS summary: {e}")
 
+        # Fetch uploaded context files
+        context_files = await sync_to_async(list)(
+            ContextFile.objects.filter(conversation=conversation)
+        )
+        
+        uploaded_context_prompt = ""
+        if context_files:
+            uploaded_context_prompt = "\n\n# User Uploaded Context Files:\n"
+            for cf in context_files:
+                try:
+                    # Read file content
+                    path = await sync_to_async(lambda: cf.file.path)()
+                    
+                    # Async file read
+                    def read_file():
+                        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                            return f.read()
+
+                    content = await sync_to_async(read_file)()
+                    
+                    uploaded_context_prompt += f"\n## File: {cf.name}\n```\n{content[:20000]} # Truncated if too long\n```\n"
+                except Exception as e:
+                    logger.error(f"Failed to read context file {cf.id}: {e}")
+
         # Build tool-first system prompt with router
         system_prompt = f"""You are a code repository assistant with access to CRS (Contextual Retrieval System) tools.
 
 {crs_status_context}
+{uploaded_context_prompt}
 
 # YOUR JOB
 

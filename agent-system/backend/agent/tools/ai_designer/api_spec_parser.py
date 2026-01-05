@@ -334,6 +334,7 @@ class APISpecParser:
             # Fetch collection if URL provided
             if isinstance(collection_url_or_data, str) and (collection_url_or_data.startswith('http://') or collection_url_or_data.startswith('https://')):
                 response = requests.get(collection_url_or_data, timeout=30)
+                print(response.text)
                 response.raise_for_status()
                 collection = response.json()
             elif isinstance(collection_url_or_data, str):

@@ -1054,3 +1054,27 @@ class RemoteToolJob(models.Model):
 
     def __str__(self):
         return f"{self.action.tool_name} - {self.job_id} ({self.status})"
+
+
+class ContextFile(models.Model):
+    """
+    File uploaded by user to provide context for a conversation
+    """
+    conversation = models.ForeignKey(
+        ChatConversation,
+        on_delete=models.CASCADE,
+        related_name='context_files'
+    )
+    
+    file = models.FileField(upload_to='context_files/%Y/%m/%d/')
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'context_files'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.conversation.id}: {self.name}"
