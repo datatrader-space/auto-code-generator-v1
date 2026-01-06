@@ -1,8 +1,8 @@
 <template>
   <div class="agent-playground h-screen flex flex-col bg-gray-100 overflow-hidden">
-    
-    <!-- Top Bar: Agent Info -->
-    <div class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 shadow-sm z-10">
+
+    <!-- Top Bar: Agent Info (hidden in fullscreen) -->
+    <div v-if="!isFullscreen" class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 shadow-sm z-10">
         <div class="flex items-center gap-4">
             <button @click="$router.push('/agents')" class="text-gray-500 hover:text-gray-700">
                 ← Back
@@ -16,36 +16,74 @@
 
     <!-- Main Workspace -->
     <div class="flex-1 flex overflow-hidden">
-        
-        <!-- Left: Builder -->
-        <AgentBuilder 
-            v-if="agent"
-            v-model:agent="agent"
-            :isSaving="saving"
-            @save="saveAgent"
-        />
+
+        <!-- Left: Builder (Collapsible & Resizable) -->
+        <div
+            v-if="showBuilder && !isFullscreen"
+            :style="{ width: builderWidth + 'px' }"
+            class="border-r border-gray-200 overflow-hidden flex-shrink-0 relative"
+        >
+            <AgentBuilder
+                v-if="agent"
+                v-model:agent="agent"
+                :isSaving="saving"
+                @save="saveAgent"
+            />
+
+            <!-- Resize Handle -->
+            <div
+                @mousedown="startResize"
+                class="absolute top-0 right-0 w-1 h-full cursor-ew-resize hover:bg-blue-400 bg-gray-300 transition-colors z-20"
+                title="Drag to resize"
+            ></div>
+        </div>
 
         <!-- Right: Preview / Chat -->
-        <div class="flex-1 flex flex-col bg-white relative">
-            <div class="p-2 border-b border-gray-100 bg-gray-50 flex justify-center gap-4 text-xs font-mono">
-                <button 
-                    @click="activeTab = 'chat'"
-                    :class="activeTab === 'chat' ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'"
-                >
-                    PREVIEW SESSION
-                </button>
-                <button 
-                    @click="activeTab = 'knowledge'"
-                    :class="activeTab === 'knowledge' ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'"
-                >
-                    KNOWLEDGE CONTEXT
-                </button>
-                <button 
-                    @click="activeTab = 'trace'"
-                    :class="activeTab === 'trace' ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'"
-                >
-                    TRACE
-                </button>
+        <div class="flex-1 flex flex-col bg-white relative" :class="{ 'fixed inset-0 z-50': isFullscreen }">
+            <div class="p-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between text-xs font-mono">
+                <!-- Left: View Controls -->
+                <div class="flex gap-2">
+                    <button
+                        v-if="!isFullscreen"
+                        @click="showBuilder = !showBuilder"
+                        class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 transition flex items-center gap-1"
+                        :title="showBuilder ? 'Hide Builder' : 'Show Builder'"
+                    >
+                        {{ showBuilder ? '◀ Hide' : '▶ Show' }} Builder
+                    </button>
+                    <button
+                        @click="isFullscreen = !isFullscreen"
+                        class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 transition flex items-center gap-1"
+                        :title="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Chat'"
+                    >
+                        {{ isFullscreen ? '⊗ Exit' : '⛶ Fullscreen' }}
+                    </button>
+                </div>
+
+                <!-- Center: Tabs -->
+                <div class="flex gap-4">
+                    <button
+                        @click="activeTab = 'chat'"
+                        :class="activeTab === 'chat' ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'"
+                    >
+                        PREVIEW SESSION
+                    </button>
+                    <button
+                        @click="activeTab = 'knowledge'"
+                        :class="activeTab === 'knowledge' ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'"
+                    >
+                        KNOWLEDGE CONTEXT
+                    </button>
+                    <button
+                        @click="activeTab = 'trace'"
+                        :class="activeTab === 'trace' ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600'"
+                    >
+                        TRACE
+                    </button>
+                </div>
+
+                <!-- Right: Spacer for balance -->
+                <div class="w-32"></div>
             </div>
             
             <!-- Trace Tab -->
@@ -61,13 +99,13 @@
             <!-- Chat Interface (Always Active) -->
             <div v-if="activeTab === 'chat'" class="flex-1 flex flex-col overflow-hidden">
                 <!-- Feed -->
-                <div class="flex-1 overflow-y-auto p-4 bg-gray-50" ref="feed">
+                <div class="flex-1 overflow-y-auto px-3 py-2 bg-gray-50" ref="feed">
                     <div v-if="chatEvents.length === 0" class="flex flex-col items-center justify-center h-full text-gray-400">
                         <div class="text-4xl mb-2">✨</div>
                         <p>Agent {{ agent.name }} is ready.</p>
                     </div>
 
-                    <div v-for="event in chatEvents" :key="event.id" class="mb-4 w-full">
+                    <div v-for="event in chatEvents" :key="event.id" class="mb-2 w-full">
                         <!-- User -->
                         <div v-if="event.type === 'user'" class="bg-blue-600 text-white p-3 rounded-xl rounded-br-sm max-w-[85%] ml-auto shadow-sm">
                             {{ event.content }}
@@ -106,12 +144,13 @@
                 </div>
 
                 <!-- Input -->
-                <div class="p-4 bg-white border-t border-gray-200">
+                <div class="p-3 bg-white border-t border-gray-200">
                     <div class="flex gap-2">
                         <textarea
                             v-model="userMessage"
                             placeholder="Chat with agent..."
-                            class="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none h-14"
+                            class="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                            :class="isFullscreen ? 'h-20' : 'h-14'"
                             @keydown.enter.prevent="sendMessage"
                             :disabled="isProcessing"
                         ></textarea>
@@ -120,7 +159,7 @@
                             :disabled="!userMessage.trim() || isProcessing"
                             class="px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 font-medium shrink-0 transition"
                         >
-                            {{ isProcessing ? '...' : 'Send' }}
+                            {{ isProcessing ? '⏳' : 'Send' }}
                         </button>
                     </div>
                 </div>
@@ -219,6 +258,9 @@ const loadingDocs = ref(false);
 const selectedDoc = ref(null);
 const analyzingDoc = ref(false);
 const docAnalysis = ref('');
+const showBuilder = ref(true); // Toggle builder visibility
+const isFullscreen = ref(false); // Fullscreen chat mode
+const builderWidth = ref(400); // Resizable builder width
 let ws = null;
 
 const fetchContextData = async () => {
@@ -594,10 +636,50 @@ onBeforeUnmount(() => {
     if (ws) ws.close();
 });
 
+// Resize handler
+const startResize = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = builderWidth.value;
+
+    const doResize = (moveEvent) => {
+        const delta = moveEvent.clientX - startX;
+        const newWidth = Math.max(300, Math.min(800, startWidth + delta));
+        builderWidth.value = newWidth;
+    };
+
+    const stopResize = () => {
+        document.removeEventListener('mousemove', doResize);
+        document.removeEventListener('mouseup', stopResize);
+    };
+
+    document.addEventListener('mousemove', doResize);
+    document.addEventListener('mouseup', stopResize);
+};
+
+// Keyboard shortcuts
+const handleKeyboard = (e) => {
+    // Escape to exit fullscreen
+    if (e.key === 'Escape' && isFullscreen.value) {
+        isFullscreen.value = false;
+    }
+    // F11 to toggle fullscreen (prevent default browser fullscreen)
+    if (e.key === 'F11') {
+        e.preventDefault();
+        isFullscreen.value = !isFullscreen.value;
+    }
+};
+
 onMounted(() => {
     fetchContextData();
     if (route.params.id && route.params.id !== 'new') {
         fetchAgent(route.params.id);
     }
+    // Add keyboard listeners
+    document.addEventListener('keydown', handleKeyboard);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('keydown', handleKeyboard);
 });
 </script>
