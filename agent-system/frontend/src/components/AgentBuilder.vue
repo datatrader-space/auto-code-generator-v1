@@ -141,27 +141,58 @@
              <label class="block text-sm font-medium text-gray-700">Capabilities (Tools)</label>
              <span class="text-xs text-gray-500">{{ selectedToolsCount }} selected</span>
         </div>
-        
-        <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-60 overflow-y-auto">
+
+        <!-- Search Box -->
+        <div class="mb-3">
+            <input
+                v-model="toolSearchQuery"
+                type="text"
+                placeholder="Search tools by name or description..."
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
+        </div>
+
+        <div class="border border-gray-200 rounded-lg max-h-96 overflow-y-auto">
             <div v-if="loadingTools" class="p-4 text-center text-sm text-gray-500">Loading tools...</div>
-            <div 
-                v-else
-                v-for="tool in availableTools" 
-                :key="tool.id"
-                class="flex items-start p-3 hover:bg-gray-50 cursor-pointer"
-                @click="toggleTool(tool.id)"
-            >
-                <div class="flex items-center h-5">
-                    <input 
-                        type="checkbox" 
-                        :checked="internalAgent.tool_ids.includes(tool.id)"
-                        class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
+
+            <!-- Tools organized by category -->
+            <div v-else-if="Object.keys(groupedFilteredTools).length > 0">
+                <div v-for="(tools, category) in groupedFilteredTools" :key="category" class="border-b border-gray-100 last:border-b-0">
+                    <!-- Category Header -->
+                    <div class="bg-gray-50 px-3 py-2 sticky top-0 z-10 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">{{ category }}</span>
+                            <span class="text-xs text-gray-500">{{ tools.length }} tools</span>
+                        </div>
+                    </div>
+
+                    <!-- Tools in this category -->
+                    <div class="divide-y divide-gray-100">
+                        <div
+                            v-for="tool in tools"
+                            :key="tool.id"
+                            class="flex items-start p-3 hover:bg-gray-50 cursor-pointer transition"
+                            @click="toggleTool(tool.id)"
+                        >
+                            <div class="flex items-center h-5">
+                                <input
+                                    type="checkbox"
+                                    :checked="internalAgent.tool_ids.includes(tool.id)"
+                                    class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                />
+                            </div>
+                            <div class="ml-3 text-sm flex-1">
+                                <label class="font-medium text-gray-700 cursor-pointer block">{{ tool.name }}</label>
+                                <p class="text-gray-500 text-xs mt-0.5">{{ tool.description }}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="ml-3 text-sm">
-                    <label class="font-medium text-gray-700 cursor-pointer">{{ tool.name }}</label>
-                    <p class="text-gray-500 text-xs">{{ tool.description }}</p>
-                </div>
+            </div>
+
+            <!-- No results -->
+            <div v-else class="p-4 text-center text-sm text-gray-500">
+                No tools found matching "{{ toolSearchQuery }}"
             </div>
         </div>
       </div>
@@ -188,9 +219,9 @@ const props = defineProps({
 const emit = defineEmits(['update:agent', 'save']);
 
 // Local copy for editing
-const internalAgent = ref({ 
+const internalAgent = ref({
     default_model: null,  // Ensure this property exists for Vue reactivity
-    ...props.agent 
+    ...props.agent
 });
 const availableTools = ref([]);
 const llmModels = ref([]);
@@ -199,6 +230,7 @@ const isUpdatingFromProp = ref(false);
 const uploading = ref(false);
 const fileInput = ref(null);
 const modelSelect = ref(null);
+const toolSearchQuery = ref('');
 
 const scopes = [
     { value: 'system', label: 'Full System' },
@@ -217,6 +249,36 @@ const getScopeDescription = (scope) => {
 
 const selectedToolsCount = computed(() => {
     return internalAgent.value.tool_ids ? internalAgent.value.tool_ids.length : 0;
+});
+
+// Filter and group tools by category
+const groupedFilteredTools = computed(() => {
+    // Filter tools based on search query
+    const query = toolSearchQuery.value.toLowerCase().trim();
+    const filtered = query
+        ? availableTools.value.filter(tool =>
+            tool.name.toLowerCase().includes(query) ||
+            (tool.description && tool.description.toLowerCase().includes(query))
+        )
+        : availableTools.value;
+
+    // Group by category
+    const grouped = {};
+    filtered.forEach(tool => {
+        const category = tool.category || 'other';
+        if (!grouped[category]) {
+            grouped[category] = [];
+        }
+        grouped[category].push(tool);
+    });
+
+    // Sort categories alphabetically
+    const sortedGrouped = {};
+    Object.keys(grouped).sort().forEach(key => {
+        sortedGrouped[key] = grouped[key];
+    });
+
+    return sortedGrouped;
 });
 
 const fetchTools = async () => {
