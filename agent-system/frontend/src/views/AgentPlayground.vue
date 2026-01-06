@@ -293,7 +293,7 @@ const fetchRepositories = async (systemId) => {
 watch(() => selectedContext.value.system, (newSysId) => {
     // Only reset if we are NOT in the middle of a restore (heuristic: if repo is verified?)
     // Actually, just let it reset, then fetchLastConversation re-sets it.
-    // However, Vue watcher runs synchronously. 
+    // However, Vue watcher runs synchronously.
     // If I set system, this runs: sets repo=null.
     // Then I set repo=saved.
     // It works fine.
@@ -303,6 +303,18 @@ watch(() => selectedContext.value.system, (newSysId) => {
     fetchRepositories(newSysId);
     knowledgeDocs.value = [];
     selectedDoc.value = null;
+});
+
+// Auto-scroll when chat events change
+watch(chatEvents, () => {
+    scrollToBottom();
+}, { deep: true });
+
+// Auto-scroll when switching to chat tab
+watch(activeTab, (newTab) => {
+    if (newTab === 'chat') {
+        scrollToBottom();
+    }
 });
 
 const fetchLastConversation = async () => {
@@ -370,14 +382,20 @@ onMounted(async () => {
         await fetchAgent(id);
         await fetchContextData();
         await fetchLastConversation();
-        
+
         // Auto-init chat session if none exists
         if (!activeSessionId.value && agent.value.id) {
             await initChatSession();
         }
+
+        // Scroll to bottom after loading
+        setTimeout(scrollToBottom, 100);
     } else {
         await fetchContextData();
     }
+
+    // Add keyboard listeners
+    document.addEventListener('keydown', handleKeyboard);
 });
 
 const initChatSession = async () => {
@@ -574,10 +592,13 @@ const sendMessage = () => {
     }
 };
 
+const feed = ref(null); // Chat feed ref
+
 const scrollToBottom = () => {
     nextTick(() => {
-        const feed = document.querySelector('.overflow-y-auto'); // Simple selector, ref would be better
-        if (feed) feed.scrollTop = feed.scrollHeight;
+        if (feed.value) {
+            feed.value.scrollTop = feed.value.scrollHeight;
+        }
     });
 };
 
@@ -634,6 +655,7 @@ const runAgent = async () => {
 
 onBeforeUnmount(() => {
     if (ws) ws.close();
+    document.removeEventListener('keydown', handleKeyboard);
 });
 
 // Resize handler
@@ -669,17 +691,4 @@ const handleKeyboard = (e) => {
         isFullscreen.value = !isFullscreen.value;
     }
 };
-
-onMounted(() => {
-    fetchContextData();
-    if (route.params.id && route.params.id !== 'new') {
-        fetchAgent(route.params.id);
-    }
-    // Add keyboard listeners
-    document.addEventListener('keydown', handleKeyboard);
-});
-
-onBeforeUnmount(() => {
-    document.removeEventListener('keydown', handleKeyboard);
-});
 </script>
